@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/Github-Arun-Repo/practice-labs.git
     targetRevision: main
-    path: apps-config/httpd-demo
+    path: argocd-practise/apps-config/httpd-demo
   destination:
     server: https://kubernetes.default.svc
     namespace: httpd-demo
