@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gamma-whoami
+  namespace: aoa-gamma-whoami
+  labels:
+    app: gamma-whoami
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gamma-whoami
+  template:
+    metadata:
+      labels:
+        app: gamma-whoami
+    spec:
+      containers:
+        - name: whoami
+          image: traefik/whoami:v1.10.2
+          ports:
+            - containerPort: 80

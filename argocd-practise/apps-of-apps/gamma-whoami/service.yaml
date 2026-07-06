@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gamma-whoami
+  namespace: aoa-gamma-whoami
+  labels:
+    app: gamma-whoami
+spec:
+  type: ClusterIP
+  selector:
+    app: gamma-whoami
+  ports:
+    - port: 80
+      targetPort: 80

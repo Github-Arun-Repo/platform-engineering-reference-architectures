@@ -60,3 +60,13 @@ variable "common_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "secure_bucket_logs_name" {
+  description = "Globally unique name for secure log/immutable bucket"
+  type        = string
+}
+
+variable "secure_bucket_artifacts_name" {
+  description = "Globally unique name for secure artifacts bucket"
+  type        = string
+}

@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: beta-httpd
+  namespace: aoa-beta-httpd
+  labels:
+    app: beta-httpd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: beta-httpd
+  template:
+    metadata:
+      labels:
+        app: beta-httpd
+    spec:
+      containers:
+        - name: httpd
+          image: httpd:2.4-alpine
+          ports:
+            - containerPort: 80

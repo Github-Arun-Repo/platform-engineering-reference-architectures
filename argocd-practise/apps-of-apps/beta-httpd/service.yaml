@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: beta-httpd
+  namespace: aoa-beta-httpd
+  labels:
+    app: beta-httpd
+spec:
+  type: ClusterIP
+  selector:
+    app: beta-httpd
+  ports:
+    - port: 80
+      targetPort: 80

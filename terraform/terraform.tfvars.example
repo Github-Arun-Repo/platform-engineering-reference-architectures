@@ -26,8 +26,10 @@ private_data_subnet_cidrs = [
   "10.40.22.0/24"
 ]
 
+secure_bucket_logs_name      = "replace-with-unique-secure-logs-bucket"
+secure_bucket_artifacts_name = "replace-with-unique-secure-artifacts-bucket"
+
 common_tags = {
   environment = "dev"
-  owner       = "learning"
   project     = "swag-vpc-lab"
 }

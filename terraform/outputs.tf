@@ -17,3 +17,13 @@ output "private_data_subnet_ids" {
   description = "Private data subnet IDs by AZ"
   value       = module.vpc_network.private_data_subnet_ids
 }
+
+output "secure_bucket_logs_arn" {
+  description = "ARN of the secure logs bucket"
+  value       = module.secure_bucket_logs.bucket_arn
+}
+
+output "secure_bucket_artifacts_arn" {
+  description = "ARN of the secure artifacts bucket"
+  value       = module.secure_bucket_artifacts.bucket_arn
+}

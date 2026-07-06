@@ -26,6 +26,9 @@ private_data_subnet_cidrs = [
   "10.40.22.0/24"
 ]
 
+secure_bucket_logs_name      = "micah-vault-chronicle-euw1-20260705"
+secure_bucket_artifacts_name = "micah-gear-forge-euw1-20260705"
+
 common_tags = {
   environment = "dev"
   project     = "micah-vpc-lab"

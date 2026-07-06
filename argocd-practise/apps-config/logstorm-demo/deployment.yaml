@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstorm-demo
+  namespace: logstorm-demo
+  labels:
+    app: logstorm-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: logstorm-demo
+  template:
+    metadata:
+      labels:
+        app: logstorm-demo
+    spec:
+      containers:
+        - name: log-generator
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              i=0
+              while true; do
+                i=$((i+1))
+                echo "[$(date -Iseconds)] logstorm-demo pod=$HOSTNAME line=$i level=INFO message=demo-log-stream"
+                sleep 0.2
+              done
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
