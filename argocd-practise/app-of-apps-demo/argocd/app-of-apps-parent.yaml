@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: aoa-beta-httpd
+  name: argo-demo-parent
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/Github-Arun-Repo/practice-labs.git
     targetRevision: main
-    path: argocd-practise/apps-of-apps/beta-httpd
+    path: argocd-practise/app-of-apps-demo/argocd/children
   destination:
     server: https://kubernetes.default.svc
-    namespace: aoa-beta-httpd
+    namespace: argocd
   syncPolicy:
     automated:
       selfHeal: true

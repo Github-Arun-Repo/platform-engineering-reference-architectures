@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aset-nginx
+  namespace: aset-nginx
+  labels:
+    app: aset-nginx
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aset-nginx
+  template:
+    metadata:
+      labels:
+        app: aset-nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80

@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aset-httpd
+  namespace: aset-httpd
+  labels:
+    app: aset-httpd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aset-httpd
+  template:
+    metadata:
+      labels:
+        app: aset-httpd
+    spec:
+      containers:
+        - name: httpd
+          image: httpd:2.4-alpine
+          ports:
+            - containerPort: 80

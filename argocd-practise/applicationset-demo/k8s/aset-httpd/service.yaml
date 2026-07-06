@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: aset-httpd
+  namespace: aset-httpd
+  labels:
+    app: aset-httpd
+spec:
+  type: ClusterIP
+  selector:
+    app: aset-httpd
+  ports:
+    - port: 80
+      targetPort: 80

@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/Github-Arun-Repo/practice-labs.git
     targetRevision: main
-    path: argocd-practise/apps-config/whoami-demo
+    path: argocd-practise/cli-demo/k8s/whoami-demo
   destination:
     server: https://kubernetes.default.svc
     namespace: whoami-demo
