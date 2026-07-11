@@ -1,6 +1,6 @@
 # ArgoCD Live Demo — 1 Hour Runbook
 
-**Repo:** `https://github.com/Github-Arun-Repo/practice-labs.git`
+**Repo:** `https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git`
 **Base folder:** `.` (current directory in argocd-reference-architectures/)
 **Cluster:** standalone K8s on EC2 · **ArgoCD UI:** `https://<EC2-IP>:30090`
 **Presenter:** Arun
@@ -51,8 +51,9 @@ After completing the installation, return here to continue with the demo.
 ## 0. PRE-FLIGHT
 
 Run these checks before starting the demo. Assume Argo CD is already installed from the Installation section above.
+
 # local clone current?
-cd ~/practice-labs && git pull        # adjust to your local clone path
+cd ~/platform-engineering-reference-architectures && git pull        # adjust to your local clone path
 
 # ArgoCD healthy + logged in
 kubectl get pods -n argocd            # all Running
@@ -93,8 +94,8 @@ echo "Ready."
 
 ```bash
 argocd app create nginx-demo \
-  --repo https://github.com/Github-Arun-Repo/practice-labs.git \
-  --path cli-demo/k8s/nginx-demo \
+  --repo https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git \
+  --path argocd-reference-architectures/cli-demo/k8s/nginx-demo \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace nginx-demo \
   --sync-option CreateNamespace=true \
@@ -131,8 +132,8 @@ curl -s http://localhost:30096 | head -15
 
 ```bash
 argocd app create httpd-demo \
-  --repo https://github.com/Github-Arun-Repo/practice-labs.git \
-  --path cli-demo/k8s/httpd-demo \
+  --repo https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git \
+  --path argocd-reference-architectures/cli-demo/k8s/httpd-demo \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace httpd-demo \
   --sync-option CreateNamespace=true \

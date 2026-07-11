@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Github-Arun-Repo/practice-labs.git
+    repoURL: https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git
     targetRevision: main
     path: argocd-reference-architectures/cli-demo/k8s/nginx-demo
   destination:
