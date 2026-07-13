@@ -301,7 +301,7 @@ The parent synced the child Application objects; each child then synced its own 
 
 ## 2.3 — Visualize the tree in the UI
 
-The ArgoCD UI renders the parent-child relationship as a visual tree — this is where the hierarchy becomes immediately clear. Open `argo-demo-parent` in the UI and drill into a child to see pods and services.
+The ArgoCD UI renders the parent-child relationship as a visual tree ([ref](./docs/images/runbook/argocd-parent-tree-synced.png)) — this is where the hierarchy becomes immediately clear. Open `argo-demo-parent` in the UI and drill into a child to see pods and services.
 
 👉 The parent shows the 3 child Applications as its resources. Each child then shows its own pods and services underneath.
 
