@@ -45,8 +45,9 @@ After completing the installation, return here to continue with the demo.
 Run these checks before starting the demo. Assume Argo CD is already installed from the Installation section above.
 
 ```bash
-# local clone current?
-cd ~/platform-engineering-reference-architectures && git pull        # adjust to your local clone path
+# local clone current? pull from repo root, then move into the working directory
+cd ~/platform-engineering-reference-architectures && git pull
+cd argocd-reference-architectures    # all commands below run from here
 
 # ArgoCD healthy + logged in
 kubectl get pods -n argocd            # all Running
