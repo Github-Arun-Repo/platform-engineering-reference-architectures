@@ -39,7 +39,7 @@ This installs Jenkins with the UI exposed via NodePort on port 30080, suitable f
 helm install jenkins jenkinsci/jenkins \
   --namespace jenkins \
   --set controller.serviceType=NodePort \
-  --set controller.nodePort=30080 \
+  --set controller.nodePort=30085 \
   --set controller.adminUser=admin \
   --set persistence.storageClass="" \
   --set persistence.accessMode=ReadWriteOnce \
