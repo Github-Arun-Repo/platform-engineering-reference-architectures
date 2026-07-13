@@ -237,12 +237,17 @@ kubectl get pods -n nginx-demo
 
 ## 1.9 — History & rollback + the git-revert nuance
 
+Rollback cannot be initiated while auto-sync is enabled — ArgoCD rejects it with a `FailedPrecondition` error. Disable sync policy first, then roll back.
+
 ```bash
+# Disable automated sync before rolling back
+argocd app set nginx-demo --sync-policy none
+
 argocd app history nginx-demo
 argocd app rollback nginx-demo <GOOD_ID>    # pick the last healthy revision id
 kubectl get pods -n nginx-demo
 ```
-👉 Cluster recovers. **But** Git still has the bad commit; with automated sync it may drift forward.
+👉 Cluster recovers. **But** Git still has the bad commit; if auto-sync is re-enabled it will drift forward again.
 The correct fix is fixing Git:
 ```bash
 git revert --no-edit HEAD && git push
