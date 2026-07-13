@@ -1,6 +1,6 @@
 # Installing Argo CD
 
-This guide covers a complete installation of Argo CD using Helm on a Kubernetes cluster, configured for local development and demonstration use.
+This guide covers a complete installation of Argo CD using Helm on a Kubernetes cluster, configured for local development and implementation walkthroughs.
 
 ---
 
@@ -30,7 +30,7 @@ helm repo update
 
 ### 3. Install Argo CD using Helm
 
-This command installs Argo CD with the UI exposed via NodePort on port 30090, suitable for demo and learning environments.
+This command installs Argo CD with the UI exposed via NodePort on port 30090, suitable for implementation walkthrough and learning environments.
 
 ```bash
 helm install argocd argo/argo-cd \
@@ -212,6 +212,6 @@ kubectl delete namespace argocd
 
 ## Next Steps
 
-- [Return to demo runbook](./argocd-demo-runbook.md)
+- [Return to runbook](./argocd-runbook.md)
 - [Main Argo CD reference architectures](./README.md)
 - [Official Argo CD documentation](https://argo-cd.readthedocs.io/)

@@ -1,4 +1,4 @@
-# ArgoCD Live Demo — 1 Hour Runbook
+# ArgoCD Architecture Implementations — 1 Hour Runbook
 
 **Repo:** `https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git`
 **Base folder:** `.` (current directory in argocd-reference-architectures/)
@@ -36,13 +36,13 @@ cli-demo/
 ## Installation: Deploy Argo CD
 
 Follow the complete installation and setup guide: **[installation-argocd.md](./installation-argocd.md)**
-After completing the installation, return here to continue with the demo.
+After completing the installation, return here to continue with the runbook.
 
 ---
 
 ## 0. PRE-FLIGHT
 
-Run these checks before starting the demo. Assume Argo CD is already installed from the Installation section above.
+Run these checks before starting the runbook. Assume Argo CD is already installed from the Installation section above.
 
 ```bash
 # local clone current? pull from repo root, then move into the working directory
@@ -55,7 +55,7 @@ argocd login <EC2-IP>:30090 --insecure
 argocd version --short
 argocd app list                       # see what's already there
 
-# CLEAN SLATE so the demo starts from zero
+# CLEAN SLATE so the runbook starts from zero
 argocd app delete nginx-demo httpd-demo whoami-demo logstorm-demo --yes 2>/dev/null || true
 argocd app delete argo-demo-parent aoa-alpha-nginx aoa-beta-httpd aoa-gamma-whoami --yes 2>/dev/null || true
 kubectl delete applicationset applicationset-demo -n argocd 2>/dev/null || true
@@ -69,11 +69,11 @@ echo "Ready."
 **Timing plan:**
 - Installation (one-time): ≈ 10 min
 - Pre-flight checks: ≈ 2 min
-- CLI demo: ≈ 28 min
-- App-of-Apps demo: ≈ 15 min
-- ApplicationSet demo: ≈ 12 min
+- CLI walkthrough: ≈ 28 min
+- App-of-Apps walkthrough: ≈ 15 min
+- ApplicationSet walkthrough: ≈ 12 min
 - Q&A: ≈ 5 min
-- **Total demo time (without installation): ≈ 60 min**
+- **Total runbook time (without installation): ≈ 60 min**
 
 ---
 ---
@@ -259,7 +259,7 @@ kubectl apply -f cli-demo/argocd/logstorm-demo-app.yaml
 argocd app get logstorm-demo
 kubectl logs -n logstorm-demo -l app=logstorm-demo --tail=5 --prefix
 ```
-👉 Streams demo log lines — good bridge if anyone asks about Graylog/Fluent Bit integration.
+👉 Streams sample log lines — good bridge if anyone asks about Graylog/Fluent Bit integration.
 
 ## 1.11 — Housekeeping commands
 
@@ -336,7 +336,7 @@ sed -i 's/aoa-alpha-nginx/aoa-delta-extra/g' \
 sed -i '/gamma-whoami-app.yaml/a\  - delta-extra-app.yaml' \
    app-of-apps-demo/argocd/children/kustomization.yaml
 
-git add -A && git commit -m "app-of-apps: add 4th child (demo)" && git push
+git add -A && git commit -m "app-of-apps: add 4th child (runbook)" && git push
 argocd app sync argo-demo-parent
 argocd app list | grep aoa-
 ```
@@ -366,7 +366,7 @@ ApplicationSet is a dedicated CRD with its own controller. The idea is simple: o
 ```bash
 cat applicationset-demo/argocd/applicationset-demo.yaml
 ```
-👉 Point out: `generators.list.elements` (the 3 apps) and `template` with `{{appName}}`, `{{namespace}}`, `{{path}}`.
+Inspect `generators.list.elements` (the 3 apps) and the `template` fields: `{{appName}}`, `{{namespace}}`, and `{{path}}`.
 
 ## 3.2 — Apply it, watch 3 apps generate at once
 
@@ -399,7 +399,7 @@ sed -i '/elements:/r /tmp/aset_patch.txt' \
   applicationset-demo/argocd/applicationset-demo.yaml
 
 cat applicationset-demo/argocd/applicationset-demo.yaml   # verify
-git add -A && git commit -m "appset: add 4th app (demo)" && git push
+git add -A && git commit -m "appset: add 4th app (runbook)" && git push
 kubectl apply -f applicationset-demo/argocd/applicationset-demo.yaml
 
 sleep 5
@@ -425,7 +425,7 @@ The generator list is the source of truth for which Applications exist. Removing
 # remove the aset-extra element we just added
 sed -i '/appName: aset-extra/,+2d' \
   applicationset-demo/argocd/applicationset-demo.yaml
-git add -A && git commit -m "appset: remove 4th app (demo)" && git push
+git add -A && git commit -m "appset: remove 4th app (runbook)" && git push
 kubectl apply -f applicationset-demo/argocd/applicationset-demo.yaml
 sleep 5
 argocd app list | grep aset-       # aset-extra is gone
@@ -447,7 +447,7 @@ These generators are what allow a single ApplicationSet to fan one workload acro
 ---
 ---
 
-## RESET (after demo / to rehearse again)
+## RESET (after runbook / to execute again)
 
 ```bash
 # ApplicationSet
@@ -460,14 +460,14 @@ argocd app delete nginx-demo httpd-demo whoami-demo logstorm-demo --yes 2>/dev/n
 kubectl delete ns nginx-demo httpd-demo whoami-demo logstorm-demo \
   aoa-alpha-nginx aoa-beta-httpd aoa-gamma-whoami aoa-delta-extra \
   aset-nginx aset-httpd aset-whoami aset-extra 2>/dev/null || true
-# revert demo edits to Git
+# revert runbook edits to Git
 git checkout cli-demo/k8s/nginx-demo/deployment.yaml
 git checkout cli-demo/k8s/nginx-demo/service.yaml 2>/dev/null || true
-# (optional) drop the demo-added files:
+# (optional) drop the runbook-added files:
 # git rm app-of-apps-demo/argocd/children/delta-extra-app.yaml
 # git checkout app-of-apps-demo/argocd/children/kustomization.yaml
 # git checkout applicationset-demo/argocd/applicationset-demo.yaml
-# git commit -m "reset demo state" && git push
+# git commit -m "reset runbook state" && git push
 ```
 
 ---

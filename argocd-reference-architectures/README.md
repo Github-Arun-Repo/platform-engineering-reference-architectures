@@ -10,8 +10,8 @@ Beyond just showing code, this documentation teaches the architectural reasoning
 
 ## Quick Start — Choose Your Path
 
-**I just want to see a live demo:**
-→ [Run the 60-minute demo runbook](./argocd-demo-runbook.md) (requires Argo CD installed)
+**I want the guided runbook flow:**
+→ [Run the 60-minute runbook](./argocd-runbook.md) (requires Argo CD installed)
 
 **I want to install Argo CD first:**
 → [Follow the installation guide](./installation-argocd.md)
@@ -245,7 +245,7 @@ For safe rollbacks in production:
 ## Learning Path
 
 1. **Understand the pattern** — read the sections above
-2. **See it in action** — follow [argocd-demo-runbook.md](./argocd-demo-runbook.md)
+2. **Follow the guided flow** — use [argocd-runbook.md](./argocd-runbook.md)
 3. **Review the code** — inspect the manifests in `cli-demo/`, `app-of-apps-demo/`, `applicationset-demo/`
 4. **Understand drift and recovery** — execute the failure scenarios in the runbook
 5. **Design your own** — choose a pattern for your platform and adapt the code
@@ -260,7 +260,7 @@ For safe rollbacks in production:
 | `app-of-apps-demo/` | Pattern 2 | Parent-child orchestration, hierarchical control, adding/removing children |
 | `applicationset-demo/` | Pattern 3 | Template-driven generation, list generator, scaling to many apps |
 
-Each demo includes:
+Each implementation includes:
 - Application or ApplicationSet manifests
 - Kubernetes workload manifests
 - Operational scenarios (positive, negative, recovery)
@@ -269,10 +269,10 @@ Each demo includes:
 
 ## Installation and Setup
 
-To install Argo CD and follow the demos:
+To install Argo CD and execute the implementations:
 
 1. [Install Argo CD](./installation-argocd.md) — complete setup guide
-2. [Run the demo runbook](./argocd-demo-runbook.md) — 60-minute walkthrough with all three patterns
+2. [Run the runbook](./argocd-runbook.md) — 60-minute walkthrough with all three patterns
 
 ---
 
@@ -314,6 +314,6 @@ Before deploying Argo CD patterns to production:
 ## Related Documentation
 
 - [Argo CD installation guide](./installation-argocd.md)
-- [Live demo runbook](./argocd-demo-runbook.md)
+- [Argo CD runbook](./argocd-runbook.md)
 - [Main repository README](../README.md)
 - [Official Argo CD documentation](https://argo-cd.readthedocs.io/)
