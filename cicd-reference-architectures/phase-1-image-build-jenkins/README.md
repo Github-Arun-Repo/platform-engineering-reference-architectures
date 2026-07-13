@@ -1,230 +1,350 @@
-# Phase 1: Image Build Pipeline — Jenkins Implementation
-
-Build, test, scan, and push Docker images using Jenkins — a traditional, battle-tested CI/CD orchestrator.
+# Jenkins Image Build Pipeline
 
 ---
 
-## Quick Start
+## What Is This?
 
-**Prerequisites:**
-- Jenkins instance running (2.387+)
-- Docker installed on Jenkins agents
-- Git access to repository
-- Docker registry credentials configured in Jenkins
+This section demonstrates a **container image build pipeline** implemented with Jenkins — one of the most widely deployed CI orchestrators in the industry.
 
-**Setup:**
+The pipeline takes a Spring Boot application from source code, compiles and tests it, builds a production-quality Docker image, scans it for vulnerabilities, and pushes it to a registry. The result is an immutable, versioned container artifact ready for deployment.
 
-1. Create a new Pipeline job in Jenkins
-2. Point to this repository: `https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git`
-3. Configure pipeline script path: `cicd-reference-architectures/phase-1-image-build-jenkins/Jenkinsfile`
-4. Add credentials for Docker registry (`docker-credentials`)
-5. Configure SonarQube server (optional, labeled `SonarQube` in Jenkins)
-6. Trigger build manually or configure webhooks
-
-**Expected output:**
-```
-Docker image built and pushed: arunrepo/todo-app:42
-```
+Beyond just showing the pipeline code, this documentation teaches the **architectural reasoning**: how Jenkins models a CI pipeline, why stages are ordered the way they are, what each stage exists to prevent, and how to operate the pipeline in production.
 
 ---
 
-## What This Pipeline Does
+## Quick Start — Choose Your Path
 
-The Jenkins pipeline implements a **complete container image build workflow** following 2026 best practices.
+**I want to install Jenkins first:**
+→ [Follow the installation guide](./installation-jenkins.md)
 
-### Stage 1: Checkout
-- Clones the repository from GitHub
-- Targets the `main` branch
+**I want to run the pipeline hands-on:**
+→ [Follow the demo runbook](./jenkins-demo-runbook.md)
 
-### Stage 2: Build & Test
-- Runs Maven to compile and execute unit tests
-- Catches test failures early, fails fast
+**I want to understand Jenkins pipeline concepts:**
+→ [Continue reading below](#jenkins-pipeline-fundamentals)
 
-### Stage 3: Code Quality Analysis
-- Integrates with SonarQube for static code analysis
-- Detects code smells, bugs, vulnerabilities before containerization
-
-### Stage 4: Build Application
-- Packages the Spring Boot application as a JAR
-- Creates an executable artifact ready for Docker
-
-### Stage 5: Build Docker Image
-- Executes multi-stage Dockerfile (in `sample-application/`)
-- Tags image with build number and `latest`
-- Optimizes layers for faster builds and smaller final image
-
-### Stage 6: Scan Docker Image
-- Uses **Trivy** (2026 best practice) to scan image for CVE vulnerabilities
-- Fails on CRITICAL or HIGH severity issues
-- Prevents vulnerable images from reaching the registry
-
-### Stage 7: Push to Registry
-- Authenticates to Docker registry (Docker Hub, ECR, GCR, etc.)
-- Pushes image with build-specific tag and `latest` tag
-- Securely handles registry credentials
-
-### Stage 8: Update Deployment Manifests
-- *Placeholder for next phase*
-- Will integrate with ArgoCD to trigger deployments
-- Updates Kubernetes manifests with new image tag
+**I want to understand how the stages work:**
+→ [Jump to pipeline architecture](#pipeline-architecture)
 
 ---
 
-## Architecture Diagram
+## Jenkins Pipeline Fundamentals
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                          Jenkins Pipeline                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  GitHub Repo → [Checkout] → [Build & Test] → [Code Quality]    │
-│                                ↓                                 │
-│                        [Build Application] → JAR artifact        │
-│                                ↓                                 │
-│         [Build Docker Image] → Docker image (multi-stage)        │
-│                ↓                                                  │
-│  [Scan Image] ← Trivy (vulnerability scan)                      │
-│         ↓                                                         │
-│  [Push to Registry] → Docker Hub / ECR / GCR                    │
-│         ↓                                                         │
-│  [Update Deployment] → ArgoCD repo (triggers reconciliation)    │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
+### What Jenkins Is
 
----
+Jenkins is a **build orchestrator** — a server that runs automated jobs triggered by events (a Git push, a schedule, a webhook, a manual click). It is not opinionated about what those jobs do. It runs shell commands, calls APIs, builds code, deploys infrastructure, or anything else you script.
 
-## Key Design Decisions
+Jenkins became the CI industry standard because:
+- It runs anywhere: on-premises, cloud VMs, or Kubernetes
+- It can orchestrate any tool via shell or plugin
+- Its Jenkinsfile is version-controlled alongside application code
+- It has a plugin ecosystem of 1,800+ integrations
 
-**Why Jenkins?**
-- Declarative Pipeline syntax (Jenkinsfile) version-controlled in Git
-- Extensive plugin ecosystem (Docker, SonarQube, Slack, etc.)
-- Enterprise-standard; high maturity and community support
-- Familiar to organizations with legacy CI/CD systems
-- Runs on-premises or cloud-hosted
+### The Declarative Pipeline
 
-**Why this stage order?**
-1. **Checkout → Test**: Fail fast on code issues
-2. **Test → Build**: Only build working code
-3. **Build → Quality**: Analyze before containerization
-4. **Container → Scan**: Detect supply-chain vulnerabilities
-5. **Scan → Push**: Never push vulnerable images
-6. **Push → Reconciliation**: Trigger GitOps immediately
-
-**Security practices:**
-- Non-root user in Docker image
-- Multi-stage builds minimize attack surface
-- Health checks for container orchestration
-- CVE scanning with Trivy (2026 standard)
-- Credentials injected at runtime, not baked into image
-
-**Best practices:**
-- Build logs retained for 15 builds (configurable)
-- 30-minute timeout prevents hung builds
-- Timestamps on all logs for troubleshooting
-- Clean workspace post-build
-- Graceful notification on success/failure
-
----
-
-## Configuration
-
-### Jenkins Credentials
-
-Add Docker registry credentials:
-- **Credentials ID:** `docker-credentials`
-- **Username:** Your Docker Hub username
-- **Password:** Docker Hub personal access token (not password)
-
-Add SonarQube server:
-- **Jenkins URL:** Manage Jenkins → Configure System → SonarQube Servers
-- **Server URL:** `http://sonarqube:9000` (or your SonarQube instance)
-- **Authentication token:** SonarQube token
-
-### Dockerfile Registry
-
-Edit the `REGISTRY` environment variable in the Jenkinsfile:
+Modern Jenkins uses **Declarative Pipeline** syntax — a structured DSL defined in a `Jenkinsfile` at the root of your repository. The pipeline is declared, not scripted:
 
 ```groovy
-REGISTRY = 'gcr.io'  // For Google Cloud
-REGISTRY = '123456789.dkr.ecr.us-east-1.amazonaws.com'  // For AWS ECR
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+    }
+}
 ```
 
-Update the image name accordingly:
+The Jenkinsfile lives in Git alongside application code. This means:
+- Every pipeline change is a commit
+- You can code review pipeline changes
+- You can roll back a broken pipeline with `git revert`
+
+### Agents and Executors
+
+Jenkins runs jobs on **agents** — machines (or containers) that execute build steps. The controller (Jenkins server) orchestrates; agents do the work.
+
+| Agent type | How it works | Use case |
+|---|---|---|
+| **any** | Run on any available agent | Simple builds |
+| **label** | Run on agents with a specific label | Specialized hardware |
+| **kubernetes** | Spawn a pod, run inside it, delete on completion | Scalable, ephemeral builds |
+
+For production, use Kubernetes agents — they scale on demand, are isolated per build, and are discarded after use (no stale state).
+
+### Stages, Steps, and the Post Block
+
+A Jenkins pipeline is a sequence of **stages**. Each stage contains **steps** (commands to run). After all stages, the **post** block handles outcomes:
+
 ```groovy
-IMAGE_NAME = 'your-org/todo-app'
+pipeline {
+    stages {
+        stage('Build') { steps { sh 'mvn test' } }
+        stage('Push')  { steps { sh 'docker push ...' } }
+    }
+    post {
+        success { echo "Done!" }
+        failure { echo "Failed!" }
+        cleanup { cleanWs() }
+    }
+}
 ```
+
+Stages provide visual progress, isolated failure reporting ("failed at Stage 4"), and time tracking per stage.
+
+---
+
+## Pipeline Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                        Jenkins Pipeline                              │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  Git Push / Webhook                                                   │
+│         │                                                             │
+│         ▼                                                             │
+│  ┌─────────────┐                                                      │
+│  │  Checkout   │  Clone repo, check out main branch                   │
+│  └──────┬──────┘                                                      │
+│         │                                                             │
+│         ▼                                                             │
+│  ┌──────────────────┐                                                 │
+│  │  Build & Test    │  mvn clean test ── fail if tests fail           │
+│  └──────┬───────────┘                                                 │
+│         │                                                             │
+│         ▼                                                             │
+│  ┌──────────────────┐                                                 │
+│  │  Code Quality    │  SonarQube static analysis                      │
+│  └──────┬───────────┘                                                 │
+│         │                                                             │
+│         ▼                                                             │
+│  ┌──────────────────┐                                                 │
+│  │  Build JAR       │  mvn package → executable JAR                   │
+│  └──────┬───────────┘                                                 │
+│         │                                                             │
+│         ▼                                                             │
+│  ┌──────────────────┐                                                 │
+│  │  Build Image     │  docker build (multi-stage) → tagged image      │
+│  └──────┬───────────┘                                                 │
+│         │                                                             │
+│         ▼                                                             │
+│  ┌──────────────────┐                                                 │
+│  │  Scan Image      │  Trivy CVE scan → fail on CRITICAL/HIGH         │
+│  └──────┬───────────┘                                                 │
+│         │                                                             │
+│         ▼                                                             │
+│  ┌──────────────────┐                                                 │
+│  │  Push to Registry│  docker push → versioned + latest               │
+│  └──────┬───────────┘                                                 │
+│         │                                                             │
+│         ▼                                                             │
+│  ┌────────────────────────┐                                           │
+│  │  Update Manifests      │  Tag → ArgoCD repo (Phase 2)              │
+│  └────────────────────────┘                                           │
+│                                                                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Why This Stage Order?
+
+The order is deliberate. Each stage filters defects before they reach the next, more expensive stage:
+
+| Stage | Typical duration | What it catches |
+|-------|-----------------|-----------------|
+| Checkout | ~5 seconds | Wrong branch, missing repo access |
+| Build & Test | 30–60 seconds | Compile errors, failing unit tests |
+| Code Quality | 30–90 seconds | Code smells, security hotspots, low coverage |
+| Build JAR | 10–20 seconds | Packaging errors |
+| Build Image | 20–60 seconds | Dockerfile errors, missing runtime dependencies |
+| Scan Image | 30–60 seconds | Known CVEs in OS and application packages |
+| Push | 10–30 seconds | Registry auth failures, network issues |
+
+**Design principle:** If stage 2 (tests) fails, we never burn time on stages 6–8 (image build, scan, push). This is the fail-fast principle.
+
+---
+
+## Understanding the Jenkinsfile
+
+### Image Versioning Strategy
+
+```groovy
+IMAGE_TAG = "${BUILD_NUMBER}"     // 1, 2, 3, 42 — unique per build
+LATEST_TAG = 'latest'             // convenience tag, always current
+```
+
+Two tags per image:
+- **Build number** — lets you pin to a specific build and trace it back to a Jenkins run
+- **latest** — lets Kubernetes always pull the most recent image without knowing the build number
+
+In production, also add the Git commit SHA for full traceability:
+```groovy
+IMAGE_TAG = "${BUILD_NUMBER}-${GIT_COMMIT[0..7]}"  // e.g. 42-abc1234
+```
+
+### Credential Handling
+
+```groovy
+withCredentials([usernamePassword(credentialsId: 'docker-credentials',
+                                   usernameVariable: 'DOCKER_USER',
+                                   passwordVariable: 'DOCKER_PASS')]) {
+    sh 'echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin'
+    sh 'docker push ${IMAGE_NAME}:${IMAGE_TAG}'
+    sh 'docker logout'
+}
+```
+
+Credentials are injected at runtime from the Jenkins credential store. They are never:
+- Stored in Git
+- Visible in build logs (Jenkins masks them)
+- Baked into the Docker image
+
+`docker logout` ensures no session token persists on the agent after the build.
+
+### Build Options
+
+```groovy
+options {
+    buildDiscarder(logRotator(numToKeepStr: '15'))  // keep last 15 builds
+    timeout(time: 30, unit: 'MINUTES')              // kill hung builds
+    timestamps()                                     // prepend timestamps to logs
+}
+```
+
+These are important operational hygiene:
+- **buildDiscarder** — prevents unbounded disk growth on the Jenkins PV
+- **timeout** — prevents hung builds from occupying agents indefinitely
+- **timestamps** — essential for correlating build logs with external events
+
+---
+
+## The Docker Image: What Makes It Production-Ready
+
+The Dockerfile uses **multi-stage builds** to produce a minimal runtime image:
+
+```
+Stage 1 — Builder (eclipse-temurin:21-jdk-alpine)
+  Installs Maven, compiles source code, extracts JAR layers
+  ↓ discarded after build
+
+Stage 2 — Runtime (eclipse-temurin:21-jre-alpine)
+  Copies only app code + libraries from Stage 1
+  Runs as non-root user (appuser)
+  Exposes port 8080
+  Sets HEALTHCHECK
+  ↓ this is the final image pushed to registry
+```
+
+**Why multi-stage matters:**
+
+| Concern | Single-stage | Multi-stage |
+|---------|-------------|-------------|
+| Image size | ~450 MB (includes JDK, Maven) | ~180 MB (JRE only) |
+| CVE surface | High (build tools have CVEs) | Low (minimal runtime) |
+| Attack surface | Source code exposed | No source code in image |
+| Build secrets | Risk of leaking into image | Stage discarded |
+
+---
+
+## Vulnerability Scanning with Trivy
+
+Trivy is the 2026 standard for container image CVE scanning. The pipeline stage:
+
+```bash
+trivy image --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG}
+```
+
+Checks:
+- **OS packages** — Alpine packages with known CVEs
+- **Java libraries** — JAR files in the application classpath
+- **Severity filtering** — only reports HIGH and CRITICAL (ignoring noise)
+
+**Operational decision — should a CVE fail the build?**
+
+| Environment | Policy |
+|-------------|--------|
+| Development | Warn but continue |
+| Staging | Fail on CRITICAL |
+| Production | Fail on HIGH + CRITICAL |
+
+Start conservative (warn), tighten as the team understands the vulnerability landscape.
 
 ---
 
 ## Operational Patterns
 
-### Manual Trigger
+### Build Triggers
 
-Click "Build Now" in Jenkins UI.
+| Trigger | Configuration | Use case |
+|---------|-------------|----------|
+| Manual | Click "Build Now" | Testing pipeline changes |
+| GitHub Webhook | GitHub → Settings → Webhooks | Auto-build on push |
+| Poll SCM | `triggers { pollSCM('H/5 * * * *') }` | When webhooks not available |
+| Scheduled | `triggers { cron('H 2 * * *') }` | Nightly dependency scans |
 
-### Scheduled Trigger (Nightly Builds)
+**Prefer webhooks.** They fire in seconds after a push. SCM polling adds minutes of latency and wastes compute.
 
-Add to Jenkins job:
+### Parallel Stages
+
+Independent work can run concurrently:
+
 ```groovy
-triggers {
-    cron('H 2 * * *')  // 2 AM daily
+stage('Parallel Checks') {
+    parallel {
+        stage('Unit Tests')   { steps { sh 'mvn test' } }
+        stage('Code Quality') { steps { withSonarQubeEnv(...) { sh 'mvn sonar:sonar' } } }
+    }
 }
 ```
 
-### GitHub Webhook (Push-to-Build)
+This reduces total pipeline time when both stages take 60 seconds — they finish in 60 seconds total rather than 120 seconds.
 
-1. Configure webhook in GitHub: Settings → Webhooks
-2. Payload URL: `https://your-jenkins.com/github-webhook/`
-3. Trigger on push
+---
 
-Jenkins will automatically start a build on every push to `main`.
+## Real-World Considerations
 
-### Artifact Retention
+**Registry credentials**
+Never use a Docker Hub password. Create a Personal Access Token (PAT) with only `write:packages` and `read:packages` permissions. Rotate quarterly.
 
-The pipeline keeps the last 15 builds' artifacts. To extend or reduce:
+**Jenkins in production**
+- Builds should run on ephemeral Kubernetes agents, not the controller node
+- Jenkins configuration should be in Git (Jenkins Configuration as Code plugin)
+- Monitor Jenkins health with Prometheus and Grafana
 
-```groovy
-buildDiscarder(logRotator(numToKeepStr: '30'))  // Keep 30 builds
+**Image promotion across environments**
+Build once, retag to promote. The same image runs in dev, staging, and production — retagging it, not rebuilding:
+
+```bash
+docker tag todo-app:42 todo-app:staging-42
+docker push todo-app:staging-42
 ```
 
 ---
 
-## Troubleshooting
+## Key Takeaways
 
-**Build fails at "Build Docker Image"**
-- Ensure Docker daemon is running on the Jenkins agent
-- Check Dockerfile syntax: `docker build --no-cache .`
-- Verify Java 21 is available in the builder stage
+1. **Jenkins is an orchestrator** — it runs whatever you script; the value is in the pipeline design
 
-**Image scan fails at Trivy stage**
-- Trivy not installed: Install with `apt-get install trivy` or skip stage
-- Adjust severity levels if needed: `--severity LOW,MEDIUM,HIGH,CRITICAL`
+2. **Fail fast** — cheap stages (test) always precede expensive stages (push to registry)
 
-**Push to registry fails**
-- Verify Docker credentials are configured correctly
-- Check network connectivity to registry
-- Ensure image name matches registry namespace
+3. **Credentials are never in code** — the Jenkins credential store injects them at runtime
 
-**SonarQube analysis fails**
-- Verify SonarQube server is reachable
-- Check authentication token expiration
-- Review `sonar-project.properties` in the sample app
+4. **Multi-stage Docker builds** produce smaller, safer images without build tools in production
 
----
+5. **Image scanning is mandatory** — CVEs in OS packages and libraries are the most common supply chain risk
 
-## Next Steps
+6. **Version every image** — build number + Git SHA gives you full traceability from cluster back to commit
 
-1. **Phase 2:** Update Argo CD git repo on successful push (GitOps reconciliation)
-2. **Phase 3:** Multi-environment promotion (dev → staging → prod)
-3. **Phase 4:** Blue-green deployments with traffic management
-4. **Phase 5:** Rollback and incident response patterns
+7. **The Jenkinsfile is code** — review it, version it, and treat it with the same discipline as application code
 
 ---
 
 ## Related Documentation
 
-- [Main CI/CD Reference Architecture](../README.md)
-- [GitHub Actions Implementation](../phase-1-image-build-github-actions/)
-- [Sample Application](../sample-application/)
-- [Jenkins Best Practices](https://www.jenkins.io/doc/book/using-jenkins-safely/)
+- [Installation Guide](./installation-jenkins.md) — Jenkins on Kubernetes, complete setup
+- [Demo Runbook](./jenkins-demo-runbook.md) — Hands-on walkthrough
+- [GitHub Actions Implementation](../phase-1-image-build-github-actions/) — Same pipeline, different tool
+- [Main CI/CD README](../README.md) — Tool comparison and selection guide
+- [Sample Application](../sample-application/) — The application being built
