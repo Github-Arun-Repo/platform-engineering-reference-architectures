@@ -1,0 +1,152 @@
+pipeline {
+    agent any
+
+    environment {
+        REGISTRY = 'docker.io'  // Change to your registry: gcr.io, ecr, etc.
+        IMAGE_NAME = 'arunrepo/todo-app'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        LATEST_TAG = 'latest'
+        GIT_REPO = 'https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git'
+        SONARQUBE_SERVER = 'SonarQube'  // Configure in Jenkins
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '15'))
+        timeout(time: 30, unit: 'MINUTES')
+        timestamps()
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    echo "Checking out source code from ${GIT_REPO}"
+                }
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[url: "${GIT_REPO}"]]
+                ])
+            }
+        }
+
+        stage('Build & Test') {
+            steps {
+                script {
+                    echo "Building and testing TODO application..."
+                    dir('cicd-reference-architectures/sample-application') {
+                        sh 'mvn clean test'
+                    }
+                }
+            }
+        }
+
+        stage('Code Quality Analysis') {
+            steps {
+                script {
+                    echo "Running SonarQube analysis..."
+                    dir('cicd-reference-architectures/sample-application') {
+                        withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                            sh 'mvn sonar:sonar'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build Application') {
+            steps {
+                script {
+                    echo "Packaging Spring Boot application..."
+                    dir('cicd-reference-architectures/sample-application') {
+                        sh 'mvn clean package -DskipTests'
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    echo "Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
+                    dir('cicd-reference-architectures/sample-application') {
+                        sh '''
+                            docker build \
+                                -t ${IMAGE_NAME}:${IMAGE_TAG} \
+                                -t ${IMAGE_NAME}:${LATEST_TAG} \
+                                -f Dockerfile .
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Scan Docker Image') {
+            steps {
+                script {
+                    echo "Scanning Docker image for vulnerabilities..."
+                    // Using Trivy for vulnerability scanning (2026 best practice)
+                    sh '''
+                        if command -v trivy &> /dev/null; then
+                            trivy image --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG}
+                        else
+                            echo "Trivy not installed. Skipping image scan."
+                        fi
+                    '''
+                }
+            }
+        }
+
+        stage('Push to Registry') {
+            steps {
+                script {
+                    echo "Pushing Docker image to registry..."
+                    withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh '''
+                            echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+                            docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                            docker push ${IMAGE_NAME}:${LATEST_TAG}
+                            docker logout
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Update Deployment Manifests') {
+            steps {
+                script {
+                    echo "Updating Kubernetes deployment manifests with new image tag..."
+                    // This would typically update your ArgoCD git repo or deployment files
+                    // For now, just logging the image reference
+                    sh "echo 'Image built and pushed: ${IMAGE_NAME}:${IMAGE_TAG}'"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo "Pipeline execution completed"
+                // Archive build artifacts if needed
+                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar', allowEmptyArchive: true
+            }
+        }
+        success {
+            script {
+                echo "Build successful! Image: ${IMAGE_NAME}:${IMAGE_TAG}"
+                // Notify teams (Slack, email, etc.)
+            }
+        }
+        failure {
+            script {
+                echo "Build failed!"
+                // Notify teams about failure
+            }
+        }
+        cleanup {
+            cleanWs()
+        }
+    }
+}
