@@ -18,6 +18,7 @@ The repository contains practical and reusable infrastructure implementations de
 |---|---|---|
 | **GitOps and Argo CD** | Argo CD Applications, App of Apps, ApplicationSets, automated sync, self-healing, drift detection, rollback, and recovery scenarios. | [Explore Argo CD architectures](./argocd-reference-architectures/README.md) |
 | **CI/CD and Continuous Deployment** | Container image build pipelines, supply chain security, artifact versioning, vulnerability scanning, and deployment automation. Implementations using Jenkins and GitHub Actions. | [Explore CI/CD patterns](./cicd-reference-architectures/README.md) |
+| **Kubernetes Reference Architectures** | Multi-tenant Kubernetes platform patterns, namespace isolation, quotas, RBAC boundaries, network segmentation, and operational failure testing runbooks. | [Explore Kubernetes patterns](./kubernetes-reference-architectures/README.md) |
 | **Terraform Infrastructure** | Modular Terraform, multi-AZ AWS networking, secure S3 patterns, remote state, state locking, reusable modules, and architecture decisions. | [Explore Terraform patterns](./terraform/README.md) |
 
 ## Who This Is For
@@ -34,6 +35,7 @@ This repository is intended for:
 The repository will continue to expand with:
 
 - Kubernetes and Amazon EKS architecture
+- Kubernetes reference architecture patterns
 - CI/CD and deployment strategies
 - Observability and monitoring
 - Infrastructure security

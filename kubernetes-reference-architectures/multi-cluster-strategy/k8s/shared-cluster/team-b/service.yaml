@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: team-b-demo
+  namespace: team-b
+spec:
+  selector:
+    app: team-b-demo
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  type: ClusterIP
