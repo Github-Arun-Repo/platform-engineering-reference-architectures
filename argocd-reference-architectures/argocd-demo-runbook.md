@@ -79,11 +79,11 @@ echo "Ready."
 
 # PART 1 — ArgoCD via the CLI  (≈28 min)
 
-> Goal: everyone leaves fluent in the day-to-day `argocd` commands and the core mental model.
+> Goal: understand the day-to-day `argocd` commands and the core mental model.
 
 ## 1.1 — Create an app & watch the OutOfSync → Synced flow
 
-**Say:** "An Application binds a Git source to a cluster destination. Let's create one but NOT auto-sync, so we can see the states."
+An Application binds a Git source to a cluster destination. I am creating one with `--sync-policy none` deliberately — this lets us observe the `OutOfSync` state before anything is deployed.
 
 ```bash
 argocd app create nginx-demo \
@@ -108,7 +108,7 @@ curl -s http://localhost:30095 | grep -i title
 
 ## 1.2 — Create from an existing manifest file (declarative create)
 
-**Say:** "In real life you don't type `argocd app create` — you commit an Application YAML. Same result."
+In practice, you don't type `argocd app create` by hand — you commit an Application YAML to Git and apply it. The result is identical, but the declaration now lives in version control.
 
 ```bash
 # your repo already has the Application manifest — just apply it
@@ -121,7 +121,7 @@ curl -s http://localhost:30096 | head -15
 
 ## 1.2A — One more app using ArgoCD CLI (imperative)
 
-**Say:** "Let me create a second app entirely from `argocd` CLI so you can compare imperative vs declarative styles side-by-side."
+Creating `httpd-demo` entirely from the CLI — this puts the imperative and declarative styles side-by-side so the difference is clear.
 
 ```bash
 argocd app create httpd-demo \
@@ -148,7 +148,7 @@ curl -s http://localhost:8081 | head -20
 
 ## 1.3 — Inspect: get, diff, manifests, resource tree, raw CR
 
-**Say:** "The commands you'll actually live in for troubleshooting."
+These are the commands I use daily for troubleshooting — inspecting what ArgoCD sees, what it will apply, and where drift exists.
 
 ```bash
 argocd app get nginx-demo                       # summary + resource tree
@@ -189,7 +189,7 @@ kubectl get deploy nginx-demo -n nginx-demo
 
 ## 1.6 — Automated sync from a Git commit
 
-**Say:** "With automated sync, a Git push IS the deploy."
+With automated sync policy, a Git push is the deployment trigger. No manual step, no `argocd app sync` — the commit is the action.
 
 ```bash
 sed -i 's/replicas: 3/replicas: 4/' cli-demo/k8s/nginx-demo/deployment.yaml
@@ -203,7 +203,7 @@ kubectl get pods -n nginx-demo
 
 ## 1.7 — Prune (deleting from Git removes from cluster)
 
-**Say:** "Automated sync alone won't DELETE. You must opt into prune."
+Automated sync on its own will not delete resources — it only applies additions and changes. Deletion requires explicitly opting into `--auto-prune`. This is a safety boundary worth understanding.
 
 ```bash
 argocd app set nginx-demo --sync-policy automated --self-heal --auto-prune
@@ -222,7 +222,7 @@ argocd app get nginx-demo --refresh
 
 ## 1.8 — Sync = applied, Health = working (break on purpose)
 
-**Say:** "Critical distinction: a manifest can apply cleanly yet the app be broken."
+This is the most important conceptual distinction in ArgoCD: Sync state and Health state are independent. A manifest can apply successfully while the app itself is broken. I am breaking it deliberately to make this visible.
 
 ```bash
 sed -i 's#image: nginx:1.27-alpine#image: nginx:does-not-exist#' cli-demo/k8s/nginx-demo/deployment.yaml
@@ -246,11 +246,11 @@ The correct fix is fixing Git:
 git revert --no-edit HEAD && git push
 argocd app get nginx-demo --refresh
 ```
-👉 "Rollback = emergency brake. `git revert` = the real fix. Git stays the source of truth."
+👉 Rollback is the emergency brake — it fixes the cluster state immediately. But `git revert` is the real fix — it corrects the source of truth and keeps Git and the cluster aligned.
 
 ## 1.10 — Logstorm app: workloads that aren't web servers
 
-**Say:** "Not everything is a web server — here's a noisy log generator, ties into observability talk."
+Not every workload is a web server. This log generator exists to show that ArgoCD manages any Kubernetes workload — including background jobs and observability-related components.
 
 ```bash
 kubectl apply -f cli-demo/argocd/logstorm-demo-app.yaml
@@ -268,18 +268,18 @@ argocd app get nginx-demo -o json | jq '.status.sync.status,.status.health.statu
 argocd app delete httpd-demo --yes                # (if created) clean removal
 ```
 
-**PART 1 wrap-up line:** "That's the whole CLI surface: create, sync, diff, drift, self-heal, prune, history, rollback. Now — how do we manage MANY apps at once?"
+**Part 1 summary:** That covers the full CLI surface — create, sync, diff, drift, self-heal, prune, history, and rollback. The natural next question is: how do we manage many apps without repeating this for each one?
 
 ---
 ---
 
 # PART 2 — App of Apps  (≈15 min)
 
-> Goal: show one parent Application that declares many child Applications.
+> Goal: understand how one parent Application manages many child Applications.
 
 ## 2.1 — The concept before the command
 
-**Say:** "App of Apps is just an Application whose Git path contains OTHER Application manifests. No special CRD."
+App of Apps is not a new CRD or a special feature — it is simply an Application whose Git path points to a folder containing other Application manifests. ArgoCD manages it the same way it manages any other Application.
 
 ```bash
 cat app-of-apps-demo/argocd/app-of-apps-parent.yaml
@@ -299,8 +299,9 @@ The parent synced the child Application objects; each child then synced its own 
 
 ## 2.3 — Visualize the tree in the UI
 
-**Say:** "This is where the UI shines — open `argo-demo-parent`."
-👉 In the UI the parent shows the 3 child Applications as its resources; drill into one to see its pods/services. Very intuitive for the team.
+The ArgoCD UI renders the parent-child relationship as a visual tree — this is where the hierarchy becomes immediately clear. Open `argo-demo-parent` in the UI and drill into a child to see pods and services.
+
+👉 The parent shows the 3 child Applications as its resources. Each child then shows its own pods and services underneath.
 
 ```bash
 # same info via CLI
@@ -321,7 +322,7 @@ argocd app get aoa-alpha-nginx
 
 ## 2.5 — Add a 4th child = one new file (the App-of-Apps cost)
 
-**Say:** "To add an app here, you hand-write a new child Application and commit. Remember this effort — ApplicationSet removes it."
+To add a new application in the App of Apps pattern, I need to write a new child Application YAML and register it in the kustomization. This is the key trade-off — it scales, but each new app still requires a new file.
 
 ```bash
 # copy an existing child as a template for a 4th (reuses alpha-nginx manifests so it deploys)
@@ -339,26 +340,26 @@ argocd app list | grep aoa-
 ```
 👉 A 4th child appears — but note you had to author a whole new file. "One file per app. Hold that thought."
 
-## 2.6 — Cascade delete awareness (talk, optional to run)
+## 2.6 — Cascade delete awareness
 
-**Say:** "Deleting the parent with cascade removes all children and their workloads."
+Worth understanding before using in production: deleting the parent with `--cascade` removes all children and their workloads. This is powerful and destructive — it is not run here, but it is important to know it exists.
 ```bash
 # DEMO-ONLY awareness; skip unless showing teardown:
 # argocd app delete argo-demo-parent --cascade --yes
 ```
 
-**PART 2 wrap-up line:** "App of Apps is great for a small curated set. But every new app = a new file. Enter ApplicationSet."
+**Part 2 summary:** App of Apps is the right pattern for a curated, known set of applications where each one warrants its own YAML. The cost is one file per app. For larger or more dynamic fleets, that cost compounds — which is what ApplicationSet is designed to solve.
 
 ---
 ---
 
 # PART 3 — ApplicationSet  (≈12 min)
 
-> Goal: one template + a generator that stamps out many Applications automatically.
+> Goal: understand how one template combined with a generator produces many Applications automatically.
 
 ## 3.1 — The definition
 
-**Say:** "ApplicationSet is a separate CRD with its own controller. One template, a generator supplies the values."
+ApplicationSet is a dedicated CRD with its own controller. The idea is simple: one template describes what an Application looks like, and a generator supplies the variable values — one Application is created per entry the generator produces.
 
 ```bash
 cat applicationset-demo/argocd/applicationset-demo.yaml
@@ -381,9 +382,9 @@ kubectl get pods -n aset-httpd
 kubectl get pods -n aset-whoami
 ```
 
-## 3.3 — THE money moment: add a 4th app with a 3-line edit
+## 3.3 — Add a 4th app with a 3-line edit
 
-**Say:** "Compare to Part 2. There I wrote a whole file. Here I add 3 lines to a list."
+This is the concrete comparison with Part 2. There, adding an app required writing a new YAML file. Here, it is 3 lines added to a list — the template does the rest.
 
 ```bash
 # reuse an existing k8s path so it deploys immediately (aset-nginx manifests)
@@ -416,7 +417,7 @@ kubectl get deploy -n aset-nginx
 
 ## 3.5 — Delete one element = its app is pruned
 
-**Say:** "Remove an element from the list and its Application (and workloads) go away."
+The generator list is the source of truth for which Applications exist. Removing an element removes the Application — and with prune enabled, its cluster resources go with it.
 
 ```bash
 # remove the aset-extra element we just added
@@ -429,16 +430,17 @@ argocd app list | grep aset-       # aset-extra is gone
 ```
 👉 The generator is the source of truth for WHICH apps exist. Drop an element → its app is removed.
 
-## 3.6 — The powerful generators (talk, don't run)
+## 3.6 — The more powerful generators
 
-**Say:** "The list generator is the simplest. In production you'd use:"
-- **Git directory generator** — one app per folder; add a folder, an app appears (zero list editing).
-- **Cluster generator** — one app per registered cluster; the multi-market / multi-region pattern.
-- **Matrix generator** — cross-product, e.g. every app × every cluster.
+The list generator used here is the simplest option. In production, there are more dynamic choices:
 
-"That's how a single ApplicationSet fans one workload across many environments or clusters."
+- **Git directory generator** — one Application per folder in the repo; adding a folder automatically creates an Application, no list editing needed.
+- **Cluster generator** — one Application per registered cluster; this is the multi-region and multi-market deployment pattern.
+- **Matrix generator** — cross-product of two generators, e.g. every app × every cluster.
 
-**PART 3 wrap-up line:** "App of Apps = a file per app, best for a curated few. ApplicationSet = a list/generator, best for many similar apps across envs and clusters."
+These generators are what allow a single ApplicationSet to fan one workload across dozens of environments or clusters.
+
+**Part 3 summary:** App of Apps = one file per app, best suited for a small, curated set where each app warrants individual control. ApplicationSet = a generator-driven template, best suited for many similar apps, multi-environment deployments, or anything that needs to scale without proportional YAML authoring.
 
 ---
 ---
