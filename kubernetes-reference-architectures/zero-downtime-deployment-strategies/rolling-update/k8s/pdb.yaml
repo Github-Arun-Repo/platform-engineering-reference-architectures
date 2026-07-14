@@ -1,0 +1,21 @@
+# PodDisruptionBudget — guarantees at least 3 of 4 replicas are available
+# during voluntary disruptions: node drain, cluster upgrades, or maintenance windows.
+#
+# Without a PDB, a node drain can take down all pods scheduled on that node
+# simultaneously. With minAvailable: 3, the eviction controller is blocked
+# from evicting more than one pod at a time from this deployment.
+#
+# This does not affect rolling updates (which use the Deployment controller,
+# not the eviction API). Its value is in protecting the running deployment
+# when platform operations happen around it.
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: demo-app-pdb
+  namespace: rolling-demo
+spec:
+  minAvailable: 3
+  selector:
+    matchLabels:
+      app: demo-app

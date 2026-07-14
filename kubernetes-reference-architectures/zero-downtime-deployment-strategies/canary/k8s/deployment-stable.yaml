@@ -1,0 +1,59 @@
+# Stable deployment — v1, 4 replicas, track: stable.
+#
+# The service selector uses only app: demo, which matches both stable and canary pods.
+# Traffic is split proportionally to replica count across all matched pods.
+# At 4 stable + 1 canary = 5 total: stable receives ~80% of requests.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app-stable
+  namespace: canary-demo
+  labels:
+    app: demo
+    track: stable
+    version: v1
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: demo
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: demo
+        track: stable
+        version: v1
+    spec:
+      containers:
+        - name: demo-app
+          image: nginx:1.24-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: html-content
+              mountPath: /usr/share/nginx/html
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: html-content
+          configMap:
+            name: stable-content

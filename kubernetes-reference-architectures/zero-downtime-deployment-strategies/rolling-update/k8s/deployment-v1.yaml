@@ -1,0 +1,65 @@
+# Baseline v1 deployment for rolling update demonstration.
+#
+# maxUnavailable: 0 — no pod is taken down until its replacement passes readiness.
+# maxSurge: 1      — one extra pod exists briefly during the transition.
+#
+# With 4 replicas: the cluster goes to 5 pods (surge), waits for the new pod
+# to pass readiness, then removes one old pod. Repeats until all 4 are replaced.
+# At no point does the number of ready pods fall below 4.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app
+  namespace: rolling-demo
+  labels:
+    app: demo-app
+    version: v1
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: demo-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: demo-app
+        version: v1
+    spec:
+      containers:
+        - name: demo-app
+          image: nginx:1.24-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: html-content
+              mountPath: /usr/share/nginx/html
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: html-content
+          configMap:
+            name: demo-app-content

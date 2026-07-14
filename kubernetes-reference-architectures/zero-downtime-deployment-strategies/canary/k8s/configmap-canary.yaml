@@ -1,0 +1,18 @@
+# Canary track content — v2, receiving a small slice of traffic (20% at 1/5 replicas).
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: canary-content
+  namespace: canary-demo
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <body>
+      <h2>Demo App</h2>
+      <p>Track: Canary</p>
+      <p>Version: v2</p>
+      <p>Image: nginx:1.25-alpine</p>
+    </body>
+    </html>

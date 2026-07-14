@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rolling-demo
+  labels:
+    purpose: zero-downtime-rolling
+    pod-security.kubernetes.io/enforce: baseline

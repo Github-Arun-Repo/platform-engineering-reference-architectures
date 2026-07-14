@@ -1,0 +1,21 @@
+# Blue environment content — v1 of the application.
+# Blue is the live environment at the start of the demo.
+# It stays running throughout — even after the switch to green —
+# so rollback is always one patch command away.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blue-content
+  namespace: blue-green-demo
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <body>
+      <h2>Demo App</h2>
+      <p>Environment: Blue</p>
+      <p>Version: v1</p>
+      <p>Image: nginx:1.24-alpine</p>
+    </body>
+    </html>

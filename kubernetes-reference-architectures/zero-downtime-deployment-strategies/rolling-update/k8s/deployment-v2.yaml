@@ -1,0 +1,65 @@
+# v2 deployment — triggers the rolling update when applied over deployment-v1.yaml.
+#
+# The only differences from v1 are:
+#   - image: nginx:1.25-alpine  (the new version)
+#   - version label: v2         (for observability during the transition)
+#
+# Rolling update parameters stay the same: maxUnavailable=0, maxSurge=1.
+# Applying this file is what kicks off the gradual pod-by-pod replacement.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app
+  namespace: rolling-demo
+  labels:
+    app: demo-app
+    version: v2
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: demo-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: demo-app
+        version: v2
+    spec:
+      containers:
+        - name: demo-app
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: html-content
+              mountPath: /usr/share/nginx/html
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: html-content
+          configMap:
+            name: demo-app-content

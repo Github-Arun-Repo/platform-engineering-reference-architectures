@@ -1,0 +1,25 @@
+# The service selector uses only app: demo — it matches both stable (track: stable)
+# and canary (track: canary) pods. kube-proxy distributes requests across all
+# matched endpoints proportionally.
+#
+# Traffic split is determined entirely by replica count:
+#   4 stable + 1 canary = 5 endpoints → ~80% stable, ~20% canary
+#
+# No Istio, no NGINX weight annotations needed. The trade-off is that
+# you cannot route less than 1/N traffic without running N total replicas.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-app
+  namespace: canary-demo
+  labels:
+    app: demo
+spec:
+  selector:
+    app: demo
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  type: ClusterIP

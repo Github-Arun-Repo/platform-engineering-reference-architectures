@@ -1,0 +1,63 @@
+# Blue deployment — v1 of the application, tagged slot: blue.
+#
+# Both blue and green run simultaneously. The service selector determines
+# which one receives traffic. Blue starts as the live environment.
+#
+# Note: blue and green are intentionally identical in structure.
+# The only differences are the name, the slot label, and the image version.
+# This symmetry is what makes rollback instantaneous — there's no difference
+# in readiness, health, or capacity between the two environments.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app-blue
+  namespace: blue-green-demo
+  labels:
+    app: demo
+    slot: blue
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: demo
+      slot: blue
+  template:
+    metadata:
+      labels:
+        app: demo
+        slot: blue
+        version: v1
+    spec:
+      containers:
+        - name: demo-app
+          image: nginx:1.24-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: html-content
+              mountPath: /usr/share/nginx/html
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: html-content
+          configMap:
+            name: blue-content

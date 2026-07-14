@@ -1,0 +1,20 @@
+# Green environment content — v2 of the application.
+# Green is fully deployed and ready before any traffic is sent to it.
+# The service selector switch is the only thing that makes it live.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: green-content
+  namespace: blue-green-demo
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <body>
+      <h2>Demo App</h2>
+      <p>Environment: Green</p>
+      <p>Version: v2</p>
+      <p>Image: nginx:1.25-alpine</p>
+    </body>
+    </html>

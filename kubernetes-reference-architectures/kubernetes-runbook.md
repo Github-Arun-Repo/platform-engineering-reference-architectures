@@ -6,17 +6,19 @@ This runbook is the entry point for Kubernetes architecture implementation walkt
 
 ## Scope
 
-Current implementation available:
+Current implementations available:
 
 - [Multi-Cluster Strategy: Shared Cluster Multi-Tenancy](./multi-cluster-strategy/multi-cluster-runbook.md)
+- [Autoscaling Reference Patterns: HPA and VPA](./autoscaling-reference-patterns/autoscaling-runbook.md)
+- [Zero-Downtime Deployment Strategies: Rolling Update, Blue/Green, Canary](./zero-downtime-deployment-strategies/zero-downtime-runbook.md)
 
 ---
 
 ## Recommended Runbook Flow
 
 1. Validate prerequisites with [installation-kubernetes-prerequisites.md](./installation-kubernetes-prerequisites.md).
-2. Review architecture and goals in [multi-cluster-strategy/README.md](./multi-cluster-strategy/README.md).
-3. Execute the full runbook from [multi-cluster-runbook.md](./multi-cluster-strategy/multi-cluster-runbook.md).
+2. Review architecture and goals in the pattern README.
+3. Execute the full runbook from top to bottom.
 4. Run all failure tests and record outcomes.
 
 ---

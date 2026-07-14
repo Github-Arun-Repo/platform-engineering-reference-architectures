@@ -1,0 +1,61 @@
+# Green deployment — v2 of the application, tagged slot: green.
+#
+# Green is fully deployed and healthy before any traffic is switched to it.
+# Run readiness checks against green pods directly before cutting over:
+#   kubectl get pods -n blue-green-demo -l slot=green
+#
+# When you're confident, patch the service selector from slot: blue to slot: green.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app-green
+  namespace: blue-green-demo
+  labels:
+    app: demo
+    slot: green
+    version: v2
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: demo
+      slot: green
+  template:
+    metadata:
+      labels:
+        app: demo
+        slot: green
+        version: v2
+    spec:
+      containers:
+        - name: demo-app
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: html-content
+              mountPath: /usr/share/nginx/html
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: html-content
+          configMap:
+            name: green-content

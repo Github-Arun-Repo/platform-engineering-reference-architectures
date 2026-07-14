@@ -1,0 +1,30 @@
+# The service selector is the entire blue/green mechanism.
+#
+# selector: slot: blue  → all traffic goes to blue pods
+# selector: slot: green → all traffic goes to green pods
+#
+# To switch: kubectl patch svc demo-app -n blue-green-demo \
+#   --type='json' \
+#   -p='[{"op":"replace","path":"/spec/selector/slot","value":"green"}]'
+#
+# To roll back: same command with "value":"blue"
+#
+# The switch is atomic from kube-proxy's perspective — existing connections
+# may complete on the old pods, new connections go to the new pods immediately.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-app
+  namespace: blue-green-demo
+  labels:
+    app: demo
+spec:
+  selector:
+    app: demo
+    slot: blue
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  type: ClusterIP

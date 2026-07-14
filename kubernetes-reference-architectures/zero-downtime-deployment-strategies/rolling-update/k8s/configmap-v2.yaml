@@ -1,0 +1,21 @@
+# Version 2 content — applied alongside the v2 deployment.
+# Since ConfigMap volume mounts in existing pods update asynchronously
+# (kubelet syncs within ~60s), the clean transition comes from the
+# image change in deployment-v2.yaml, not the ConfigMap update alone.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-app-content
+  namespace: rolling-demo
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <body>
+      <h2>Demo App</h2>
+      <p>Version: v2</p>
+      <p>Image: nginx:1.25-alpine</p>
+      <p>Strategy: Rolling Update</p>
+    </body>
+    </html>

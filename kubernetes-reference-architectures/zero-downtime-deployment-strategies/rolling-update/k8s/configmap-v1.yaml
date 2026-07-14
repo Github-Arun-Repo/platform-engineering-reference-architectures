@@ -1,0 +1,20 @@
+# Version 1 content — served by the v1 deployment (nginx:1.24-alpine).
+# The page clearly identifies version and image so we can confirm
+# which pods are responding during and after the rolling update.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-app-content
+  namespace: rolling-demo
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <body>
+      <h2>Demo App</h2>
+      <p>Version: v1</p>
+      <p>Image: nginx:1.24-alpine</p>
+      <p>Strategy: Rolling Update</p>
+    </body>
+    </html>

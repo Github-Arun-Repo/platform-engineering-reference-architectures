@@ -1,0 +1,65 @@
+# Canary deployment — v2, 1 replica, track: canary.
+#
+# One replica out of five total (4 stable + 1 canary) means roughly 20% of
+# requests land here. The service doesn't know the difference between stable
+# and canary pods — it just load-balances across all pods matching app: demo.
+#
+# Promotion path:
+#   scale canary to 4 → scale stable to 0 → canary is now 100% of traffic
+#
+# Rollback:
+#   scale canary to 0 → stable absorbs all traffic immediately
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app-canary
+  namespace: canary-demo
+  labels:
+    app: demo
+    track: canary
+    version: v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: demo
+        track: canary
+        version: v2
+    spec:
+      containers:
+        - name: demo-app
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: html-content
+              mountPath: /usr/share/nginx/html
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: html-content
+          configMap:
+            name: canary-content
