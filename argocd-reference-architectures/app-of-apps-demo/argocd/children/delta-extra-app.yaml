@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aoa-delta-extra
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git
+    targetRevision: main
+    path: argocd-reference-architectures/app-of-apps-demo/k8s/alpha-nginx
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: aoa-delta-extra
+  syncPolicy:
+    automated:
+      selfHeal: true

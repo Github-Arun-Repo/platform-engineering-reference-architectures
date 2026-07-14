@@ -4,3 +4,4 @@ resources:
   - alpha-nginx-app.yaml
   - beta-httpd-app.yaml
   - gamma-whoami-app.yaml
+  - delta-extra-app.yaml
