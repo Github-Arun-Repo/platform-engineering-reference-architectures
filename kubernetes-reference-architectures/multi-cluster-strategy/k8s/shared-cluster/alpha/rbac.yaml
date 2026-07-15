@@ -1,8 +1,8 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: team-a-deployer
-  namespace: team-a
+  name: alpha-deployer
+  namespace: alpha
 rules:
   - apiGroups: [""]
     resources: ["pods", "services", "configmaps", "secrets"]
@@ -14,13 +14,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: team-a-deployer-binding
-  namespace: team-a
+  name: alpha-deployer-binding
+  namespace: alpha
 subjects:
   - kind: ServiceAccount
-    name: team-a-automation
-    namespace: team-a
+    name: alpha-automation
+    namespace: alpha
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: team-a-deployer
+  name: alpha-deployer

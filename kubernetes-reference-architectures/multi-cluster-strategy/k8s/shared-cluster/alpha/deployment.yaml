@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: team-b-demo
-  namespace: team-b
+  name: alpha-demo
+  namespace: alpha
   labels:
-    app: team-b-demo
+    app: alpha-demo
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: team-b-demo
+      app: alpha-demo
   template:
     metadata:
       labels:
-        app: team-b-demo
+        app: alpha-demo
     spec:
-      serviceAccountName: team-b-app-sa
+      serviceAccountName: alpha-app-sa
       containers:
         - name: web
           image: nginx:1.27-alpine
@@ -25,10 +25,10 @@ spec:
             - name: APP_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: team-b-app-secret
+                  name: alpha-app-secret
                   key: APP_TOKEN
             - name: APP_ENV
               valueFrom:
                 secretKeyRef:
-                  name: team-b-app-secret
+                  name: alpha-app-secret
                   key: APP_ENV

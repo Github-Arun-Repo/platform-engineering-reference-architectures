@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: LimitRange
 metadata:
-  name: team-b-defaults
-  namespace: team-b
+  name: alpha-defaults
+  namespace: alpha
 spec:
   limits:
     - type: Container

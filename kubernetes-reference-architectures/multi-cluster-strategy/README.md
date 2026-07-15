@@ -106,7 +106,7 @@ multi-cluster-strategy/
 └── k8s/
     └── shared-cluster/
         ├── kustomization.yaml
-        ├── team-a/
+        ├── alpha/
         │   ├── kustomization.yaml
         │   ├── namespace.yaml
         │   ├── resourcequota.yaml
@@ -117,7 +117,7 @@ multi-cluster-strategy/
         │   ├── secret.yaml
         │   ├── deployment.yaml
         │   └── service.yaml
-        └── team-b/
+        └── beta/
             ├── kustomization.yaml
             ├── namespace.yaml
             ├── resourcequota.yaml

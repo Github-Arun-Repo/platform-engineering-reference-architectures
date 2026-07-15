@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-ingress-egress
-  namespace: team-a
+  namespace: beta
 spec:
   podSelector: {}
   policyTypes:
@@ -13,7 +13,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-same-namespace
-  namespace: team-a
+  namespace: beta
 spec:
   podSelector: {}
   ingress:
@@ -30,7 +30,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-dns-egress
-  namespace: team-a
+  namespace: beta
 spec:
   podSelector: {}
   policyTypes:

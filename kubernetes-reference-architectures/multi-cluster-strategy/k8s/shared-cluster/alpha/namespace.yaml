@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: team-a
+  name: alpha
   labels:
-    tenant: team-a
+    tenant: alpha
     pod-security.kubernetes.io/enforce: baseline

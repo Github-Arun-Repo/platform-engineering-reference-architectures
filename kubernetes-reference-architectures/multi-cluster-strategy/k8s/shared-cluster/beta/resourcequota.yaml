@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: team-a-quota
-  namespace: team-a
+  name: beta-quota
+  namespace: beta
 spec:
   hard:
     requests.cpu: "2"

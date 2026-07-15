@@ -39,8 +39,8 @@ multi-cluster-strategy/
 ├── multi-cluster-runbook.md
 └── k8s/shared-cluster/
     ├── kustomization.yaml
-    ├── team-a/
-    └── team-b/
+    ├── alpha/
+    └── beta/
 ```
 
 ---
@@ -68,17 +68,17 @@ kubectl apply -k k8s/shared-cluster
 Validate resources:
 
 ```bash
-kubectl get ns team-a team-b
-kubectl get resourcequota,limitrange -n team-a
-kubectl get resourcequota,limitrange -n team-b
-kubectl get sa,role,rolebinding -n team-a
-kubectl get sa,role,rolebinding -n team-b
-kubectl get networkpolicy -n team-a
-kubectl get networkpolicy -n team-b
-kubectl get secret -n team-a
-kubectl get secret -n team-b
-kubectl get deploy,svc -n team-a
-kubectl get deploy,svc -n team-b
+kubectl get ns alpha beta
+kubectl get resourcequota,limitrange -n alpha
+kubectl get resourcequota,limitrange -n beta
+kubectl get sa,role,rolebinding -n alpha
+kubectl get sa,role,rolebinding -n beta
+kubectl get networkpolicy -n alpha
+kubectl get networkpolicy -n beta
+kubectl get secret -n alpha
+kubectl get secret -n beta
+kubectl get deploy,svc -n alpha
+kubectl get deploy,svc -n beta
 ```
 
 ---
@@ -88,8 +88,8 @@ kubectl get deploy,svc -n team-b
 ### 2.1 Namespace isolation
 
 ```bash
-kubectl get pods -n team-a
-kubectl get pods -n team-b
+kubectl get pods -n alpha
+kubectl get pods -n beta
 ```
 
 ### 2.2 Default CPU and memory limits (LimitRange)
@@ -97,18 +97,18 @@ kubectl get pods -n team-b
 The deployments intentionally omit explicit resource blocks. Kubernetes should inject defaults from each namespace LimitRange.
 
 ```bash
-kubectl get pod -n team-a -l app=team-a-demo -o jsonpath='{.items[0].spec.containers[0].resources}'
+kubectl get pod -n alpha -l app=alpha-demo -o jsonpath='{.items[0].spec.containers[0].resources}'
 echo
-kubectl get pod -n team-b -l app=team-b-demo -o jsonpath='{.items[0].spec.containers[0].resources}'
+kubectl get pod -n beta -l app=beta-demo -o jsonpath='{.items[0].spec.containers[0].resources}'
 echo
 ```
 
 ### 2.3 Service account attachment
 
 ```bash
-kubectl get pod -n team-a -l app=team-a-demo -o jsonpath='{.items[0].spec.serviceAccountName}'
+kubectl get pod -n alpha -l app=alpha-demo -o jsonpath='{.items[0].spec.serviceAccountName}'
 echo
-kubectl get pod -n team-b -l app=team-b-demo -o jsonpath='{.items[0].spec.serviceAccountName}'
+kubectl get pod -n beta -l app=beta-demo -o jsonpath='{.items[0].spec.serviceAccountName}'
 echo
 ```
 
@@ -121,8 +121,8 @@ echo
 Expected: **No**
 
 ```bash
-kubectl auth can-i get deployments -n team-b --as=system:serviceaccount:team-a:team-a-automation
-kubectl auth can-i list secrets -n team-b --as=system:serviceaccount:team-a:team-a-automation
+kubectl auth can-i get deployments -n beta --as=system:serviceaccount:alpha:alpha-automation
+kubectl auth can-i list secrets -n beta --as=system:serviceaccount:alpha:alpha-automation
 ```
 
 Expected output: `no`
@@ -136,17 +136,17 @@ cat <<'EOF' | kubectl apply -f -
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: team-a-quota-breaker
-  namespace: team-a
+  name: alpha-quota-breaker
+  namespace: alpha
 spec:
   replicas: 20
   selector:
     matchLabels:
-      app: team-a-quota-breaker
+      app: alpha-quota-breaker
   template:
     metadata:
       labels:
-        app: team-a-quota-breaker
+        app: alpha-quota-breaker
     spec:
       containers:
         - name: stress
@@ -167,7 +167,7 @@ Expected: admission error about exceeded quota or pending pods due quota constra
 Cleanup:
 
 ```bash
-kubectl delete deployment team-a-quota-breaker -n team-a --ignore-not-found
+kubectl delete deployment alpha-quota-breaker -n alpha --ignore-not-found
 ```
 
 ### Test 3: Can an unauthorized user delete another team's deployment?
@@ -175,8 +175,8 @@ kubectl delete deployment team-a-quota-breaker -n team-a --ignore-not-found
 Expected: **No**
 
 ```bash
-kubectl auth can-i delete deployment/team-b-demo -n team-b --as=system:serviceaccount:team-a:team-a-automation
-kubectl --as=system:serviceaccount:team-a:team-a-automation -n team-b delete deployment team-b-demo
+kubectl auth can-i delete deployment/beta-demo -n beta --as=system:serviceaccount:alpha:alpha-automation
+kubectl --as=system:serviceaccount:alpha:alpha-automation -n beta delete deployment beta-demo
 ```
 
 Expected output: `no` and `forbidden`.
@@ -186,9 +186,9 @@ Expected output: `no` and `forbidden`.
 Expected: **No, blocked by NetworkPolicy default deny**
 
 ```bash
-kubectl -n team-a run net-debug --image=curlimages/curl:8.10.1 --restart=Never --command -- sleep 300
-kubectl -n team-a wait --for=condition=Ready pod/net-debug --timeout=120s
-kubectl -n team-a exec net-debug -- curl -m 5 -sS team-b-demo.team-b.svc.cluster.local
+kubectl -n alpha run net-debug --image=curlimages/curl:8.10.1 --restart=Never --command -- sleep 300
+kubectl -n alpha wait --for=condition=Ready pod/net-debug --timeout=120s
+kubectl -n alpha exec net-debug -- curl -m 5 -sS beta-demo.beta.svc.cluster.local
 ```
 
 Expected: connection timeout or blocked traffic.
@@ -196,7 +196,7 @@ Expected: connection timeout or blocked traffic.
 Cleanup:
 
 ```bash
-kubectl -n team-a delete pod net-debug --ignore-not-found
+kubectl -n alpha delete pod net-debug --ignore-not-found
 ```
 
 ---
@@ -206,7 +206,7 @@ kubectl -n team-a delete pod net-debug --ignore-not-found
 ### Team A service account cannot read Team B secrets
 
 ```bash
-kubectl auth can-i get secret/team-b-app-secret -n team-b --as=system:serviceaccount:team-a:team-a-automation
+kubectl auth can-i get secret/beta-app-secret -n beta --as=system:serviceaccount:alpha:alpha-automation
 ```
 
 Expected output: `no`
@@ -214,7 +214,7 @@ Expected output: `no`
 ### Team B service account cannot read Team A secrets
 
 ```bash
-kubectl auth can-i get secret/team-a-app-secret -n team-a --as=system:serviceaccount:team-b:team-b-automation
+kubectl auth can-i get secret/alpha-app-secret -n alpha --as=system:serviceaccount:beta:beta-automation
 ```
 
 Expected output: `no`
