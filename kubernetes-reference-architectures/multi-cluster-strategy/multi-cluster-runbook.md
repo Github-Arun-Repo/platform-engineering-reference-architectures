@@ -116,7 +116,7 @@ echo
 
 ## 3. Failure Tests (Required)
 
-### Test 1: Can Team A access Team B resources?
+### Test 1: Can Alpha access Beta resources?
 
 Expected: **No**
 
@@ -203,7 +203,7 @@ kubectl -n alpha delete pod net-debug --ignore-not-found
 
 ## 4. Secrets Separation Checks
 
-### Team A service account cannot read Team B secrets
+### Alpha service account cannot read Beta secrets
 
 ```bash
 kubectl auth can-i get secret/beta-app-secret -n beta --as=system:serviceaccount:alpha:alpha-automation
@@ -211,7 +211,7 @@ kubectl auth can-i get secret/beta-app-secret -n beta --as=system:serviceaccount
 
 Expected output: `no`
 
-### Team B service account cannot read Team A secrets
+### Beta service account cannot read Alpha secrets
 
 ```bash
 kubectl auth can-i get secret/alpha-app-secret -n alpha --as=system:serviceaccount:beta:beta-automation

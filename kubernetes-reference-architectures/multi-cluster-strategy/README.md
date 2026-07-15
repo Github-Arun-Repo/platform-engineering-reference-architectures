@@ -58,13 +58,13 @@ How multiple teams or applications can safely share one Kubernetes cluster using
 ```text
 Shared Kubernetes cluster
         |
-        |-- Team A namespace
+        |-- Alpha namespace
         |    |-- ResourceQuota
         |    |-- LimitRange
         |    |-- RBAC
         |    `-- NetworkPolicy
         |
-        `-- Team B namespace
+        `-- Beta namespace
              |-- ResourceQuota
              |-- LimitRange
              |-- RBAC
@@ -134,7 +134,7 @@ multi-cluster-strategy/
 
 ## Implementation Notes
 
-- Team A and Team B are symmetric to make comparison and verification straightforward.
+- Alpha and Beta are symmetric to make comparison and verification straightforward.
 - Both teams use default-deny ingress/egress and explicit DNS egress allow rules.
 - Limits are intentionally conservative for safe shared-cluster baseline behavior.
 - All checks are codified in the runbook with expected outcomes.
@@ -160,7 +160,7 @@ multi-cluster-strategy/
 
 By applying this pattern:
 
-- Team A cannot manage Team B resources
+- Alpha cannot manage Beta resources
 - One namespace cannot consume all cluster CPU or memory
 - Default limits are enforced for pods that omit resources
 - Cross-namespace traffic is blocked by default
@@ -172,7 +172,7 @@ By applying this pattern:
 
 This pattern includes explicit validation of the following failure questions:
 
-- Can Team A access Team B resources?
+- Can Alpha access Beta resources?
 - Can one namespace consume the entire cluster?
 - Can an unauthorized user delete another team's deployment?
 - Can one application connect to another namespace unexpectedly?
