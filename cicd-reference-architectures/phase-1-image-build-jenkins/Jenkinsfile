@@ -162,9 +162,17 @@ pipeline {
                             GITLEAKS_URL="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${GITLEAKS_ARCHIVE}"
 
                             if [ ! -x .tools/gitleaks ]; then
-                                curl -sSL "${GITLEAKS_URL}" -o ".tools/${GITLEAKS_ARCHIVE}"
+                                echo "Downloading Gitleaks ${GITLEAKS_VERSION} from ${GITLEAKS_URL}"
+                                rm -f ".tools/${GITLEAKS_ARCHIVE}"
+                                curl --fail --location --retry 3 --retry-all-errors \
+                                    --connect-timeout 15 --max-time 180 --progress-bar \
+                                    "${GITLEAKS_URL}" \
+                                    --output ".tools/${GITLEAKS_ARCHIVE}"
+                                test -s ".tools/${GITLEAKS_ARCHIVE}"
+                                ls -lh ".tools/${GITLEAKS_ARCHIVE}"
                                 tar -xzf ".tools/${GITLEAKS_ARCHIVE}" -C .tools gitleaks
                                 chmod +x .tools/gitleaks
+                                ./.tools/gitleaks version
                             fi
 
                             set +e
