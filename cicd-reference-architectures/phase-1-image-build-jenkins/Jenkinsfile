@@ -171,6 +171,12 @@ pipeline {
                                     test -f ${SECURITY_REPORT_DIR}/trivy-report.json || echo '{}' > ${SECURITY_REPORT_DIR}/trivy-report.json
                                     test -f ${SECURITY_REPORT_DIR}/trivy-report.html || echo '<html><body><h1>No Trivy report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-report.html
 
+                                    # Publish latest reports to GitHub Pages (docs/security-reports/)
+                                    mkdir -p docs/security-reports
+                                    cp ${SECURITY_REPORT_DIR}/trivy-report.html docs/security-reports/trivy-report.html
+                                    cp ${SECURITY_REPORT_DIR}/trivy-report.json docs/security-reports/trivy-report.json
+                                    printf '{"build":"%s","timestamp":"%s"}' "${BUILD_NUMBER}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/security-reports/build-meta.json
+
                                     git rev-parse --is-inside-work-tree
                                     git config user.name "Jenkins CI"
                                     git config user.email "jenkins-ci@local"
@@ -178,7 +184,8 @@ pipeline {
                                     # Use SSH key credentials for Git operations.
                                     export GIT_SSH_COMMAND="ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
 
-                                    git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html
+                                    git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html \
+                                            docs/security-reports/trivy-report.html docs/security-reports/trivy-report.json docs/security-reports/build-meta.json
 
                                     if git diff --staged --quiet; then
                                         echo "No security report changes to commit"

@@ -2,6 +2,10 @@
 
 Comprehensive, production-validated patterns for automating code builds, tests, image creation, and deployments to Kubernetes.
 
+[![Security Reports](https://img.shields.io/badge/Security%20Reports-GitHub%20Pages-blue?logo=github)](https://github-arun-repo.github.io/platform-engineering-reference-architectures/security-reports/)
+
+> **📊 Live Security Reports:** Every Jenkins pipeline run scans the container image with Trivy and publishes results to the [Security Reports Dashboard](https://github-arun-repo.github.io/platform-engineering-reference-architectures/security-reports/). CVE vulnerabilities, SBOM, and future scan types are accessible there without needing Jenkins access.
+
 ---
 
 ## What Is This?
