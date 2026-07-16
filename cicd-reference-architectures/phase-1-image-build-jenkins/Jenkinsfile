@@ -140,7 +140,7 @@ pipeline {
                 container('maven') {
                     script {
                         echo "Committing Trivy reports to repository..."
-                        withCredentials([usernamePassword(credentialsId: "${GITHUB_CREDENTIALS_ID}", usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        withCredentials([sshUserPrivateKey(credentialsId: "${GITHUB_CREDENTIALS_ID}", keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                             sh '''
                                 test -f ${SECURITY_REPORT_DIR}/trivy-report.json || echo '{}' > ${SECURITY_REPORT_DIR}/trivy-report.json
                                 test -f ${SECURITY_REPORT_DIR}/trivy-report.html || echo '<html><body><h1>No Trivy report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-report.html
@@ -148,13 +148,16 @@ pipeline {
                                 git config user.name "Jenkins CI"
                                 git config user.email "jenkins-ci@local"
 
+                                # Use SSH key credentials for Git operations.
+                                export GIT_SSH_COMMAND="ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+
                                 git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html
 
                                 if git diff --staged --quiet; then
                                     echo "No security report changes to commit"
                                 else
                                     git commit -m "chore(security): update trivy reports for build ${BUILD_NUMBER} [skip ci]"
-                                    git push https://${GIT_USER}:${GIT_TOKEN}@github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git HEAD:main
+                                    git push git@github.com:Github-Arun-Repo/platform-engineering-reference-architectures.git HEAD:main
                                 fi
                             '''
                         }
