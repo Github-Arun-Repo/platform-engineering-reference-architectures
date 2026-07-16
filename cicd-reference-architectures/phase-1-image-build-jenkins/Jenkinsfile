@@ -1,5 +1,43 @@
 pipeline {
-    agent any
+        agent {
+                kubernetes {
+                        label 'todo-app'
+                        defaultContainer 'maven'
+                        yaml """
+apiVersion: v1
+kind: Pod
+spec:
+    containers:
+        - name: maven
+            image: maven:3.9.9-eclipse-temurin-21
+            command:
+                - cat
+            tty: true
+            volumeMounts:
+                - name: workspace-volume
+                    mountPath: /home/jenkins/agent
+        - name: docker
+            image: docker:27-cli
+            command:
+                - cat
+            tty: true
+            env:
+                - name: DOCKER_HOST
+                    value: unix:///var/run/docker.sock
+            volumeMounts:
+                - name: workspace-volume
+                    mountPath: /home/jenkins/agent
+                - name: docker-sock
+                    mountPath: /var/run/docker.sock
+    volumes:
+        - name: docker-sock
+            hostPath:
+                path: /var/run/docker.sock
+        - name: workspace-volume
+            emptyDir: {}
+"""
+                }
+        }
 
     environment {
         REGISTRY = 'docker.io'  // Change to your registry: gcr.io, ecr, etc.
@@ -32,10 +70,12 @@ pipeline {
 
         stage('Build & Test') {
             steps {
-                script {
-                    echo "Building and testing TODO application..."
-                    dir('cicd-reference-architectures/sample-application') {
-                        sh 'mvn clean test'
+                container('maven') {
+                    script {
+                        echo "Building and testing TODO application..."
+                        dir('cicd-reference-architectures/sample-application') {
+                            sh 'mvn clean test'
+                        }
                     }
                 }
             }
@@ -58,10 +98,12 @@ pipeline {
 
         stage('Build Application') {
             steps {
-                script {
-                    echo "Packaging Spring Boot application..."
-                    dir('cicd-reference-architectures/sample-application') {
-                        sh 'mvn clean package -DskipTests'
+                container('maven') {
+                    script {
+                        echo "Packaging Spring Boot application..."
+                        dir('cicd-reference-architectures/sample-application') {
+                            sh 'mvn clean package -DskipTests'
+                        }
                     }
                 }
             }
@@ -69,15 +111,17 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    echo "Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
-                    dir('cicd-reference-architectures/sample-application') {
-                        sh '''
-                            docker build \
-                                -t ${IMAGE_NAME}:${IMAGE_TAG} \
-                                -t ${IMAGE_NAME}:${LATEST_TAG} \
-                                -f Dockerfile .
-                        '''
+                container('docker') {
+                    script {
+                        echo "Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
+                        dir('cicd-reference-architectures/sample-application') {
+                            sh '''
+                                docker build \
+                                    -t ${IMAGE_NAME}:${IMAGE_TAG} \
+                                    -t ${IMAGE_NAME}:${LATEST_TAG} \
+                                    -f Dockerfile .
+                            '''
+                        }
                     }
                 }
             }
@@ -85,31 +129,35 @@ pipeline {
 
         stage('Scan Docker Image') {
             steps {
-                script {
-                    echo "Scanning Docker image for vulnerabilities..."
-                    // Using Trivy for vulnerability scanning (2026 best practice)
-                    sh '''
-                        if command -v trivy &> /dev/null; then
-                            trivy image --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG}
-                        else
-                            echo "Trivy not installed. Skipping image scan."
-                        fi
-                    '''
+                container('docker') {
+                    script {
+                        echo "Scanning Docker image for vulnerabilities..."
+                        // Using Trivy for vulnerability scanning (2026 best practice)
+                        sh '''
+                            if command -v trivy &> /dev/null; then
+                                trivy image --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG}
+                            else
+                                echo "Trivy not installed. Skipping image scan."
+                            fi
+                        '''
+                    }
                 }
             }
         }
 
         stage('Push to Registry') {
             steps {
-                script {
-                    echo "Pushing Docker image to registry..."
-                    withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh '''
-                            echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-                            docker push ${IMAGE_NAME}:${IMAGE_TAG}
-                            docker push ${IMAGE_NAME}:${LATEST_TAG}
-                            docker logout
-                        '''
+                container('docker') {
+                    script {
+                        echo "Pushing Docker image to registry..."
+                        withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh '''
+                                echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+                                docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                                docker push ${IMAGE_NAME}:${LATEST_TAG}
+                                docker logout
+                            '''
+                        }
                     }
                 }
             }
@@ -148,7 +196,7 @@ pipeline {
             }
         }
         cleanup {
-            cleanWs()
+            deleteDir()
         }
     }
 }
