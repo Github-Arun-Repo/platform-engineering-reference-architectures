@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        PIPELINE_VERSION = 'workspace-path-fix-v4-2026-07-16'
+        PIPELINE_VERSION = 'security-reports-gitleaks-v1-2026-07-16'
         REGISTRY = 'docker.io'  // Change to your registry: gcr.io, ecr, etc.
         IMAGE_NAME = 'agovindasamy/arun'
         IMAGE_TAG = "${BUILD_NUMBER}"
@@ -17,6 +17,7 @@ pipeline {
         GITHUB_CREDENTIALS_ID = 'github-arun-repository'
         DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials'
         SECURITY_REPORT_DIR = 'security-reports'
+        GITLEAKS_VERSION = '8.24.2'
         SONARQUBE_SERVER = 'SonarQube'  // Configure in Jenkins
     }
 
@@ -146,11 +147,106 @@ pipeline {
             }
         }
 
+        stage('Scan Repository Secrets') {
+            steps {
+                container('maven') {
+                    script {
+                        echo "Scanning repository for secret leaks with Gitleaks..."
+                        sh '''
+                            mkdir -p ${SECURITY_REPORT_DIR} .tools
+                            rm -f ${SECURITY_REPORT_DIR}/gitleaks-report.json \
+                                  ${SECURITY_REPORT_DIR}/gitleaks-report.html \
+                                  ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt
+
+                            GITLEAKS_ARCHIVE="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+                            GITLEAKS_URL="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${GITLEAKS_ARCHIVE}"
+
+                            if [ ! -x .tools/gitleaks ]; then
+                                curl -sSL "${GITLEAKS_URL}" -o ".tools/${GITLEAKS_ARCHIVE}"
+                                tar -xzf ".tools/${GITLEAKS_ARCHIVE}" -C .tools gitleaks
+                                chmod +x .tools/gitleaks
+                            fi
+
+                            set +e
+                            ./.tools/gitleaks dir . \
+                                --config cicd-reference-architectures/phase-1-image-build-jenkins/gitleaks.toml \
+                                --gitleaks-ignore-path cicd-reference-architectures/phase-1-image-build-jenkins/.gitleaksignore \
+                                --report-format json \
+                                --report-path ${SECURITY_REPORT_DIR}/gitleaks-report.json \
+                                --redact \
+                                --exit-code 1
+                            GITLEAKS_STATUS=$?
+                            set -e
+
+                            if [ ! -s ${SECURITY_REPORT_DIR}/gitleaks-report.json ]; then
+                                echo '[]' > ${SECURITY_REPORT_DIR}/gitleaks-report.json
+                            fi
+
+                            FINDINGS_COUNT=$(grep -o '"RuleID"' ${SECURITY_REPORT_DIR}/gitleaks-report.json | wc -l | tr -d ' ')
+                            if [ -z "${FINDINGS_COUNT}" ]; then
+                                FINDINGS_COUNT=0
+                            fi
+
+                            GITLEAKS_STATUS_CLASS=""
+                            if [ "${GITLEAKS_STATUS}" -eq 0 ]; then
+                                GITLEAKS_STATUS_TEXT="No secrets detected"
+                                GITLEAKS_STATUS_CLASS="clean"
+                            elif [ "${GITLEAKS_STATUS}" -eq 1 ]; then
+                                GITLEAKS_STATUS_TEXT="Secrets detected"
+                            else
+                                GITLEAKS_STATUS_TEXT="Gitleaks scan error"
+                                GITLEAKS_STATUS_CLASS="error"
+                            fi
+
+                            {
+                                cat <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gitleaks Secret Report</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #f6f8fa; color: #24292f; margin: 0; padding: 32px; }
+    .panel { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 24px; }
+    .meta { margin-bottom: 16px; color: #57606a; }
+    .status { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; margin-bottom: 12px; background: #fff8c5; color: #9a6700; }
+    .status.clean { background: #dafbe1; color: #116329; }
+    .status.error { background: #ffebe9; color: #cf222e; }
+    pre { overflow-x: auto; background: #0d1117; color: #c9d1d9; padding: 16px; border-radius: 6px; font-size: 0.82rem; line-height: 1.45; }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>Gitleaks Secret Report</h1>
+    <p class="meta">Repository: platform-engineering-reference-architectures</p>
+    <p class="status ${GITLEAKS_STATUS_CLASS}">${GITLEAKS_STATUS_TEXT}</p>
+    <p class="meta">Findings: ${FINDINGS_COUNT} &middot; Build: ${BUILD_NUMBER}</p>
+    <pre>
+EOF
+                                sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' ${SECURITY_REPORT_DIR}/gitleaks-report.json
+                                cat <<'EOF'
+    </pre>
+  </div>
+</body>
+</html>
+EOF
+                            } > ${SECURITY_REPORT_DIR}/gitleaks-report.html
+
+                            echo "${GITLEAKS_STATUS}" > ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt
+                            echo "Gitleaks scan complete. Status=${GITLEAKS_STATUS}, findings=${FINDINGS_COUNT}"
+                            wc -c ${SECURITY_REPORT_DIR}/gitleaks-report.json ${SECURITY_REPORT_DIR}/gitleaks-report.html ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt
+                        '''
+                    }
+                }
+            }
+        }
+
         stage('Commit Security Reports') {
             steps {
                 container('maven') {
                     script {
-                        echo "Committing Trivy reports to repository..."
+                        echo "Committing security reports to repository..."
                         withCredentials([sshUserPrivateKey(credentialsId: "${GITHUB_CREDENTIALS_ID}", keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                             dir("${WORKSPACE}") {
                                 sh '''
@@ -170,11 +266,16 @@ pipeline {
                                     mkdir -p ${SECURITY_REPORT_DIR}
                                     test -f ${SECURITY_REPORT_DIR}/trivy-report.json || echo '{}' > ${SECURITY_REPORT_DIR}/trivy-report.json
                                     test -f ${SECURITY_REPORT_DIR}/trivy-report.html || echo '<html><body><h1>No Trivy report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-report.html
+                                    test -f ${SECURITY_REPORT_DIR}/gitleaks-report.json || echo '[]' > ${SECURITY_REPORT_DIR}/gitleaks-report.json
+                                    test -f ${SECURITY_REPORT_DIR}/gitleaks-report.html || echo '<html><body><h1>No Gitleaks report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/gitleaks-report.html
+                                    test -f ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt || echo '2' > ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt
 
                                     # Publish latest reports to GitHub Pages (docs/security-reports/)
                                     mkdir -p docs/security-reports
                                     cp ${SECURITY_REPORT_DIR}/trivy-report.html docs/security-reports/trivy-report.html
                                     cp ${SECURITY_REPORT_DIR}/trivy-report.json docs/security-reports/trivy-report.json
+                                    cp ${SECURITY_REPORT_DIR}/gitleaks-report.html docs/security-reports/gitleaks-report.html
+                                    cp ${SECURITY_REPORT_DIR}/gitleaks-report.json docs/security-reports/gitleaks-report.json
                                     printf '{"build":"%s","timestamp":"%s"}' "${BUILD_NUMBER}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/security-reports/build-meta.json
 
                                     git rev-parse --is-inside-work-tree
@@ -184,8 +285,10 @@ pipeline {
                                     # Use SSH key credentials for Git operations.
                                     export GIT_SSH_COMMAND="ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
 
-                                    git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html \
-                                            docs/security-reports/trivy-report.html docs/security-reports/trivy-report.json docs/security-reports/build-meta.json
+                                        git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html \
+                                            ${SECURITY_REPORT_DIR}/gitleaks-report.json ${SECURITY_REPORT_DIR}/gitleaks-report.html ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt \
+                                            docs/security-reports/trivy-report.html docs/security-reports/trivy-report.json \
+                                            docs/security-reports/gitleaks-report.html docs/security-reports/gitleaks-report.json docs/security-reports/build-meta.json
 
                                     if git diff --staged --quiet; then
                                         echo "No security report changes to commit"
@@ -196,6 +299,28 @@ pipeline {
                                 '''
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        stage('Enforce Security Gates') {
+            steps {
+                container('maven') {
+                    script {
+                        echo "Evaluating security gate results..."
+                        sh '''
+                            GITLEAKS_STATUS="$(cat ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt 2>/dev/null || echo 2)"
+                            if [ "${GITLEAKS_STATUS}" -eq 1 ]; then
+                                echo "Gitleaks detected potential secrets. Failing pipeline before registry push."
+                                exit 1
+                            fi
+                            if [ "${GITLEAKS_STATUS}" -gt 1 ]; then
+                                echo "Gitleaks scan errored. Failing pipeline before registry push."
+                                exit 1
+                            fi
+                            echo "Security gates passed. No secrets detected."
+                        '''
                     }
                 }
             }
@@ -236,12 +361,21 @@ pipeline {
             script {
                 echo "Pipeline execution completed"
                 // Archive build artifacts if needed
-                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,security-reports/trivy-report.json,security-reports/trivy-report.html', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt', allowEmptyArchive: true
 
                 publishHTML(target: [
                     reportDir: 'security-reports',
                     reportFiles: 'trivy-report.html',
                     reportName: 'Trivy CVE Report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: true
+                ])
+
+                publishHTML(target: [
+                    reportDir: 'security-reports',
+                    reportFiles: 'gitleaks-report.html',
+                    reportName: 'Gitleaks Secret Report',
                     keepAll: true,
                     alwaysLinkToLastBuild: true,
                     allowMissing: true
