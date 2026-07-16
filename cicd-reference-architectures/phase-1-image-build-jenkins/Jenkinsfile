@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        PIPELINE_VERSION = 'cleanup-fix-v3-2026-07-16'
+        PIPELINE_VERSION = 'workspace-path-fix-v4-2026-07-16'
         REGISTRY = 'docker.io'  // Change to your registry: gcr.io, ecr, etc.
         IMAGE_NAME = 'agovindasamy/arun'
         IMAGE_TAG = "${BUILD_NUMBER}"
@@ -107,29 +107,41 @@ pipeline {
                         echo "Scanning Docker image for vulnerabilities..."
                         // Security gating policy is intentionally not enforced in this pipeline.
                         // This stage always generates reports and never fails the build.
-                        sh '''
-                            mkdir -p ${SECURITY_REPORT_DIR}
-                            rm -f ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html
+                        dir("${WORKSPACE}") {
+                            sh '''
+                                mkdir -p ${SECURITY_REPORT_DIR}
+                                rm -f ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html
 
-                            docker run --rm \
-                                -v /var/run/docker.sock:/var/run/docker.sock \
-                                -v "${PWD}:/work" \
-                                aquasec/trivy:0.57.1 image \
-                                --config /work/cicd-reference-architectures/phase-1-image-build-jenkins/trivy.yaml \
-                                --format json \
-                                --output /work/${SECURITY_REPORT_DIR}/trivy-report.json \
-                                ${IMAGE_NAME}:${IMAGE_TAG} || true
+                                echo "Workspace: ${WORKSPACE}"
+                                ls -la cicd-reference-architectures/phase-1-image-build-jenkins || true
 
-                            docker run --rm \
-                                -v /var/run/docker.sock:/var/run/docker.sock \
-                                -v "${PWD}:/work" \
-                                aquasec/trivy:0.57.1 image \
-                                --config /work/cicd-reference-architectures/phase-1-image-build-jenkins/trivy.yaml \
-                                --format template \
-                                --template "@/contrib/html.tpl" \
-                                --output /work/${SECURITY_REPORT_DIR}/trivy-report.html \
-                                ${IMAGE_NAME}:${IMAGE_TAG} || true
-                        '''
+                                TRIVY_CONFIG_ARG=""
+                                if [ -f "${WORKSPACE}/cicd-reference-architectures/phase-1-image-build-jenkins/trivy.yaml" ]; then
+                                    TRIVY_CONFIG_ARG="--config /work/cicd-reference-architectures/phase-1-image-build-jenkins/trivy.yaml"
+                                else
+                                    echo "trivy.yaml not found, running Trivy with default config"
+                                fi
+
+                                docker run --rm \
+                                    -v /var/run/docker.sock:/var/run/docker.sock \
+                                    -v "${WORKSPACE}:/work" \
+                                    aquasec/trivy:0.57.1 image \
+                                    ${TRIVY_CONFIG_ARG} \
+                                    --format json \
+                                    --output /work/${SECURITY_REPORT_DIR}/trivy-report.json \
+                                    ${IMAGE_NAME}:${IMAGE_TAG} || true
+
+                                docker run --rm \
+                                    -v /var/run/docker.sock:/var/run/docker.sock \
+                                    -v "${WORKSPACE}:/work" \
+                                    aquasec/trivy:0.57.1 image \
+                                    ${TRIVY_CONFIG_ARG} \
+                                    --format template \
+                                    --template "@/contrib/html.tpl" \
+                                    --output /work/${SECURITY_REPORT_DIR}/trivy-report.html \
+                                    ${IMAGE_NAME}:${IMAGE_TAG} || true
+                            '''
+                        }
                     }
                 }
             }
@@ -141,25 +153,42 @@ pipeline {
                     script {
                         echo "Committing Trivy reports to repository..."
                         withCredentials([sshUserPrivateKey(credentialsId: "${GITHUB_CREDENTIALS_ID}", keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-                            sh '''
-                                test -f ${SECURITY_REPORT_DIR}/trivy-report.json || echo '{}' > ${SECURITY_REPORT_DIR}/trivy-report.json
-                                test -f ${SECURITY_REPORT_DIR}/trivy-report.html || echo '<html><body><h1>No Trivy report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-report.html
+                            dir("${WORKSPACE}") {
+                                sh '''
+                                    REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+                                    if [ -z "${REPO_ROOT}" ]; then
+                                        REPO_ROOT="$(find "${WORKSPACE}" -maxdepth 4 -type d -name .git 2>/dev/null | head -n 1 | sed 's|/.git$||')"
+                                    fi
+                                    if [ -z "${REPO_ROOT}" ]; then
+                                        echo "ERROR: Could not locate git repository root under ${WORKSPACE}"
+                                        echo "Workspace listing for diagnostics:"
+                                        ls -la "${WORKSPACE}" || true
+                                        exit 1
+                                    fi
+                                    echo "Using repository root: ${REPO_ROOT}"
+                                    cd "${REPO_ROOT}"
 
-                                git config user.name "Jenkins CI"
-                                git config user.email "jenkins-ci@local"
+                                    mkdir -p ${SECURITY_REPORT_DIR}
+                                    test -f ${SECURITY_REPORT_DIR}/trivy-report.json || echo '{}' > ${SECURITY_REPORT_DIR}/trivy-report.json
+                                    test -f ${SECURITY_REPORT_DIR}/trivy-report.html || echo '<html><body><h1>No Trivy report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-report.html
 
-                                # Use SSH key credentials for Git operations.
-                                export GIT_SSH_COMMAND="ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+                                    git rev-parse --is-inside-work-tree
+                                    git config user.name "Jenkins CI"
+                                    git config user.email "jenkins-ci@local"
 
-                                git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html
+                                    # Use SSH key credentials for Git operations.
+                                    export GIT_SSH_COMMAND="ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
 
-                                if git diff --staged --quiet; then
-                                    echo "No security report changes to commit"
-                                else
-                                    git commit -m "chore(security): update trivy reports for build ${BUILD_NUMBER} [skip ci]"
-                                    git push git@github.com:Github-Arun-Repo/platform-engineering-reference-architectures.git HEAD:main
-                                fi
-                            '''
+                                    git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html
+
+                                    if git diff --staged --quiet; then
+                                        echo "No security report changes to commit"
+                                    else
+                                        git commit -m "chore(security): update trivy reports for build ${BUILD_NUMBER} [skip ci]"
+                                        git push git@github.com:Github-Arun-Repo/platform-engineering-reference-architectures.git HEAD:main
+                                    fi
+                                '''
+                            }
                         }
                     }
                 }
