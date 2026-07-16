@@ -16,6 +16,7 @@ pipeline {
         GIT_REPO = 'https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git'
         GITHUB_CREDENTIALS_ID = 'github-credentials'
         DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials'
+        SECURITY_REPORT_DIR = 'security-reports'
         SONARQUBE_SERVER = 'SonarQube'  // Configure in Jenkins
     }
 
@@ -104,14 +105,59 @@ pipeline {
                 container('docker') {
                     script {
                         echo "Scanning Docker image for vulnerabilities..."
-                        // Run Trivy from a container so scanning works even if Trivy is not preinstalled.
+                        // Security gating policy is intentionally not enforced in this pipeline.
+                        // This stage always generates reports and never fails the build.
                         sh '''
+                            mkdir -p ${SECURITY_REPORT_DIR}
+                            rm -f ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html
+
                             docker run --rm \
                                 -v /var/run/docker.sock:/var/run/docker.sock \
+                                -v "${PWD}:/work" \
                                 aquasec/trivy:0.57.1 image \
-                                --severity HIGH,CRITICAL \
+                                --config /work/cicd-reference-architectures/phase-1-image-build-jenkins/trivy.yaml \
+                                --format json \
+                                --output /work/${SECURITY_REPORT_DIR}/trivy-report.json \
+                                ${IMAGE_NAME}:${IMAGE_TAG} || true
+
+                            docker run --rm \
+                                -v /var/run/docker.sock:/var/run/docker.sock \
+                                -v "${PWD}:/work" \
+                                aquasec/trivy:0.57.1 image \
+                                --config /work/cicd-reference-architectures/phase-1-image-build-jenkins/trivy.yaml \
+                                --format template \
+                                --template "@/contrib/html.tpl" \
+                                --output /work/${SECURITY_REPORT_DIR}/trivy-report.html \
                                 ${IMAGE_NAME}:${IMAGE_TAG} || true
                         '''
+                    }
+                }
+            }
+        }
+
+        stage('Commit Security Reports') {
+            steps {
+                container('maven') {
+                    script {
+                        echo "Committing Trivy reports to repository..."
+                        withCredentials([usernamePassword(credentialsId: "${GITHUB_CREDENTIALS_ID}", usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                            sh '''
+                                test -f ${SECURITY_REPORT_DIR}/trivy-report.json || echo '{}' > ${SECURITY_REPORT_DIR}/trivy-report.json
+                                test -f ${SECURITY_REPORT_DIR}/trivy-report.html || echo '<html><body><h1>No Trivy report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-report.html
+
+                                git config user.name "Jenkins CI"
+                                git config user.email "jenkins-ci@local"
+
+                                git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html
+
+                                if git diff --staged --quiet; then
+                                    echo "No security report changes to commit"
+                                else
+                                    git commit -m "chore(security): update trivy reports for build ${BUILD_NUMBER} [skip ci]"
+                                    git push https://${GIT_USER}:${GIT_TOKEN}@github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git HEAD:main
+                                fi
+                            '''
+                        }
                     }
                 }
             }
@@ -152,7 +198,16 @@ pipeline {
             script {
                 echo "Pipeline execution completed"
                 // Archive build artifacts if needed
-                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,security-reports/trivy-report.json,security-reports/trivy-report.html', allowEmptyArchive: true
+
+                publishHTML(target: [
+                    reportDir: 'security-reports',
+                    reportFiles: 'trivy-report.html',
+                    reportName: 'Trivy CVE Report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: true
+                ])
 
                 sh '''
                     echo "Current user:"

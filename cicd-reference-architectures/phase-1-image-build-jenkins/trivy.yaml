@@ -1,0 +1,13 @@
+format: json
+scanners:
+  - vuln
+severity:
+  - LOW
+  - MEDIUM
+  - HIGH
+  - CRITICAL
+ignore-unfixed: false
+timeout: 10m
+quiet: true
+skip-db-update: false
+ignorefile: /work/cicd-reference-architectures/phase-1-image-build-jenkins/.trivyignore
