@@ -107,41 +107,40 @@ pipeline {
                         echo "Scanning Docker image for vulnerabilities..."
                         // Security gating policy is intentionally not enforced in this pipeline.
                         // This stage always generates reports and never fails the build.
-                        dir("${WORKSPACE}") {
-                            sh '''
+                        sh '''
                                 mkdir -p ${SECURITY_REPORT_DIR}
                                 rm -f ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html
 
-                                echo "Workspace: ${WORKSPACE}"
-                                ls -la cicd-reference-architectures/phase-1-image-build-jenkins || true
-
-                                TRIVY_CONFIG_ARG=""
-                                if [ -f "${WORKSPACE}/cicd-reference-architectures/phase-1-image-build-jenkins/trivy.yaml" ]; then
-                                    TRIVY_CONFIG_ARG="--config /work/cicd-reference-architectures/phase-1-image-build-jenkins/trivy.yaml"
-                                else
-                                    echo "trivy.yaml not found, running Trivy with default config"
-                                fi
-
+                                echo "Running Trivy JSON scan for ${IMAGE_NAME}:${IMAGE_TAG}"
                                 docker run --rm \
                                     -v /var/run/docker.sock:/var/run/docker.sock \
-                                    -v "${WORKSPACE}:/work" \
                                     aquasec/trivy:0.57.1 image \
-                                    ${TRIVY_CONFIG_ARG} \
                                     --format json \
-                                    --output /work/${SECURITY_REPORT_DIR}/trivy-report.json \
-                                    ${IMAGE_NAME}:${IMAGE_TAG} || true
+                                    --severity LOW,MEDIUM,HIGH,CRITICAL \
+                                    --scanners vuln \
+                                    --ignore-unfixed=false \
+                                    --timeout 10m \
+                                    --quiet \
+                                    ${IMAGE_NAME}:${IMAGE_TAG} \
+                                    > ${SECURITY_REPORT_DIR}/trivy-report.json 2>/dev/null || echo '{}' > ${SECURITY_REPORT_DIR}/trivy-report.json
 
+                                echo "Running Trivy HTML scan for ${IMAGE_NAME}:${IMAGE_TAG}"
                                 docker run --rm \
                                     -v /var/run/docker.sock:/var/run/docker.sock \
-                                    -v "${WORKSPACE}:/work" \
                                     aquasec/trivy:0.57.1 image \
-                                    ${TRIVY_CONFIG_ARG} \
                                     --format template \
                                     --template "@/contrib/html.tpl" \
-                                    --output /work/${SECURITY_REPORT_DIR}/trivy-report.html \
-                                    ${IMAGE_NAME}:${IMAGE_TAG} || true
-                            '''
-                        }
+                                    --severity LOW,MEDIUM,HIGH,CRITICAL \
+                                    --scanners vuln \
+                                    --ignore-unfixed=false \
+                                    --timeout 10m \
+                                    --quiet \
+                                    ${IMAGE_NAME}:${IMAGE_TAG} \
+                                    > ${SECURITY_REPORT_DIR}/trivy-report.html 2>/dev/null || echo '<html><body><h1>No Trivy report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-report.html
+
+                                echo "Trivy scan complete. Report sizes:"
+                                wc -c ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html
+                        '''
                     }
                 }
             }
