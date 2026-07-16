@@ -8,12 +8,14 @@ pipeline {
     }
 
     environment {
+        PIPELINE_VERSION = 'cleanup-fix-v3-2026-07-16'
         REGISTRY = 'docker.io'  // Change to your registry: gcr.io, ecr, etc.
         IMAGE_NAME = 'agovindasamy/arun'
         IMAGE_TAG = "${BUILD_NUMBER}"
         LATEST_TAG = 'latest'
         GIT_REPO = 'https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git'
         GITHUB_CREDENTIALS_ID = 'github-credentials'
+        DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials'
         SONARQUBE_SERVER = 'SonarQube'  // Configure in Jenkins
     }
 
@@ -27,6 +29,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
+                    echo "Pipeline version: ${PIPELINE_VERSION}"
                     echo "Checking out source code from ${GIT_REPO}"
                 }
                 checkout([
@@ -101,13 +104,13 @@ pipeline {
                 container('docker') {
                     script {
                         echo "Scanning Docker image for vulnerabilities..."
-                        // Using Trivy for vulnerability scanning (2026 best practice)
+                        // Run Trivy from a container so scanning works even if Trivy is not preinstalled.
                         sh '''
-                            if command -v trivy &> /dev/null; then
-                                trivy image --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG}
-                            else
-                                echo "Trivy not installed. Skipping image scan."
-                            fi
+                            docker run --rm \
+                                -v /var/run/docker.sock:/var/run/docker.sock \
+                                aquasec/trivy:0.57.1 image \
+                                --severity HIGH,CRITICAL \
+                                ${IMAGE_NAME}:${IMAGE_TAG} || true
                         '''
                     }
                 }
@@ -119,7 +122,7 @@ pipeline {
                 container('docker') {
                     script {
                         echo "Pushing Docker image to registry..."
-                        withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                             sh '''
                                 echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
                                 docker push ${IMAGE_NAME}:${IMAGE_TAG}
@@ -150,6 +153,20 @@ pipeline {
                 echo "Pipeline execution completed"
                 // Archive build artifacts if needed
                 archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar', allowEmptyArchive: true
+
+                sh '''
+                    echo "Current user:"
+                    id || true
+
+                    echo "Fixing workspace permissions..."
+                    chmod -R u+rwX "${WORKSPACE}" 2>/dev/null || true
+                '''
+
+                try {
+                    deleteDir()
+                } catch (Exception e) {
+                    echo "Could not clean workspace: ${e.message}"
+                }
             }
         }
         success {
@@ -163,9 +180,6 @@ pipeline {
                 echo "Build failed!"
                 // Notify teams about failure
             }
-        }
-        cleanup {
-            deleteDir()
         }
     }
 }
