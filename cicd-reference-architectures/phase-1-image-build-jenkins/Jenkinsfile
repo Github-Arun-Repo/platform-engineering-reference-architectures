@@ -23,7 +23,7 @@ pipeline {
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '15'))
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 75, unit: 'MINUTES')
         timestamps()
     }
 
@@ -152,20 +152,30 @@ pipeline {
                 container('maven') {
                     script {
                         echo "Running OWASP Dependency-Check for application dependencies..."
-                        // Reporting mode for now: always produce artifacts; do not gate build here.
+                        // Reporting mode: always produce artifacts; do not abort full pipeline on OWASP timeout/failure.
                         sh '''
                             mkdir -p ${SECURITY_REPORT_DIR}
-                            rm -f ${SECURITY_REPORT_DIR}/dependency-check-report.html ${SECURITY_REPORT_DIR}/dependency-check-report.json
+                            test -f ${SECURITY_REPORT_DIR}/dependency-check-report.json || echo '{"dependencies":[],"vulnerabilities":[],"note":"No OWASP report generated"}' > ${SECURITY_REPORT_DIR}/dependency-check-report.json
+                            test -f ${SECURITY_REPORT_DIR}/dependency-check-report.html || cat > ${SECURITY_REPORT_DIR}/dependency-check-report.html <<EOF
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>OWASP Dependency-Check Report</title></head>
+<body><h1>OWASP Dependency-Check Report</h1><p>No report generated in this build.</p></body></html>
+EOF
+                        '''
 
-                            set +e
-                            cd cicd-reference-architectures/sample-application
-                            mvn -B org.owasp:dependency-check-maven:10.0.4:check \
-                                -Dformats=HTML,JSON \
-                                -DoutputDirectory=../../${SECURITY_REPORT_DIR} \
-                                -DfailBuildOnCVSS=11
-                            DEP_CHECK_STATUS=$?
-                            set -e
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            timeout(time: 20, unit: 'MINUTES') {
+                                sh '''
+                                    cd cicd-reference-architectures/sample-application
+                                    mvn -B org.owasp:dependency-check-maven:10.0.4:check \
+                                        -Dformats=HTML,JSON \
+                                        -DoutputDirectory=../../${SECURITY_REPORT_DIR} \
+                                        -DfailBuildOnCVSS=11
+                                '''
+                            }
+                        }
 
+                        sh '''
                             if [ ! -s ${SECURITY_REPORT_DIR}/dependency-check-report.json ]; then
                                 echo '{"dependencies":[],"vulnerabilities":[],"note":"No OWASP report generated"}' > ${SECURITY_REPORT_DIR}/dependency-check-report.json
                             fi
@@ -178,7 +188,7 @@ pipeline {
 EOF
                             fi
 
-                            echo "OWASP Dependency-Check completed with status ${DEP_CHECK_STATUS}"
+                            echo "OWASP Dependency-Check stage completed (success, failure, or timeout handled)."
                             wc -c ${SECURITY_REPORT_DIR}/dependency-check-report.json ${SECURITY_REPORT_DIR}/dependency-check-report.html
                         '''
                     }
