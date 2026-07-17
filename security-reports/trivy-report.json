@@ -1,14 +1,14 @@
 {
   "SchemaVersion": 2,
-  "CreatedAt": "2026-07-17T10:35:49.42819116Z",
-  "ArtifactName": "agovindasamy/arun:36",
+  "CreatedAt": "2026-07-17T11:25:09.184294354Z",
+  "ArtifactName": "agovindasamy/arun:37",
   "ArtifactType": "container_image",
   "Metadata": {
     "OS": {
       "Family": "alpine",
       "Name": "3.23.5"
     },
-    "ImageID": "sha256:92f2b0856864a89bc45c5bd14435de4eb437cb72a4599ba360db225ddf349d5f",
+    "ImageID": "sha256:1e3bc89a58809ce88244d10ee3e2be22a4c6fef0637c1bd1d28438fd5476aab3",
     "DiffIDs": [
       "sha256:31ad4a471c6852bfec14d757cc75a566c82a9769f12c3918cf6bf52cc0eeb3d0",
       "sha256:751fe7c90841e5c1a9f465ef72cd52a86d5b6ebaa5cd2491cac866d856e12c07",
@@ -19,18 +19,18 @@
       "sha256:ecb39851b1107e4fb46970b5aec21cb200d1a3cc913214e6afa64cfa51be53d2",
       "sha256:e509a6022a1c0851302a53e3b366a01990935c0fb27b5fbb5adbb4bae21c6035",
       "sha256:1071000f93f41e62002e5f7bb1d3757f0817f1e5d28370dcf473e0e384ed404f",
-      "sha256:76e1cb247badd5ae23a7c6f7350a577418d98fec0e9335e02e949ab1b9217338"
+      "sha256:7c0e11e93a82d2dfd82f301281eac2bf1c1f4dfc5e0a57a38c48ebcdfc9d7b4b"
     ],
     "RepoTags": [
-      "agovindasamy/arun:36",
+      "agovindasamy/arun:37",
       "agovindasamy/arun:latest"
     ],
     "RepoDigests": [
-      "agovindasamy/arun@sha256:92f2b0856864a89bc45c5bd14435de4eb437cb72a4599ba360db225ddf349d5f"
+      "agovindasamy/arun@sha256:1e3bc89a58809ce88244d10ee3e2be22a4c6fef0637c1bd1d28438fd5476aab3"
     ],
     "ImageConfig": {
       "architecture": "amd64",
-      "created": "2026-07-16T09:42:18.83323822Z",
+      "created": "2026-07-17T11:24:09.855472901Z",
       "history": [
         {
           "created": "2026-06-22T19:20:09Z",
@@ -114,30 +114,30 @@
           "comment": "buildkit.dockerfile.v0"
         },
         {
-          "created": "2026-07-16T09:42:18Z",
+          "created": "2026-07-17T11:24:09Z",
           "created_by": "COPY --chown=appuser:appgroup /workspace/target/extracted/META-INF /app/META-INF # buildkit",
           "comment": "buildkit.dockerfile.v0"
         },
         {
-          "created": "2026-07-16T09:42:18Z",
+          "created": "2026-07-17T11:24:09Z",
           "created_by": "USER appuser",
           "comment": "buildkit.dockerfile.v0",
           "empty_layer": true
         },
         {
-          "created": "2026-07-16T09:42:18Z",
+          "created": "2026-07-17T11:24:09Z",
           "created_by": "HEALTHCHECK \u0026{[\"CMD-SHELL\" \"wget -q -O- http://localhost:8080/actuator/health || exit 1\"] \"30s\" \"3s\" \"5s\" \"0s\" '\\x03'}",
           "comment": "buildkit.dockerfile.v0",
           "empty_layer": true
         },
         {
-          "created": "2026-07-16T09:42:18Z",
+          "created": "2026-07-17T11:24:09Z",
           "created_by": "EXPOSE [8080/tcp]",
           "comment": "buildkit.dockerfile.v0",
           "empty_layer": true
         },
         {
-          "created": "2026-07-16T09:42:18Z",
+          "created": "2026-07-17T11:24:09Z",
           "created_by": "ENTRYPOINT [\"java\" \"-cp\" \".:lib/*\" \"com.example.app.TodoApplication\"]",
           "comment": "buildkit.dockerfile.v0",
           "empty_layer": true
@@ -156,7 +156,7 @@
           "sha256:ecb39851b1107e4fb46970b5aec21cb200d1a3cc913214e6afa64cfa51be53d2",
           "sha256:e509a6022a1c0851302a53e3b366a01990935c0fb27b5fbb5adbb4bae21c6035",
           "sha256:1071000f93f41e62002e5f7bb1d3757f0817f1e5d28370dcf473e0e384ed404f",
-          "sha256:76e1cb247badd5ae23a7c6f7350a577418d98fec0e9335e02e949ab1b9217338"
+          "sha256:7c0e11e93a82d2dfd82f301281eac2bf1c1f4dfc5e0a57a38c48ebcdfc9d7b4b"
         ]
       },
       "config": {
@@ -191,7 +191,7 @@
   },
   "Results": [
     {
-      "Target": "agovindasamy/arun:36 (alpine 3.23.5)",
+      "Target": "agovindasamy/arun:37 (alpine 3.23.5)",
       "Class": "os-pkgs",
       "Type": "alpine",
       "Vulnerabilities": [
