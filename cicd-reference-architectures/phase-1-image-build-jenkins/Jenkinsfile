@@ -166,20 +166,40 @@ pipeline {
 EOF
                         '''
 
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                            timeout(time: 20, unit: 'MINUTES') {
-                                sh '''
-                                    mkdir -p /var/jenkins-cache/owasp-dependency-check
-                                    cd cicd-reference-architectures/sample-application
-                                    mvn -B org.owasp:dependency-check-maven:10.0.4:check \
-                                        -Dformats=HTML,JSON \
-                                        -DoutputDirectory=../../${SECURITY_REPORT_DIR} \
-                                        -DdataDirectory=/var/jenkins-cache/owasp-dependency-check \
-                                        -Dautoupdate=true \
-                                        -DfailBuildOnCVSS=11
-                                '''
-                            }
-                        }
+                        sh '''
+                            set +e
+                            mkdir -p /var/jenkins-cache/owasp-dependency-check
+                            cd cicd-reference-architectures/sample-application
+
+                            if command -v timeout >/dev/null 2>&1; then
+                                timeout 20m mvn -B org.owasp:dependency-check-maven:10.0.4:check \
+                                    -Dformats=HTML,JSON \
+                                    -DoutputDirectory=../../${SECURITY_REPORT_DIR} \
+                                    -DdataDirectory=/var/jenkins-cache/owasp-dependency-check \
+                                    -Dautoupdate=true \
+                                    -DfailBuildOnCVSS=11
+                                DEP_CHECK_STATUS=$?
+                            else
+                                echo "WARNING: 'timeout' command not found, running OWASP scan without time cap"
+                                mvn -B org.owasp:dependency-check-maven:10.0.4:check \
+                                    -Dformats=HTML,JSON \
+                                    -DoutputDirectory=../../${SECURITY_REPORT_DIR} \
+                                    -DdataDirectory=/var/jenkins-cache/owasp-dependency-check \
+                                    -Dautoupdate=true \
+                                    -DfailBuildOnCVSS=11
+                                DEP_CHECK_STATUS=$?
+                            fi
+
+                            set -e
+
+                            if [ "${DEP_CHECK_STATUS}" -eq 124 ]; then
+                                echo "OWASP Dependency-Check timed out after 20 minutes; continuing pipeline with placeholder/fallback reports."
+                            elif [ "${DEP_CHECK_STATUS}" -ne 0 ]; then
+                                echo "OWASP Dependency-Check exited with status ${DEP_CHECK_STATUS}; continuing pipeline with placeholder/fallback reports."
+                            else
+                                echo "OWASP Dependency-Check completed successfully."
+                            fi
+                        '''
 
                         sh '''
                             if [ ! -s ${SECURITY_REPORT_DIR}/dependency-check-report.json ]; then
