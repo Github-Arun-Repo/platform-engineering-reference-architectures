@@ -1,0 +1,8 @@
+{
+  "matches": [],
+  "source": {
+    "type": "sbom",
+    "target": "docs/security-reports/sbom.cyclonedx.json"
+  },
+  "note": "Placeholder Grype report. Jenkins replaces this after the next SBOM scan."
+}

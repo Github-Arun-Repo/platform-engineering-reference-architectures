@@ -1,0 +1,1 @@
+No Grype SBOM scan has been generated yet. Run Jenkins to publish the first vulnerability inventory.

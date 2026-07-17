@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        PIPELINE_VERSION = 'security-reports-syft-sbom-v2-2026-07-17'
+        PIPELINE_VERSION = 'security-reports-grype-sbom-gate-v1-2026-07-17'
         REGISTRY = 'docker.io'  // Change to your registry: gcr.io, ecr, etc.
         IMAGE_NAME = 'agovindasamy/arun'
         IMAGE_TAG = "${BUILD_NUMBER}"
@@ -19,6 +19,8 @@ pipeline {
         SECURITY_REPORT_DIR = 'security-reports'
         GITLEAKS_VERSION = '8.24.2'
         SYFT_IMAGE = 'anchore/syft:latest'
+        GRYPE_IMAGE = 'anchore/grype:latest'
+        GRYPE_FAIL_ON_SEVERITY = 'critical'
         ORAS_VERSION = '1.2.2'
         SONARQUBE_SERVER = 'SonarQube'  // Configure in Jenkins
     }
@@ -202,6 +204,145 @@ EOF
                                   ${SECURITY_REPORT_DIR}/sbom.spdx.json \
                                   ${SECURITY_REPORT_DIR}/sbom.syft.txt \
                                   ${SECURITY_REPORT_DIR}/sbom-report.html
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Scan SBOM with Grype') {
+            steps {
+                container('docker') {
+                    script {
+                        echo "Scanning CycloneDX SBOM with Grype..."
+                        sh '''
+                            mkdir -p ${SECURITY_REPORT_DIR}
+                            rm -f ${SECURITY_REPORT_DIR}/grype-report.json \
+                                  ${SECURITY_REPORT_DIR}/grype-report.txt \
+                                  ${SECURITY_REPORT_DIR}/grype-report.html \
+                                  ${SECURITY_REPORT_DIR}/grype-exit-code.txt \
+                                  ${SECURITY_REPORT_DIR}/grype-critical-count.txt \
+                                  ${SECURITY_REPORT_DIR}/grype-high-count.txt
+
+                            if [ ! -s ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ]; then
+                                echo "ERROR: ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json is missing. Cannot run Grype SBOM scan."
+                                echo '2' > ${SECURITY_REPORT_DIR}/grype-exit-code.txt
+                                echo '0' > ${SECURITY_REPORT_DIR}/grype-critical-count.txt
+                                echo '0' > ${SECURITY_REPORT_DIR}/grype-high-count.txt
+                                echo '{"matches":[],"source":{"type":"sbom"},"error":"SBOM file missing"}' > ${SECURITY_REPORT_DIR}/grype-report.json
+                                echo 'No Grype scan generated because the SBOM file was missing.' > ${SECURITY_REPORT_DIR}/grype-report.txt
+                                exit 0
+                            fi
+
+                            set +e
+                            cat ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json | docker run --rm -i \
+                                -e GRYPE_DB_CACHE_DIR=/grype-db \
+                                -e GRYPE_CHECK_FOR_APP_UPDATE=false \
+                                -v grype-db-cache:/grype-db \
+                                ${GRYPE_IMAGE} \
+                                sbom:/dev/stdin \
+                                -o json \
+                                > ${SECURITY_REPORT_DIR}/grype-report.json
+                            GRYPE_JSON_STATUS=$?
+
+                            cat ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json | docker run --rm -i \
+                                -e GRYPE_DB_CACHE_DIR=/grype-db \
+                                -e GRYPE_CHECK_FOR_APP_UPDATE=false \
+                                -v grype-db-cache:/grype-db \
+                                ${GRYPE_IMAGE} \
+                                sbom:/dev/stdin \
+                                -o table \
+                                > ${SECURITY_REPORT_DIR}/grype-report.txt
+                            GRYPE_TABLE_STATUS=$?
+                            set -e
+
+                            if [ ! -s ${SECURITY_REPORT_DIR}/grype-report.json ]; then
+                                echo '{"matches":[],"source":{"type":"sbom"},"error":"Grype JSON report was not generated"}' > ${SECURITY_REPORT_DIR}/grype-report.json
+                            fi
+
+                            if [ ! -s ${SECURITY_REPORT_DIR}/grype-report.txt ]; then
+                                echo 'No Grype table report generated.' > ${SECURITY_REPORT_DIR}/grype-report.txt
+                            fi
+
+                            if [ "${GRYPE_JSON_STATUS}" -ne 0 ] || [ "${GRYPE_TABLE_STATUS}" -ne 0 ]; then
+                                GRYPE_STATUS=2
+                                GRYPE_STATUS_TEXT="Grype scan error"
+                                GRYPE_STATUS_CLASS="error"
+                            else
+                                GRYPE_STATUS=0
+                                GRYPE_STATUS_TEXT="Grype scan completed"
+                                GRYPE_STATUS_CLASS="clean"
+                            fi
+
+                            CRITICAL_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"critical"' ${SECURITY_REPORT_DIR}/grype-report.json | wc -l | tr -d ' ')
+                            HIGH_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"high"' ${SECURITY_REPORT_DIR}/grype-report.json | wc -l | tr -d ' ')
+                            TOTAL_MATCHES=$(grep -o '"vulnerability"[[:space:]]*:' ${SECURITY_REPORT_DIR}/grype-report.json | wc -l | tr -d ' ')
+
+                            if [ "${GRYPE_FAIL_ON_SEVERITY}" = "high" ]; then
+                                BLOCKING_COUNT=$((CRITICAL_COUNT + HIGH_COUNT))
+                                BLOCKING_LABEL="High or Critical"
+                            else
+                                BLOCKING_COUNT="${CRITICAL_COUNT}"
+                                BLOCKING_LABEL="Critical"
+                            fi
+
+                            echo "${GRYPE_STATUS}" > ${SECURITY_REPORT_DIR}/grype-exit-code.txt
+                            echo "${CRITICAL_COUNT}" > ${SECURITY_REPORT_DIR}/grype-critical-count.txt
+                            echo "${HIGH_COUNT}" > ${SECURITY_REPORT_DIR}/grype-high-count.txt
+
+                            GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                            cat > ${SECURITY_REPORT_DIR}/grype-report.html <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grype SBOM Vulnerability Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #f6f8fa; color: #24292f; margin: 0; padding: 32px; }
+        .panel { max-width: 980px; margin: 0 auto; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 24px; }
+        .meta { color: #57606a; margin: 8px 0 18px; }
+        .status { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; margin-bottom: 12px; background: #fff8c5; color: #9a6700; }
+        .status.clean { background: #dafbe1; color: #116329; }
+        .status.error { background: #ffebe9; color: #cf222e; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 20px 0; }
+        .metric { border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; background: #f6f8fa; }
+        .metric strong { display: block; font-size: 1.2rem; color: #24292f; }
+        .metric span { color: #57606a; font-size: 0.82rem; }
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+        .actions a { display: inline-block; padding: 9px 14px; border-radius: 6px; background: #1f6feb; color: #fff; text-decoration: none; font-size: 0.9rem; }
+        .actions a.secondary { background: #57606a; }
+        pre { background: #0d1117; color: #c9d1d9; border-radius: 8px; padding: 16px; overflow: auto; max-height: 480px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h1>Grype SBOM Vulnerability Report</h1>
+        <p class="meta">Image: <strong>${IMAGE_NAME}:${IMAGE_TAG}</strong></p>
+        <p class="status ${GRYPE_STATUS_CLASS}">${GRYPE_STATUS_TEXT}</p>
+        <div class="grid">
+            <div class="metric"><strong>${BLOCKING_COUNT}</strong><span>${BLOCKING_LABEL} vulnerabilities - gate fails when greater than 0</span></div>
+            <div class="metric"><strong>${HIGH_COUNT}</strong><span>High vulnerabilities</span></div>
+            <div class="metric"><strong>${TOTAL_MATCHES}</strong><span>Total vulnerability matches</span></div>
+            <div class="metric"><strong>${GENERATED_AT}</strong><span>generated at UTC</span></div>
+        </div>
+        <div class="actions">
+            <a href="grype-report.json">Open Grype JSON</a>
+            <a href="grype-report.txt" class="secondary">Open Grype Table</a>
+            <a href="sbom.cyclonedx.json" class="secondary">Open Scanned SBOM</a>
+        </div>
+        <h2>Vulnerability Preview</h2>
+        <pre>$(sed -n '1,120p' ${SECURITY_REPORT_DIR}/grype-report.txt)</pre>
+    </div>
+</body>
+</html>
+EOF
+
+                            echo "Grype SBOM scan complete. Status=${GRYPE_STATUS}, critical=${CRITICAL_COUNT}, high=${HIGH_COUNT}, total=${TOTAL_MATCHES}"
+                            wc -c ${SECURITY_REPORT_DIR}/grype-report.json \
+                                  ${SECURITY_REPORT_DIR}/grype-report.txt \
+                                  ${SECURITY_REPORT_DIR}/grype-report.html \
+                                  ${SECURITY_REPORT_DIR}/grype-exit-code.txt
                         '''
                     }
                 }
@@ -392,6 +533,12 @@ EOF
                                     test -f ${SECURITY_REPORT_DIR}/sbom.spdx.json || echo '{"spdxVersion":"SPDX-2.3","dataLicense":"CC0-1.0","SPDXID":"SPDXRef-DOCUMENT","name":"No SBOM generated","documentNamespace":"https://example.invalid/no-sbom"}' > ${SECURITY_REPORT_DIR}/sbom.spdx.json
                                     test -f ${SECURITY_REPORT_DIR}/sbom.syft.txt || echo 'No Syft SBOM generated in this build.' > ${SECURITY_REPORT_DIR}/sbom.syft.txt
                                     test -f ${SECURITY_REPORT_DIR}/sbom-report.html || echo '<html><body><h1>No SBOM report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/sbom-report.html
+                                    test -f ${SECURITY_REPORT_DIR}/grype-report.json || echo '{"matches":[],"source":{"type":"sbom"},"note":"No Grype report generated"}' > ${SECURITY_REPORT_DIR}/grype-report.json
+                                    test -f ${SECURITY_REPORT_DIR}/grype-report.txt || echo 'No Grype report generated in this build.' > ${SECURITY_REPORT_DIR}/grype-report.txt
+                                    test -f ${SECURITY_REPORT_DIR}/grype-report.html || echo '<html><body><h1>No Grype report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/grype-report.html
+                                    test -f ${SECURITY_REPORT_DIR}/grype-exit-code.txt || echo '2' > ${SECURITY_REPORT_DIR}/grype-exit-code.txt
+                                    test -f ${SECURITY_REPORT_DIR}/grype-critical-count.txt || echo '0' > ${SECURITY_REPORT_DIR}/grype-critical-count.txt
+                                    test -f ${SECURITY_REPORT_DIR}/grype-high-count.txt || echo '0' > ${SECURITY_REPORT_DIR}/grype-high-count.txt
 
                                     REPORT_STAGING_DIR="$(mktemp -d)"
                                     cp -R ${SECURITY_REPORT_DIR} "${REPORT_STAGING_DIR}/security-reports"
@@ -423,14 +570,19 @@ EOF
                                     cp ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json docs/security-reports/sbom.cyclonedx.json
                                     cp ${SECURITY_REPORT_DIR}/sbom.spdx.json docs/security-reports/sbom.spdx.json
                                     cp ${SECURITY_REPORT_DIR}/sbom.syft.txt docs/security-reports/sbom.syft.txt
+                                    cp ${SECURITY_REPORT_DIR}/grype-report.html docs/security-reports/grype-report.html
+                                    cp ${SECURITY_REPORT_DIR}/grype-report.json docs/security-reports/grype-report.json
+                                    cp ${SECURITY_REPORT_DIR}/grype-report.txt docs/security-reports/grype-report.txt
                                     printf '{"build":"%s","timestamp":"%s"}' "${BUILD_NUMBER}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/security-reports/build-meta.json
 
                                     git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html \
                                             ${SECURITY_REPORT_DIR}/gitleaks-report.json ${SECURITY_REPORT_DIR}/gitleaks-report.html ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt \
                                             ${SECURITY_REPORT_DIR}/sbom-report.html ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ${SECURITY_REPORT_DIR}/sbom.spdx.json ${SECURITY_REPORT_DIR}/sbom.syft.txt \
+                                            ${SECURITY_REPORT_DIR}/grype-report.html ${SECURITY_REPORT_DIR}/grype-report.json ${SECURITY_REPORT_DIR}/grype-report.txt ${SECURITY_REPORT_DIR}/grype-exit-code.txt ${SECURITY_REPORT_DIR}/grype-critical-count.txt ${SECURITY_REPORT_DIR}/grype-high-count.txt \
                                             docs/security-reports/trivy-report.html docs/security-reports/trivy-report.json \
                                             docs/security-reports/gitleaks-report.html docs/security-reports/gitleaks-report.json \
                                             docs/security-reports/sbom-report.html docs/security-reports/sbom.cyclonedx.json docs/security-reports/sbom.spdx.json docs/security-reports/sbom.syft.txt \
+                                            docs/security-reports/grype-report.html docs/security-reports/grype-report.json docs/security-reports/grype-report.txt \
                                             docs/security-reports/build-meta.json
 
                                     if git diff --staged --quiet; then
@@ -462,7 +614,29 @@ EOF
                                 echo "Gitleaks scan errored. Failing pipeline before registry push."
                                 exit 1
                             fi
-                            echo "Security gates passed. No secrets detected."
+
+                            GRYPE_STATUS="$(cat ${SECURITY_REPORT_DIR}/grype-exit-code.txt 2>/dev/null || echo 2)"
+                            GRYPE_CRITICAL_COUNT="$(cat ${SECURITY_REPORT_DIR}/grype-critical-count.txt 2>/dev/null || echo 0)"
+                            GRYPE_HIGH_COUNT="$(cat ${SECURITY_REPORT_DIR}/grype-high-count.txt 2>/dev/null || echo 0)"
+                            if [ "${GRYPE_STATUS}" -ne 0 ]; then
+                                echo "Grype SBOM scan errored. Failing pipeline before registry push."
+                                exit 1
+                            fi
+
+                            if [ "${GRYPE_FAIL_ON_SEVERITY}" = "high" ]; then
+                                GRYPE_BLOCKING_COUNT=$((GRYPE_CRITICAL_COUNT + GRYPE_HIGH_COUNT))
+                                GRYPE_BLOCKING_LABEL="high or critical"
+                            else
+                                GRYPE_BLOCKING_COUNT="${GRYPE_CRITICAL_COUNT}"
+                                GRYPE_BLOCKING_LABEL="critical"
+                            fi
+
+                            if [ "${GRYPE_BLOCKING_COUNT}" -gt 0 ]; then
+                                echo "Grype found ${GRYPE_BLOCKING_COUNT} ${GRYPE_BLOCKING_LABEL} vulnerabilities in the SBOM. Failing pipeline before registry push."
+                                exit 1
+                            fi
+
+                            echo "Security gates passed. No secrets detected and no ${GRYPE_BLOCKING_LABEL} SBOM vulnerabilities found."
                         '''
                     }
                 }
@@ -603,7 +777,7 @@ EOF
             script {
                 echo "Pipeline execution completed"
                 // Archive build artifacts if needed
-                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt', allowEmptyArchive: true
 
                 publishHTML(target: [
                     reportDir: 'security-reports',
@@ -627,6 +801,15 @@ EOF
                     reportDir: 'security-reports',
                     reportFiles: 'sbom-report.html',
                     reportName: 'Image SBOM Report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: true
+                ])
+
+                publishHTML(target: [
+                    reportDir: 'security-reports',
+                    reportFiles: 'grype-report.html',
+                    reportName: 'Grype SBOM Vulnerability Report',
                     keepAll: true,
                     alwaysLinkToLastBuild: true,
                     allowMissing: true
