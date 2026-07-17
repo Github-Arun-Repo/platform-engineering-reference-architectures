@@ -23,7 +23,10 @@ pipeline {
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '15'))
-        timeout(time: 75, unit: 'MINUTES')
+        // Keep a generous global timeout and rely on stage-level timeouts for scan tools.
+        timeout(time: 180, unit: 'MINUTES')
+        // Avoid aborting an in-flight build when report commits trigger a new build.
+        disableConcurrentBuilds(abortPrevious: false)
         timestamps()
     }
 
