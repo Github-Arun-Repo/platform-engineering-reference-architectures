@@ -1,0 +1,1 @@
+No SBOM has been generated yet. Run Jenkins to publish the first Syft package inventory.

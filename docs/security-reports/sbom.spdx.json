@@ -1,0 +1,12 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "agovindasamy/arun placeholder SBOM",
+  "documentNamespace": "https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/sbom/placeholder",
+  "creationInfo": {
+    "created": "2026-07-17T00:00:00Z",
+    "creators": ["Tool: Syft"]
+  },
+  "packages": []
+}
