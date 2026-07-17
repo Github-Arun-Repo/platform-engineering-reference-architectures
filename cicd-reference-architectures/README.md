@@ -1,323 +1,362 @@
-# CI/CD and Continuous Deployment: Reference Architectures
+# Supply Chain Security Reference Architecture
 
-Comprehensive, production-validated patterns for automating code builds, tests, image creation, and deployments to Kubernetes.
+Reference architectures for teaching engineers how to design, implement, validate, and operate secure software delivery pipelines.
 
 [![Security Reports](https://img.shields.io/badge/Security%20Reports-View%20Dashboard-blue?logo=github)](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
 
-> **📊 Live Security Reports:** Every Jenkins pipeline run scans the container image with Trivy and publishes results to the [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html). CVE vulnerabilities, SBOM, and future scan types are accessible there without needing Jenkins access.
+> This section is not only about CI/CD tooling. It is about the **software supply chain** around container delivery: source control, build isolation, unit testing, code coverage, image creation, SBOM generation, vulnerability scanning, secret detection, artifact traceability, registry publishing, and evidence reporting.
 
----
+## Contents
 
-## What Is This?
+1. [What This Section Teaches](#what-this-section-teaches)
+2. [Documentation Model](#documentation-model)
+3. [Reference Architecture Scope](#reference-architecture-scope)
+4. [Architecture Diagram](#architecture-diagram)
+5. [Current Security and Quality Chain](#current-security-and-quality-chain)
+6. [Design Principles](#design-principles)
+7. [Folder Map](#folder-map)
+8. [Learning Paths](#learning-paths)
+9. [Implemented Patterns](#implemented-patterns)
+10. [Supply Chain Controls Included](#supply-chain-controls-included)
+11. [Evidence and Reports](#evidence-and-reports)
+12. [Reference Implementations](#reference-implementations)
+13. [Sample Application](#sample-application)
+14. [Runbooks vs Architecture Guides](#runbooks-vs-architecture-guides)
+15. [Roadmap](#roadmap)
 
-This section demonstrates battle-tested **continuous integration and continuous delivery** patterns across multiple tools and platforms. Unlike tutorials focused on individual commands, this documentation teaches the **architectural reasoning**: why each tool exists, when to use it, what trade-offs it makes, and how to operate it in production.
+## What This Section Teaches
 
-Each pattern is implemented with a **reference application** (a simple Spring Boot TODO API) and a **live demo runbook**, so you can understand concepts by hands-on experience.
+This section is designed to help engineers answer questions such as:
 
----
+- How should a secure image build pipeline be structured?
+- What should run before an image is pushed to a registry?
+- Where should unit tests, code coverage, SBOM generation, and vulnerability gates sit?
+- How do you turn a pipeline into a reusable reference architecture instead of a one-off job?
+- How do you expose audit evidence so other engineers can inspect pipeline outputs without Jenkins access?
 
-## Quick Start — Choose Your Path
+The goal is to teach **architecture and design decisions**, not only commands.
 
-**I want to understand CI/CD fundamentals first:**
-→ [Read CI/CD Principles below](#cicd-principles)
+## Documentation Model
 
-**I want to see a working image build pipeline:**
-→ [Phase 1: Image Build Pipeline](#phase-1-image-build-pipeline)
+This part of the repository intentionally separates two types of documentation.
 
-**I want the Jenkins implementation:**
-→ [Phase 1 — Jenkins](./phase-1-image-build-jenkins/)
+**Architecture README**
 
-**I want the GitHub Actions implementation:**
-→ [Phase 1 — GitHub Actions](./phase-1-image-build-github-actions/)
+- Explains the target design
+- Describes the control flow and reasoning
+- Shows diagrams, phases, and trade-offs
+- Helps engineers learn how to design similar pipelines
 
-**I want to understand the sample application:**
-→ [Sample Application](./sample-application/)
+**Runbook**
 
-**I want to understand tools and when to use each:**
-→ [Available CI Tools](#available-ci-tools)
+- Focuses on execution of a specific job or demo
+- Covers installation prerequisites, pre-flight, job triggering, operational checks, and troubleshooting
+- Should stay procedural and hands-on
 
----
+That separation is different from the Argo CD area because the main value here is the **supply chain design**, while the runbook should stay limited to **pipeline job execution and operations**.
 
-## Prerequisites
+## Reference Architecture Scope
 
-This reference architecture assumes:
+This CI/CD area currently focuses on **Phase 1: secure image build pipelines**.
 
-- **Kubernetes cluster** running and accessible (1.19+)
-- **kubectl** configured with cluster access
-- **Docker** installed locally for testing images
-- **Git** repository (GitHub, GitLab, or self-hosted)
-- Understanding of Kubernetes Deployments and Services
-- Familiarity with containerization concepts
+That means the current reference architecture covers:
 
-Recommended:
-- Kubernetes cluster on AWS EKS, Google GKE, or Azure AKS
-- Argo CD installed (for Phase 2 integration)
-- A private container registry (Docker Hub, ECR, GCR, or Harbor)
+- source checkout
+- unit testing
+- JaCoCo code coverage
+- application packaging
+- container image build
+- SBOM generation with Syft
+- SBOM vulnerability analysis with Grype
+- image vulnerability scanning with Trivy
+- filesystem scanning with Trivy FS
+- secret scanning with Gitleaks
+- registry push
+- evidence publication to a public dashboard
 
----
+Future phases will extend this into deployment promotion, GitOps integration, provenance, signing, and policy enforcement.
 
-## CI/CD Principles
+## Architecture Diagram
 
-Before exploring patterns, understand the core **continuous integration and delivery** philosophy:
-
-**Continuous Integration (CI)**
-Code changes are integrated into a shared main branch multiple times per day. Each integration is automatically tested and built.
-
-**Build Automation**
-Every commit triggers an automated build. Code is compiled, tests execute, quality checks run — all without human intervention.
-
-**Fast Feedback**
-Developers learn of broken builds within minutes, not hours. Fast feedback enables rapid fixes.
-
-**Automated Testing**
-Unit tests, integration tests, and smoke tests run automatically. Coverage gates prevent untested code.
-
-**Artifact Generation**
-Each successful build produces an artifact: a JAR file, a Docker image, or a binary. Artifacts are versioned and stored.
-
-**Continuous Delivery (CD)**
-Artifacts are continuously released to production (or pre-production) environments, ready for deployment at any time.
-
-**Container-Centric**
-Modern CI/CD centers on container images: build once, test once, deploy to any environment.
-
-**Supply Chain Security**
-Every artifact is scanned for vulnerabilities, signed, and audited. The build pipeline is part of your security posture.
-
----
-
-## Understanding CI/CD Fundamentals
-
-### The Build Pipeline
-
-A **CI pipeline** progresses through distinct stages:
-
-```
-Code Commit → Checkout → Build → Test → Quality Check → Artifact
-   (Git)      (VCS)     (Maven)  (JUnit) (SonarQube)  (Image)
-```
-
-Each stage must succeed before the next runs. **Fail fast** on the left (code issues caught first).
-
-### Artifact Versioning
-
-Every build produces a versioned artifact:
-
-| Scheme | Format | Example | Use Case |
-|--------|--------|---------|----------|
-| **Build Number** | Build #42 | `todo-app:42` | Every build during development |
-| **Git SHA** | Commit hash | `todo-app:abc1234` | Trace to exact commit |
-| **Semantic Version** | X.Y.Z | `todo-app:1.2.3` | Production releases |
-| **Latest** | Tag | `todo-app:latest` | Convenience tag |
-
-Use **build number + Git SHA** during development. Use **semantic version** for production releases.
-
-### Sync Policy: Manual vs Automated
-
-| Policy | Behavior | Trade-off |
-|--------|----------|-----------|
-| **Manual** | Image built, needs approval to deploy | Safe, slower (hours to deploy) |
-| **Automated** | Image built, automatically deployed | Fast (minutes), more risk |
-| **Gated** | Auto-deploy to dev, manual to prod | Balanced: fast feedback + safety |
-
-**Best practice:** Automated to dev/staging, manual to production.
-
-### Container Image Layers
-
-Docker images are built in **layers**. Each `RUN`, `COPY`, or `ADD` creates a layer:
-
-```dockerfile
-FROM base              # Layer 1: base OS
-RUN apt-get update    # Layer 2: updates
-COPY app.jar          # Layer 3: app binary
-RUN chmod +x app.jar  # Layer 4: permissions
+```mermaid
+flowchart LR
+   A[Developer Commit] --> B[Source Checkout]
+   B --> C[Unit Tests]
+   C --> D[JaCoCo Coverage]
+   D --> E[Package Application]
+   E --> F[Build Docker Image]
+   F --> G[Generate SBOM with Syft]
+   G --> H[Scan SBOM with Grype]
+   F --> I[Scan Image with Trivy]
+   E --> J[Scan Filesystem with Trivy FS]
+   B --> K[Scan Secrets with Gitleaks]
+   H --> L[Security Gates]
+   I --> L
+   J --> L
+   K --> L
+   L -->|pass| M[Push Image to Registry]
+   M --> N[Attach SBOM to Image]
+   N --> O[Publish Reports]
+   O --> P[Public Security Dashboard]
 ```
 
-**Build cache** reuses unchanged layers (saves 20-30 seconds per build). **Multi-stage builds** discard build tools, reducing final image size.
+## Current Security and Quality Chain
 
-### Supply Chain Security
+The current Jenkins reference implementation follows this order:
 
-The CI/CD pipeline is part of your **security posture**:
+```text
+Checkout
+→ Unit Tests
+→ JaCoCo Coverage
+→ Package Application
+→ Build Docker Image
+→ Generate SBOM
+→ Grype SBOM Scan
+→ Trivy Image Scan
+→ Trivy Filesystem Scan
+→ Gitleaks Secret Scan
+→ Security Gates
+→ Push to Registry
+→ Attach SBOM
+→ Publish Reports
+```
 
-1. **Code scanning** — detect bugs before build
-2. **Dependency scanning** — find known CVEs in libraries
-3. **Image scanning** — find vulnerabilities in OS and app layers
-4. **Image signing** — verify image wasn't tampered with
-5. **SBOM (Software Bill of Materials)** — track all components
-6. **Audit trail** — every build logged and traceable
+The sequence is intentional.
 
-**2026 best practice:** Every image scanned, SBOM generated, artifacts signed.
+- Cheap failures happen early.
+- Security evidence is produced before the image is promoted.
+- The registry receives artifacts only after required gates pass.
+- Reports are published so engineers can review the evidence outside Jenkins.
 
----
+## Design Principles
 
-## Available CI Tools
+This reference architecture is built around the following principles.
 
-Different tools, different trade-offs. Choose based on your infrastructure and team.
+**Design for traceability**
+
+- Every build should produce evidence.
+- A build number should map to image tags, reports, and source code.
+
+**Fail fast on code and policy**
+
+- Tests and required security gates should stop promotion quickly.
+- Expensive or downstream actions should not run after known failures.
+
+**Separate evidence generation from job UI access**
+
+- Engineers should be able to inspect supply chain outputs without logging into Jenkins.
+
+**Prefer layered controls**
+
+- One scanner is not enough.
+- SBOM analysis, image scanning, filesystem scanning, and secret scanning answer different questions.
+
+**Keep the pipeline teachable**
+
+- Each control should have a visible purpose.
+- Stages should map to engineering decisions, not only tool invocations.
+
+## Folder Map
+
+```text
+cicd-reference-architectures/
+├── README.md
+├── sample-application/
+├── phase-1-image-build-jenkins/
+│   ├── Jenkinsfile
+│   ├── README.md
+│   ├── installation-jenkins.md
+│   └── jenkins-demo-runbook.md
+├── phase-1-image-build-github-actions/
+└── ../docs/security-reports/
+```
+
+What each area is for:
+
+- `README.md`: main teaching guide for supply chain pipeline design
+- `sample-application/`: minimal Spring Boot app used as the workload under test
+- `phase-1-image-build-jenkins/`: Jenkins implementation and operational runbook
+- `phase-1-image-build-github-actions/`: GitHub Actions implementation of the same phase
+- `docs/security-reports/`: published evidence and dashboard output
+
+## Learning Paths
+
+Choose the entry point based on what you want to learn.
+
+**I want the architectural overview first**
+
+- Continue reading this README
+
+**I want the Jenkins implementation**
+
+- [phase-1-image-build-jenkins](./phase-1-image-build-jenkins/)
+
+**I want the Jenkins job execution runbook**
+
+- [jenkins-demo-runbook.md](./phase-1-image-build-jenkins/jenkins-demo-runbook.md)
+
+**I want the GitHub Actions implementation**
+
+- [phase-1-image-build-github-actions](./phase-1-image-build-github-actions/)
+
+**I want to inspect the sample workload**
+
+- [sample-application](./sample-application/)
+
+**I want to inspect the published evidence**
+
+- [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
+
+## Implemented Patterns
+
+### Pattern 1: Secure Image Build Pipeline
+
+This is the active pattern implemented today.
+
+It teaches how to:
+
+- test the code before artifact promotion
+- generate coverage evidence with JaCoCo
+- build a container image from a Java application
+- create an SBOM in CycloneDX and SPDX formats
+- gate the build on SBOM vulnerability findings
+- scan the final image and the application filesystem
+- detect committed secrets
+- publish reports for engineering review
+
+### Pattern 2: Public Evidence Publication
+
+The pipeline commits report outputs into `docs/security-reports/` and exposes them through a static dashboard.
+
+That teaches an important operating model:
+
+- Jenkins is the execution engine
+- Git is the evidence store
+- the dashboard is the engineer-facing review surface
+
+## Supply Chain Controls Included
+
+| Control | Tool | Purpose | Current Behavior |
+|---|---|---|---|
+| Unit tests | Maven Surefire + JUnit | Validate application behavior | Blocking |
+| Code coverage | JaCoCo | Provide test coverage evidence | Reported |
+| Image SBOM | Syft | Produce package inventory | Reported |
+| SBOM vulnerability scan | Grype | Analyze SBOM for known vulnerabilities | Gated by severity |
+| Image scan | Trivy image | Scan final container image | Reported |
+| Filesystem scan | Trivy fs | Scan source/build context and dependencies | Reported |
+| Secret scan | Gitleaks | Detect committed secrets | Blocking |
+| Registry publication | Docker push | Promote approved image | Runs after gates |
+| OCI attachment | ORAS | Attach CycloneDX SBOM to image | Best effort |
+
+## Evidence and Reports
+
+The reference implementation publishes the following evidence.
+
+- Trivy image report
+- Trivy filesystem report
+- Gitleaks secret report
+- Syft SBOM report
+- Grype SBOM vulnerability report
+- JaCoCo coverage report
+- build metadata for dashboard freshness
+
+Public report entry point:
+
+- [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
+
+This lets engineers review:
+
+- what was scanned
+- what passed or failed
+- what the package inventory looks like
+- what vulnerability evidence was produced
+- what the unit test coverage report looks like
+
+## Reference Implementations
 
 ### Jenkins
 
-**What it is:** On-premises or cloud-hosted orchestrator for arbitrary jobs. The industry standard.
+Use Jenkins when you want:
 
-| Aspect | Detail |
-|--------|--------|
-| **Infrastructure** | Self-hosted or cloud SaaS |
-| **Setup Time** | Hours to days (VMs, networking, Jenkins config) |
-| **Cost** | Free software, but hosting/maintenance costs |
-| **Customization** | Highly customizable via plugins |
-| **Declarative** | Jenkinsfile in Git (2.0+) |
-| **Scaling** | Agents across multiple machines |
-| **Use Case** | Large teams, complex workflows, on-prem requirement |
+- self-hosted execution
+- Kubernetes agents
+- strong control over runtime environment
+- enterprise plugin ecosystem
+- custom orchestration around build, scan, push, and reporting
 
-**Phase 1 Implementation:** [Jenkins Image Build Pipeline](./phase-1-image-build-jenkins/)
+Start here:
+
+- [Jenkins implementation](./phase-1-image-build-jenkins/)
+- [Jenkins runbook](./phase-1-image-build-jenkins/jenkins-demo-runbook.md)
 
 ### GitHub Actions
 
-**What it is:** Cloud-native, serverless CI/CD integrated into GitHub.
+Use GitHub Actions when you want:
 
-| Aspect | Detail |
-|--------|--------|
-| **Infrastructure** | Zero — fully managed by GitHub |
-| **Setup Time** | Minutes (YAML file, push to repo) |
-| **Cost** | Free (2000 min/month), $0.008/minute after |
-| **Customization** | Actions marketplace, community-driven |
-| **Declarative** | Workflow YAML files |
-| **Scaling** | Automatic via GitHub infrastructure |
-| **Use Case** | GitHub-hosted projects, small-medium teams, rapid setup |
+- lower setup overhead
+- native GitHub integration
+- managed runners
+- workflow execution close to source control
 
-**Phase 1 Implementation:** [GitHub Actions Image Build Pipeline](./phase-1-image-build-github-actions/)
+Start here:
 
-### GitLab CI
+- [GitHub Actions implementation](./phase-1-image-build-github-actions/)
 
-**What it is:** Built-in CI/CD within GitLab. Excellent for GitLab users.
+## Sample Application
 
-| Aspect | Detail |
-|--------|--------|
-| **Infrastructure** | SaaS or self-hosted GitLab |
-| **Setup Time** | Minutes (`.gitlab-ci.yml`) |
-| **Cost** | Free (SaaS), included in self-hosted |
-| **Customization** | Native YAML, extensive |
-| **Declarative** | `.gitlab-ci.yml` in repo |
-| **Scaling** | Runners on any machine |
-| **Use Case** | GitLab users, comprehensive DevOps platform |
+The sample workload is intentionally simple so the focus stays on pipeline design.
 
-*Future phase: GitLab CI implementation*
+- Java 21
+- Spring Boot 3.2
+- Spring Web + Spring Data JPA
+- H2 in-memory database
+- REST endpoints for a TODO API
 
-### Tekton
+It is not the product being taught.
 
-**What it is:** Kubernetes-native CI/CD. Runs jobs as Kubernetes resources.
+The product being taught is the **secure delivery architecture around it**.
 
-| Aspect | Detail |
-|--------|--------|
-| **Infrastructure** | Kubernetes cluster required |
-| **Setup Time** | Hours (CRD learning curve) |
-| **Cost** | Free, uses cluster resources |
-| **Customization** | YAML-based, cloud-native |
-| **Declarative** | Tekton Tasks, Pipelines (YAML) |
-| **Scaling** | Automatic via Kubernetes |
-| **Use Case** | Kubernetes-first teams, cloud-native workflows |
+## Runbooks vs Architecture Guides
 
-*Future phase: Tekton implementation*
+This section should be read with the following rule.
 
----
+**Read the main README when you want to understand the architecture.**
 
-## Decision Framework: Which CI Tool?
+- Why the stages exist
+- Why the controls are ordered this way
+- What evidence is generated
+- How to think about a software supply chain
 
-**Do you use GitHub for source control?**
-- Yes → **GitHub Actions** (zero setup, free)
-- No → Continue
+**Read the runbook when you want to execute or operate a specific pipeline job.**
 
-**Do you need on-premises/air-gapped capability?**
-- Yes → **Jenkins**
-- No → Continue
+- Install Jenkins
+- create credentials
+- trigger the job
+- inspect console output
+- walk through failure scenarios
+- recover from operational issues
 
-**Do you use GitLab?**
-- Yes → **GitLab CI**
-- No → Continue
+That distinction is important because architecture learning and job execution are different engineering tasks.
 
-**Do you prefer Kubernetes-native?**
-- Yes → **Tekton**
-- No → **Jenkins** (most flexible)
+## Roadmap
 
----
+Planned extensions for this reference architecture:
 
-## Phase 1: Image Build Pipeline
+1. provenance and artifact signing
+2. GitOps manifest update and deployment promotion
+3. multi-environment release workflows
+4. policy-as-code enforcement
+5. license compliance reporting
+6. admission control integration
+7. additional CI implementations beyond Jenkins and GitHub Actions
 
-**Focus:** Build, test, scan, and push container images.
+## Recommended Reading Order
 
-### What's Included
-
-Each implementation (Jenkins and GitHub Actions) includes:
-
-1. **Complete build pipeline** → Checkout → Build → Test → Quality → Image → Scan → Push
-2. **Best practices** → Multi-stage Dockerfile, non-root user, health checks, CVE scanning
-3. **Artifact versioning** → Build number, Git SHA, semantic version, `latest`
-4. **Supply chain security** → Trivy scanning, SBOM generation, vulnerability reporting
-5. **Production ready** → Timeouts, error handling, notifications, cleanup
-
-### Available Implementations
-
-- [Jenkins Implementation](./phase-1-image-build-jenkins/) — Enterprise-standard, on-premises capable
-- [GitHub Actions Implementation](./phase-1-image-build-github-actions/) — Serverless, GitHub-native
-
-### Sample Application
-
-Both implementations use the same **reference application**:
-
-- **Language:** Java 21 / Spring Boot 3.2
-- **Framework:** Spring Web + Data JPA
-- **Database:** H2 (in-memory, no external DB needed)
-- **API:** Simple CRUD for TODO items
-- **Purpose:** Demonstrate containerization and CI/CD; the app itself is intentionally simple
-
-[View Sample Application](./sample-application/)
-
----
-
-## Real-World Considerations
-
-### Artifact Management
-
-Store images in a **private registry**:
-- **Docker Hub** — public or private repositories
-- **AWS ECR** — tight AWS integration
-- **Google GCR** — tight GCP integration
-- **Harbor** — self-hosted, enterprise-grade
-- **Artifactory** — universal artifact repository
-
-**Policy:** Store images in private registry, pull only authenticated. Use image pull secrets in Kubernetes.
-
-### Build Caching
-
-Cache dependency downloads to save build time:
-- **Maven:** `.m2` directory
-- **Docker:** Layer cache
-- **GitHub Actions:** Built-in `actions/cache`
-- **Jenkins:** Workspace persistence or volume mounts
-
-**2026 practice:** Expect 30-50% faster builds with caching enabled.
-
-### Parallelization
-
-Run independent steps in parallel:
-- Unit tests, integration tests, code quality checks in parallel
-- Multi-stage Docker builds (compile in one stage, run in another)
-- Matrix jobs (test against multiple Java versions simultaneously)
-
-### Notifications
-
-Alert teams on build status:
-- **Slack** — integration in both Jenkins and GitHub Actions
-- **Email** — for build failures
-- **PagerDuty** — for critical failures
-- **VCS** — commit status checks on pull requests
-
-### Secrets Management
-
-Never hardcode secrets. Use platform-provided secret stores:
-- **GitHub Secrets** — repository secrets, organization secrets
-- **Jenkins Credentials** — encrypted credential store
-- **Vault** — external secret management
-- **AWS Secrets Manager** — for AWS-based deployments
+1. Read this README to understand the design.
+2. Review the Jenkins or GitHub Actions implementation.
+3. Run the Jenkins runbook for hands-on execution.
+4. Inspect the public dashboard and reports.
+5. Adapt the architecture to your own registry, runners, and policies.
 
 ### Audit and Compliance
 
