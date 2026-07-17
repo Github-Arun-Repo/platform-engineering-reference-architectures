@@ -1,162 +1,525 @@
 # Supply Chain Security Reference Architecture
 
-Reference architectures for teaching engineers how to design, implement, validate, and operate secure software delivery pipelines.
+This reference architecture shows how to design a secure container delivery pipeline from source code to registry publication, with security evidence generated at every important control point.
 
 [![Security Reports](https://img.shields.io/badge/Security%20Reports-View%20Dashboard-blue?logo=github)](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
 
-> This section is not only about CI/CD tooling. It is about the **software supply chain** around container delivery: source control, build isolation, unit testing, code coverage, image creation, SBOM generation, vulnerability scanning, secret detection, artifact traceability, registry publishing, and evidence reporting.
+The focus is not simply "run CI/CD." The focus is the **security supply chain** around modern software delivery:
+
+- prove the code was tested
+- prove the build produced an auditable artifact
+- prove the container image was inspected
+- prove dependencies and packages are inventoried
+- prove secrets were not committed
+- prove vulnerability gates ran before registry promotion
+- publish evidence so engineers can inspect the result without Jenkins access
 
 ## Contents
 
-1. [What This Section Teaches](#what-this-section-teaches)
-2. [Documentation Model](#documentation-model)
-3. [Reference Architecture Scope](#reference-architecture-scope)
-4. [Architecture Diagram](#architecture-diagram)
-5. [Current Security and Quality Chain](#current-security-and-quality-chain)
-6. [Design Principles](#design-principles)
-7. [Folder Map](#folder-map)
-8. [Learning Paths](#learning-paths)
-9. [Implemented Patterns](#implemented-patterns)
-10. [Supply Chain Controls Included](#supply-chain-controls-included)
-11. [Evidence and Reports](#evidence-and-reports)
-12. [Reference Implementations](#reference-implementations)
-13. [Sample Application](#sample-application)
-14. [Runbooks vs Architecture Guides](#runbooks-vs-architecture-guides)
-15. [Roadmap](#roadmap)
+1. [Architecture Intent](#architecture-intent)
+2. [End-to-End Supply Chain](#end-to-end-supply-chain)
+3. [Pipeline Control Map](#pipeline-control-map)
+4. [Evidence Model](#evidence-model)
+5. [Stage Navigator](#stage-navigator)
+6. [1. Source and Checkout](#1-source-and-checkout)
+7. [2. Unit Tests](#2-unit-tests)
+8. [3. Code Coverage](#3-code-coverage)
+9. [4. Package Application](#4-package-application)
+10. [5. Build Container Image](#5-build-container-image)
+11. [6. Generate SBOM](#6-generate-sbom)
+12. [7. Scan SBOM](#7-scan-sbom)
+13. [8. Scan Container Image](#8-scan-container-image)
+14. [9. Scan Filesystem](#9-scan-filesystem)
+15. [10. Scan Secrets](#10-scan-secrets)
+16. [11. Apply Security Gates](#11-apply-security-gates)
+17. [12. Push to Registry](#12-push-to-registry)
+18. [13. Attach SBOM](#13-attach-sbom)
+19. [14. Publish Evidence](#14-publish-evidence)
+20. [Reference Implementations](#reference-implementations)
+21. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
+22. [Roadmap](#roadmap)
 
-## What This Section Teaches
+## Architecture Intent
 
-This section is designed to help engineers answer questions such as:
+This reference is for engineers designing secure build pipelines for containerized workloads.
 
-- How should a secure image build pipeline be structured?
-- What should run before an image is pushed to a registry?
-- Where should unit tests, code coverage, SBOM generation, and vulnerability gates sit?
-- How do you turn a pipeline into a reusable reference architecture instead of a one-off job?
-- How do you expose audit evidence so other engineers can inspect pipeline outputs without Jenkins access?
+It provides a reusable pattern for answering four architectural questions:
 
-The goal is to teach **architecture and design decisions**, not only commands.
+1. **What checks must happen before an image is promoted?**
+2. **What evidence should be generated for each build?**
+3. **Which findings should block delivery, and which should be reported?**
+4. **How can teams inspect supply chain security output without depending on Jenkins UI access?**
 
-## Documentation Model
+The sample application is intentionally small. The important part is the supply chain around it.
 
-This part of the repository intentionally separates two types of documentation.
+## End-to-End Supply Chain
 
-**Architecture README**
-
-- Explains the target design
-- Describes the control flow and reasoning
-- Shows diagrams, phases, and trade-offs
-- Helps engineers learn how to design similar pipelines
-
-**Runbook**
-
-- Focuses on execution of a specific job or demo
-- Covers installation prerequisites, pre-flight, job triggering, operational checks, and troubleshooting
-- Should stay procedural and hands-on
-
-That separation is different from the Argo CD area because the main value here is the **supply chain design**, while the runbook should stay limited to **pipeline job execution and operations**.
-
-## Reference Architecture Scope
-
-This CI/CD area currently focuses on **Phase 1: secure image build pipelines**.
-
-That means the current reference architecture covers:
-
-- source checkout
-- unit testing
-- JaCoCo code coverage
-- application packaging
-- container image build
-- SBOM generation with Syft
-- SBOM vulnerability analysis with Grype
-- image vulnerability scanning with Trivy
-- filesystem scanning with Trivy FS
-- secret scanning with Gitleaks
-- registry push
-- evidence publication to a public dashboard
-
-Future phases will extend this into deployment promotion, GitOps integration, provenance, signing, and policy enforcement.
-
-## Architecture Diagram
+The architecture is designed as a chain of evidence. Each step either validates the artifact, enriches it with metadata, or decides whether it is allowed to move forward.
 
 ```mermaid
 flowchart LR
-   A[Developer Commit] --> B[Source Checkout]
-   B --> C[Unit Tests]
-   C --> D[JaCoCo Coverage]
-   D --> E[Package Application]
-   E --> F[Build Docker Image]
-   F --> G[Generate SBOM with Syft]
-   G --> H[Scan SBOM with Grype]
-   F --> I[Scan Image with Trivy]
-   E --> J[Scan Filesystem with Trivy FS]
-   B --> K[Scan Secrets with Gitleaks]
-   H --> L[Security Gates]
-   I --> L
-   J --> L
-   K --> L
-   L -->|pass| M[Push Image to Registry]
-   M --> N[Attach SBOM to Image]
-   N --> O[Publish Reports]
-   O --> P[Public Security Dashboard]
+    commit[01<br/>Developer Commit]
+    checkout[02<br/>Checkout]
+    tests[03<br/>Unit Tests]
+    coverage[04<br/>Coverage]
+    package[05<br/>Package App]
+    image[06<br/>Build Image]
+    sbom[07<br/>Generate SBOM]
+    grype[08<br/>SBOM Risk Scan]
+    trivyImage[09<br/>Image Scan]
+    trivyFs[10<br/>Filesystem Scan]
+    gitleaks[11<br/>Secret Scan]
+    gates[12<br/>Security Gates]
+    registry[13<br/>Registry Push]
+    attach[14<br/>Attach SBOM]
+    evidence[15<br/>Evidence Dashboard]
+
+    commit --> checkout --> tests --> coverage --> package --> image --> sbom --> grype --> gates --> registry --> attach --> evidence
+    image --> trivyImage --> gates
+    package --> trivyFs --> gates
+    checkout --> gitleaks --> gates
+
+    classDef source fill:#e7f0ff,stroke:#1f6feb,color:#0b1f44,stroke-width:1px;
+    classDef quality fill:#ecfdf3,stroke:#1a7f37,color:#062b16,stroke-width:1px;
+    classDef artifact fill:#fff8c5,stroke:#9a6700,color:#3b2300,stroke-width:1px;
+    classDef security fill:#ffebe9,stroke:#cf222e,color:#4d1113,stroke-width:1px;
+    classDef publish fill:#f6f8fa,stroke:#57606a,color:#24292f,stroke-width:1px;
+
+    class commit,checkout source;
+    class tests,coverage quality;
+    class package,image,sbom artifact;
+    class grype,trivyImage,trivyFs,gitleaks,gates security;
+    class registry,attach,evidence publish;
 ```
 
-## Current Security and Quality Chain
+This is the core chain: code enters, controls run one after another, evidence is produced, and only approved artifacts move forward.
 
-The current Jenkins reference implementation follows this order:
+## Pipeline Control Map
 
-```text
-Checkout
-→ Unit Tests
-→ JaCoCo Coverage
-→ Package Application
-→ Build Docker Image
-→ Generate SBOM
-→ Grype SBOM Scan
-→ Trivy Image Scan
-→ Trivy Filesystem Scan
-→ Gitleaks Secret Scan
-→ Security Gates
-→ Push to Registry
-→ Attach SBOM
-→ Publish Reports
+```mermaid
+flowchart TB
+    subgraph Quality[Quality Controls: prove the code works]
+        unit[Unit Tests]
+        cov[JaCoCo Coverage]
+    end
+
+    subgraph Inventory[Inventory Controls: prove what is inside]
+        syft[SBOM: Syft]
+        formats[CycloneDX JSON + SPDX JSON]
+    end
+
+    subgraph Vulnerability[Vulnerability Controls: prove known risk is visible]
+        grype[Grype SBOM Analysis]
+        trivy1[Trivy Image Scan]
+        trivy2[Trivy Filesystem Scan]
+    end
+
+    subgraph Secrets[Secret Controls: prevent credential exposure]
+        leaks[Gitleaks]
+    end
+
+    subgraph Promotion[Promotion Controls: decide what can move forward]
+        gate[Security Gate]
+        push[Registry Push]
+        oras[SBOM Attachment]
+    end
+
+    Quality --> Inventory --> Vulnerability --> Promotion
+    Secrets --> Promotion
+
+    classDef q fill:#ecfdf3,stroke:#1a7f37,color:#062b16;
+    classDef i fill:#fff8c5,stroke:#9a6700,color:#3b2300;
+    classDef v fill:#ffebe9,stroke:#cf222e,color:#4d1113;
+    classDef s fill:#f0e7ff,stroke:#8250df,color:#2f184f;
+    classDef p fill:#e7f0ff,stroke:#1f6feb,color:#0b1f44;
+
+    class unit,cov q;
+    class syft,formats i;
+    class grype,trivy1,trivy2 v;
+    class leaks s;
+    class gate,push,oras p;
 ```
 
-The sequence is intentional.
+Each control answers a different question. The pipeline uses several controls because no single scanner gives complete coverage.
 
-- Cheap failures happen early.
-- Security evidence is produced before the image is promoted.
-- The registry receives artifacts only after required gates pass.
-- Reports are published so engineers can review the evidence outside Jenkins.
+## Evidence Model
 
-## Design Principles
+```mermaid
+flowchart LR
+    build[Jenkins Build]
+    reports[Generated Reports]
+    git[Git Evidence Store]
+    dashboard[Public Dashboard]
+    engineers[Engineers and Reviewers]
 
-This reference architecture is built around the following principles.
+    build --> reports
+    reports --> git
+    git --> dashboard
+    dashboard --> engineers
+```
 
-**Design for traceability**
+Jenkins executes the pipeline. Git stores the published evidence. The dashboard provides the review surface.
 
-- Every build should produce evidence.
-- A build number should map to image tags, reports, and source code.
+Current dashboard:
 
-**Fail fast on code and policy**
+- [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
 
-- Tests and required security gates should stop promotion quickly.
-- Expensive or downstream actions should not run after known failures.
+## Stage Navigator
 
-**Separate evidence generation from job UI access**
+Click any stage to inspect what it does, why it exists, and where it is useful.
 
-- Engineers should be able to inspect supply chain outputs without logging into Jenkins.
+| Order | Stage | Tool | Used For | Gate |
+|---:|---|---|---|---|
+| 1 | [Source and Checkout](#1-source-and-checkout) | Git + Jenkins SCM | traceable source input | yes, if checkout fails |
+| 2 | [Unit Tests](#2-unit-tests) | Maven Surefire + JUnit | behavior validation | yes |
+| 3 | [Code Coverage](#3-code-coverage) | JaCoCo | coverage evidence | reported |
+| 4 | [Package Application](#4-package-application) | Maven | build JAR artifact | yes |
+| 5 | [Build Container Image](#5-build-container-image) | Docker | immutable runtime artifact | yes |
+| 6 | [Generate SBOM](#6-generate-sbom) | Syft | package inventory | reported |
+| 7 | [Scan SBOM](#7-scan-sbom) | Grype | dependency/package CVEs | severity gated |
+| 8 | [Scan Container Image](#8-scan-container-image) | Trivy image | image layer CVEs | reported |
+| 9 | [Scan Filesystem](#9-scan-filesystem) | Trivy fs | source/build context scan | reported |
+| 10 | [Scan Secrets](#10-scan-secrets) | Gitleaks | committed secret detection | yes |
+| 11 | [Apply Security Gates](#11-apply-security-gates) | Jenkins policy logic | promotion decision | yes |
+| 12 | [Push to Registry](#12-push-to-registry) | Docker | artifact promotion | yes |
+| 13 | [Attach SBOM](#13-attach-sbom) | ORAS | OCI artifact attachment | best effort |
+| 14 | [Publish Evidence](#14-publish-evidence) | Jenkins + Git + HTML | audit and review | reported |
 
-**Prefer layered controls**
+## 1. Source and Checkout
 
-- One scanner is not enough.
-- SBOM analysis, image scanning, filesystem scanning, and secret scanning answer different questions.
+**What happens**
 
-**Keep the pipeline teachable**
+Jenkins checks out the repository and pins the pipeline to a specific source revision.
 
-- Each control should have a visible purpose.
-- Stages should map to engineering decisions, not only tool invocations.
+**Why this matters**
 
-## Folder Map
+Every downstream artifact must be traceable to source code. Without a clean source checkpoint, SBOMs, images, scan reports, and coverage output lose their audit value.
+
+**Where this is useful**
+
+- regulated build pipelines
+- incident investigation
+- artifact provenance
+- rollback analysis
+
+**Reference implementation**
+
+- [Jenkinsfile](./phase-1-image-build-jenkins/Jenkinsfile)
+
+## 2. Unit Tests
+
+**What happens**
+
+Maven Surefire runs JUnit tests for the Spring Boot sample application.
+
+**Why this matters**
+
+Unit tests catch broken behavior before the pipeline spends time creating images, SBOMs, and registry artifacts. This is the first functional quality gate.
+
+**Where this is useful**
+
+- API validation
+- regression protection
+- pull request checks
+- release candidate validation
+
+**Evidence produced**
+
+- Surefire XML test reports
+- Jenkins JUnit test result view
+
+## 3. Code Coverage
+
+**What happens**
+
+JaCoCo generates coverage evidence from the unit test run.
+
+**Why this matters**
+
+Coverage does not prove quality by itself, but it shows which code paths are exercised by tests. It is useful evidence when reviewing release readiness and test depth.
+
+**Where this is useful**
+
+- release reviews
+- quality dashboards
+- pull request standards
+- future SonarQube quality gates
+
+**Evidence produced**
+
+- [JaCoCo Coverage Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/jacoco/index.html)
+
+## 4. Package Application
+
+**What happens**
+
+Maven packages the Spring Boot application into an executable JAR.
+
+**Why this matters**
+
+The JAR is the application artifact copied into the container image. A packaging failure should stop the pipeline before container build.
+
+**Where this is useful**
+
+- Java service builds
+- release artifact creation
+- reproducible application packaging
+
+## 5. Build Container Image
+
+**What happens**
+
+Docker builds the final runtime image and tags it with the Jenkins build number and `latest`.
+
+**Why this matters**
+
+The image is the deployable unit. It must be immutable, traceable, and tested before promotion.
+
+**Where this is useful**
+
+- Kubernetes deployments
+- GitOps release flows
+- container registry promotion
+- environment parity across dev, staging, and production
+
+## 6. Generate SBOM
+
+**What happens**
+
+Syft scans the built image and generates a Software Bill of Materials.
+
+**Formats used**
+
+- CycloneDX JSON: primary SBOM format
+- SPDX JSON: alternate exchange format
+- Syft table: readable package inventory
+
+**Why this matters**
+
+An SBOM answers: "What is inside this artifact?" It creates the package inventory needed for vulnerability analysis, incident response, and compliance review.
+
+**Where this is useful**
+
+- vulnerability management
+- vendor reviews
+- compliance evidence
+- incident response when a new CVE is announced
+
+**Evidence produced**
+
+- [SBOM Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/sbom-report.html)
+
+## 7. Scan SBOM
+
+**What happens**
+
+Grype scans the CycloneDX SBOM and checks package inventory against known vulnerabilities.
+
+**Why this matters**
+
+SBOM scanning separates package inventory from vulnerability matching. This is useful because the same SBOM can be re-evaluated when vulnerability databases change.
+
+**Where this is useful**
+
+- dependency risk analysis
+- build gates before registry push
+- re-scanning historical artifacts
+- CVE response workflows
+
+**Current gate behavior**
+
+- fails on configured severity findings
+- currently configured for Critical findings
+- operational scan errors are reported but do not block by default
+
+**Evidence produced**
+
+- [Grype SBOM Vulnerability Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/grype-report.html)
+
+## 8. Scan Container Image
+
+**What happens**
+
+Trivy scans the final image for vulnerabilities in operating system packages and application dependencies visible in the image layers.
+
+**Why this matters**
+
+Image scanning checks the actual deployable artifact, not only the source tree. This catches risks introduced by base images, package managers, and runtime layers.
+
+**Where this is useful**
+
+- base image reviews
+- container hardening
+- registry admission policies
+- runtime artifact validation
+
+**Evidence produced**
+
+- [Trivy Image Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-report.html)
+
+## 9. Scan Filesystem
+
+**What happens**
+
+Trivy FS scans the application filesystem and build context.
+
+**Why this matters**
+
+This is the current lightweight replacement for OWASP Dependency-Check. It avoids the long NVD update behavior while still providing useful filesystem, dependency, secret, and misconfiguration visibility.
+
+**Where this is useful**
+
+- quick dependency checks
+- source and build-context inspection
+- misconfiguration review
+- early feedback before registry promotion
+
+**Evidence produced**
+
+- [Trivy Filesystem Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-fs-report.html)
+
+## 10. Scan Secrets
+
+**What happens**
+
+Gitleaks scans the repository for hardcoded credentials, keys, and tokens.
+
+**Why this matters**
+
+Secrets in source control are high-risk findings. If a secret is committed, the correct response is to fail the pipeline, rotate the credential, and remove the exposure.
+
+**Where this is useful**
+
+- repository protection
+- pre-release validation
+- credential hygiene
+- audit evidence for secret scanning
+
+**Evidence produced**
+
+- [Gitleaks Secret Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/gitleaks-report.html)
+
+## 11. Apply Security Gates
+
+**What happens**
+
+Jenkins evaluates scan results before pushing the image.
+
+**Why this matters**
+
+Security reports are useful, but gates decide whether an artifact is allowed to move forward.
+
+**Current gate decisions**
+
+- Gitleaks findings block the pipeline
+- Grype findings at the configured threshold block the pipeline
+- Grype operational errors warn by default
+- Trivy image and filesystem scans publish evidence without blocking by default
+
+**Where this is useful**
+
+- progressive policy adoption
+- release readiness decisions
+- balancing security rigor with pipeline reliability
+
+## 12. Push to Registry
+
+**What happens**
+
+The image is pushed to Docker Hub after required gates pass.
+
+**Why this matters**
+
+The registry should receive only artifacts that have passed the required quality and security checks.
+
+**Where this is useful**
+
+- Kubernetes deployments
+- GitOps image promotion
+- release candidate storage
+- rollback to known-good images
+
+## 13. Attach SBOM
+
+**What happens**
+
+ORAS attempts to attach the CycloneDX SBOM to the pushed image as an OCI artifact.
+
+**Why this matters**
+
+Attaching evidence to the artifact keeps inventory close to the image it describes. This is useful for registries and platforms that understand OCI artifact relationships.
+
+**Current behavior**
+
+This step is best effort. If ORAS or the registry attachment fails, the SBOM remains available as Jenkins artifacts and public dashboard evidence.
+
+## 14. Publish Evidence
+
+**What happens**
+
+The pipeline publishes reports into `docs/security-reports/` and exposes them through a static dashboard.
+
+**Why this matters**
+
+Engineers should not need Jenkins permissions to inspect the evidence. Git-backed reports make the result reviewable, shareable, and versioned.
+
+**Where this is useful**
+
+- architecture reviews
+- release reviews
+- audit preparation
+- team enablement
+- security exception discussions
+
+**Evidence entry point**
+
+- [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
+
+## Reference Implementations
+
+### Jenkins
+
+Use this reference when you need:
+
+- self-hosted execution
+- Kubernetes-based build agents
+- Jenkins credentials integration
+- detailed stage-level operational visibility
+- custom report publication back into Git
+
+Files:
+
+- [Jenkins reference](./phase-1-image-build-jenkins/)
+- [Jenkinsfile](./phase-1-image-build-jenkins/Jenkinsfile)
+- [Jenkins runbook](./phase-1-image-build-jenkins/jenkins-demo-runbook.md)
+
+### GitHub Actions
+
+Use this reference when you need:
+
+- GitHub-native workflow execution
+- managed runners
+- simple source-control integrated CI
+- lower platform setup overhead
+
+Files:
+
+- [GitHub Actions reference](./phase-1-image-build-github-actions/)
+
+## Runbooks vs Reference Guides
+
+Use this README for architecture reference.
+
+Use the runbook for job execution.
+
+| Document | Purpose |
+|---|---|
+| Main README | Architecture, control placement, diagrams, evidence model |
+| Jenkins README | Jenkins-specific implementation details |
+| Jenkins runbook | Installation checks, job execution, console inspection, troubleshooting |
+| Sample app README | Application-specific context |
+
+## Repository Map
 
 ```text
 cicd-reference-architectures/
@@ -171,279 +534,24 @@ cicd-reference-architectures/
 └── ../docs/security-reports/
 ```
 
-What each area is for:
-
-- `README.md`: main teaching guide for supply chain pipeline design
-- `sample-application/`: minimal Spring Boot app used as the workload under test
-- `phase-1-image-build-jenkins/`: Jenkins implementation and operational runbook
-- `phase-1-image-build-github-actions/`: GitHub Actions implementation of the same phase
-- `docs/security-reports/`: published evidence and dashboard output
-
-## Learning Paths
-
-Choose the entry point based on what you want to learn.
-
-**I want the architectural overview first**
-
-- Continue reading this README
-
-**I want the Jenkins implementation**
-
-- [phase-1-image-build-jenkins](./phase-1-image-build-jenkins/)
-
-**I want the Jenkins job execution runbook**
-
-- [jenkins-demo-runbook.md](./phase-1-image-build-jenkins/jenkins-demo-runbook.md)
-
-**I want the GitHub Actions implementation**
-
-- [phase-1-image-build-github-actions](./phase-1-image-build-github-actions/)
-
-**I want to inspect the sample workload**
-
-- [sample-application](./sample-application/)
-
-**I want to inspect the published evidence**
-
-- [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
-
-## Implemented Patterns
-
-### Pattern 1: Secure Image Build Pipeline
-
-This is the active pattern implemented today.
-
-It teaches how to:
-
-- test the code before artifact promotion
-- generate coverage evidence with JaCoCo
-- build a container image from a Java application
-- create an SBOM in CycloneDX and SPDX formats
-- gate the build on SBOM vulnerability findings
-- scan the final image and the application filesystem
-- detect committed secrets
-- publish reports for engineering review
-
-### Pattern 2: Public Evidence Publication
-
-The pipeline commits report outputs into `docs/security-reports/` and exposes them through a static dashboard.
-
-That teaches an important operating model:
-
-- Jenkins is the execution engine
-- Git is the evidence store
-- the dashboard is the engineer-facing review surface
-
-## Supply Chain Controls Included
-
-| Control | Tool | Purpose | Current Behavior |
-|---|---|---|---|
-| Unit tests | Maven Surefire + JUnit | Validate application behavior | Blocking |
-| Code coverage | JaCoCo | Provide test coverage evidence | Reported |
-| Image SBOM | Syft | Produce package inventory | Reported |
-| SBOM vulnerability scan | Grype | Analyze SBOM for known vulnerabilities | Gated by severity |
-| Image scan | Trivy image | Scan final container image | Reported |
-| Filesystem scan | Trivy fs | Scan source/build context and dependencies | Reported |
-| Secret scan | Gitleaks | Detect committed secrets | Blocking |
-| Registry publication | Docker push | Promote approved image | Runs after gates |
-| OCI attachment | ORAS | Attach CycloneDX SBOM to image | Best effort |
-
-## Evidence and Reports
-
-The reference implementation publishes the following evidence.
-
-- Trivy image report
-- Trivy filesystem report
-- Gitleaks secret report
-- Syft SBOM report
-- Grype SBOM vulnerability report
-- JaCoCo coverage report
-- build metadata for dashboard freshness
-
-Public report entry point:
-
-- [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
-
-This lets engineers review:
-
-- what was scanned
-- what passed or failed
-- what the package inventory looks like
-- what vulnerability evidence was produced
-- what the unit test coverage report looks like
-
-## Reference Implementations
-
-### Jenkins
-
-Use Jenkins when you want:
-
-- self-hosted execution
-- Kubernetes agents
-- strong control over runtime environment
-- enterprise plugin ecosystem
-- custom orchestration around build, scan, push, and reporting
-
-Start here:
-
-- [Jenkins implementation](./phase-1-image-build-jenkins/)
-- [Jenkins runbook](./phase-1-image-build-jenkins/jenkins-demo-runbook.md)
-
-### GitHub Actions
-
-Use GitHub Actions when you want:
-
-- lower setup overhead
-- native GitHub integration
-- managed runners
-- workflow execution close to source control
-
-Start here:
-
-- [GitHub Actions implementation](./phase-1-image-build-github-actions/)
-
-## Sample Application
-
-The sample workload is intentionally simple so the focus stays on pipeline design.
-
-- Java 21
-- Spring Boot 3.2
-- Spring Web + Spring Data JPA
-- H2 in-memory database
-- REST endpoints for a TODO API
-
-It is not the product being taught.
-
-The product being taught is the **secure delivery architecture around it**.
-
-## Runbooks vs Architecture Guides
-
-This section should be read with the following rule.
-
-**Read the main README when you want to understand the architecture.**
-
-- Why the stages exist
-- Why the controls are ordered this way
-- What evidence is generated
-- How to think about a software supply chain
-
-**Read the runbook when you want to execute or operate a specific pipeline job.**
-
-- Install Jenkins
-- create credentials
-- trigger the job
-- inspect console output
-- walk through failure scenarios
-- recover from operational issues
-
-That distinction is important because architecture learning and job execution are different engineering tasks.
-
 ## Roadmap
 
-Planned extensions for this reference architecture:
+Planned additions:
 
-1. provenance and artifact signing
-2. GitOps manifest update and deployment promotion
-3. multi-environment release workflows
-4. policy-as-code enforcement
-5. license compliance reporting
-6. admission control integration
-7. additional CI implementations beyond Jenkins and GitHub Actions
+1. artifact signing
+2. provenance attestations
+3. GitOps manifest update
+4. environment promotion strategy
+5. policy-as-code gates
+6. license compliance reporting
+7. admission controller integration
+8. registry-native evidence discovery
 
-## Recommended Reading Order
+## Quick Links
 
-1. Read this README to understand the design.
-2. Review the Jenkins or GitHub Actions implementation.
-3. Run the Jenkins runbook for hands-on execution.
-4. Inspect the public dashboard and reports.
-5. Adapt the architecture to your own registry, runners, and policies.
-
-### Audit and Compliance
-
-Log and audit all builds:
-- Every build is logged and traceable
-- Link artifacts to commits (image tag includes commit SHA)
-- Track who triggered builds
-- Store artifacts with retention policy
-
----
-
-## Learning Path
-
-1. **Understand the principles** — Read sections above
-2. **Choose a tool** — Jenkins or GitHub Actions (or both)
-3. **Review the implementation** — Read phase-1 README
-4. **Explore the code** — Examine Jenkinsfile or workflow YAML
-5. **Inspect the Dockerfile** — Understand multi-stage build
-6. **Run locally** — Build the sample app locally with Docker
-7. **Configure your tool** — Set up Jenkins or GitHub Actions in your environment
-8. **Execute the pipeline** — Trigger a build and watch stages execute
-9. **Inspect the image** — Run `docker inspect` on the built image
-10. **Understand the output** — Review build logs, scan reports, artifact registry
-
----
-
-## Production Readiness Checklist
-
-Before deploying pipelines to your team:
-
-- [ ] Container registry is private and access-controlled
-- [ ] Image scanning (Trivy or similar) is mandatory, not optional
-- [ ] Build logs are retained (audit trail)
-- [ ] Failed builds alert the team (Slack, email)
-- [ ] Artifacts are versioned with commit SHA for traceability
-- [ ] Secrets are stored in vault, not in code or logs
-- [ ] Registry credentials are rotated regularly
-- [ ] Image pull secrets are created in Kubernetes
-- [ ] Docker daemon limits are set (memory, CPU)
-- [ ] Build timeouts prevent runaway jobs
-- [ ] SBOM is generated for every image
-- [ ] Backup strategy exists for artifact registry
-
----
-
-## Key Takeaways
-
-1. **CI/CD automates the path from code to running container** — commit → build → test → scan → push → deploy
-
-2. **Container images are the unit of deployment** — not source code, not configuration
-
-3. **Fail fast** — expensive operations (pushing to registry) come last; cheap operations (running tests) come first
-
-4. **Supply chain security is non-negotiable** — scan for CVEs, generate SBOM, verify artifacts
-
-5. **Different tools for different contexts** — GitHub Actions for GitHub users, Jenkins for complex workflows, Tekton for Kubernetes-first
-
-6. **Build once, deploy many times** — the same image artifact runs in dev, staging, and production
-
-7. **Traceability matters** — every artifact linked to a commit, every deployment logged
-
----
-
-## Related Documentation
-
-- [ArgoCD and GitOps Reference Architecture](../argocd-reference-architectures/) — Deployment patterns
-- [Terraform Infrastructure](../terraform/) — Infrastructure as code
+- [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
+- [Jenkins Reference](./phase-1-image-build-jenkins/)
+- [Jenkins Runbook](./phase-1-image-build-jenkins/jenkins-demo-runbook.md)
+- [GitHub Actions Reference](./phase-1-image-build-github-actions/)
+- [Sample Application](./sample-application/)
 - [Main Repository README](../README.md)
-
----
-
-## Phases Overview
-
-| Phase | Focus | Status |
-|-------|-------|--------|
-| **Phase 1** | Image Build & Push | ✅ Complete (Jenkins + GitHub Actions) |
-| **Phase 2** | ArgoCD Integration | 🔄 Planned |
-| **Phase 3** | Multi-Environment | 🔄 Planned |
-| **Phase 4** | Blue-Green Deployments | 🔄 Planned |
-| **Phase 5** | Canary & Traffic Management | 🔄 Planned |
-
-More phases to be added as the reference architecture grows.
-
----
-
-## Contributing & Questions
-
-These patterns are designed to be **reference implementations**, not copy-paste templates. Adapt them to your organization's needs, constraints, and preferences.
-
-Questions? Explore the phase-specific READMEs for detailed guidance.
