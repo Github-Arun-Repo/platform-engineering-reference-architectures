@@ -20,24 +20,26 @@ The focus is not simply "run CI/CD." The focus is the **security supply chain** 
 2. [End-to-End Supply Chain](#end-to-end-supply-chain)
 3. [Pipeline Control Map](#pipeline-control-map)
 4. [Evidence Model](#evidence-model)
-5. [Stage Navigator](#stage-navigator)
-6. [1. Source and Checkout](#1-source-and-checkout)
-7. [2. Unit Tests](#2-unit-tests)
-8. [3. Code Coverage](#3-code-coverage)
-9. [4. Package Application](#4-package-application)
-10. [5. Build Container Image](#5-build-container-image)
-11. [6. Generate SBOM](#6-generate-sbom)
-12. [7. Scan SBOM](#7-scan-sbom)
-13. [8. Scan Container Image](#8-scan-container-image)
-14. [9. Scan Filesystem](#9-scan-filesystem)
-15. [10. Scan Secrets](#10-scan-secrets)
-16. [11. Apply Security Gates](#11-apply-security-gates)
-17. [12. Push to Registry](#12-push-to-registry)
-18. [13. Attach SBOM](#13-attach-sbom)
-19. [14. Publish Evidence](#14-publish-evidence)
-20. [Reference Implementations](#reference-implementations)
-21. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
-22. [Roadmap](#roadmap)
+5. [Tool Reference Library](#tool-reference-library)
+6. [Stage Navigator](#stage-navigator)
+7. [1. Source and Checkout](#1-source-and-checkout)
+8. [2. Unit Tests](#2-unit-tests)
+9. [3. Code Coverage](#3-code-coverage)
+10. [4. SAST and Code Quality](#4-sast-and-code-quality)
+11. [5. Package Application](#5-package-application)
+12. [6. Build Container Image](#6-build-container-image)
+13. [7. Generate SBOM](#7-generate-sbom)
+14. [8. Scan SBOM](#8-scan-sbom)
+15. [9. Scan Container Image](#9-scan-container-image)
+16. [10. Scan Filesystem](#10-scan-filesystem)
+17. [11. Scan Secrets](#11-scan-secrets)
+18. [12. Apply Security Gates](#12-apply-security-gates)
+19. [13. Push to Registry](#13-push-to-registry)
+20. [14. Attach SBOM](#14-attach-sbom)
+21. [15. Publish Evidence](#15-publish-evidence)
+22. [Reference Implementations](#reference-implementations)
+23. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
+24. [Roadmap](#roadmap)
 
 ## Architecture Intent
 
@@ -164,6 +166,15 @@ Current dashboard:
 
 - [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
 
+## Tool Reference Library
+
+The process diagram shows the supply chain. The tool reference explains the tool choices behind each control.
+
+| Tool area | Chosen tool | Reference page | Why it is linked here |
+|---|---|---|---|
+| SAST and code quality | SonarQube | [SonarQube SAST](./tools/sonarqube-sast.md) | Explains why SonarQube is selected, how to install it on Kubernetes, demo vs licensed use, pricing signals, and SAST alternatives |
+| Supply chain tools catalog | Multiple tools | [Tools Reference](./tools/README.md) | Central place for tool categories, chosen tools, alternatives, and comparison approach |
+
 ## Stage Navigator
 
 Click any stage to inspect what it does, why it exists, and where it is useful.
@@ -173,17 +184,18 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 1 | [Source and Checkout](#1-source-and-checkout) | Git + Jenkins SCM | traceable source input | yes, if checkout fails |
 | 2 | [Unit Tests](#2-unit-tests) | Maven Surefire + JUnit | behavior validation | yes |
 | 3 | [Code Coverage](#3-code-coverage) | JaCoCo | coverage evidence | reported |
-| 4 | [Package Application](#4-package-application) | Maven | build JAR artifact | yes |
-| 5 | [Build Container Image](#5-build-container-image) | Docker | immutable runtime artifact | yes |
-| 6 | [Generate SBOM](#6-generate-sbom) | Syft | package inventory | reported |
-| 7 | [Scan SBOM](#7-scan-sbom) | Grype | dependency/package CVEs | severity gated |
-| 8 | [Scan Container Image](#8-scan-container-image) | Trivy image | image layer CVEs | reported |
-| 9 | [Scan Filesystem](#9-scan-filesystem) | Trivy fs | source/build context scan | reported |
-| 10 | [Scan Secrets](#10-scan-secrets) | Gitleaks | committed secret detection | yes |
-| 11 | [Apply Security Gates](#11-apply-security-gates) | Jenkins policy logic | promotion decision | yes |
-| 12 | [Push to Registry](#12-push-to-registry) | Docker | artifact promotion | yes |
-| 13 | [Attach SBOM](#13-attach-sbom) | ORAS | OCI artifact attachment | best effort |
-| 14 | [Publish Evidence](#14-publish-evidence) | Jenkins + Git + HTML | audit and review | reported |
+| 4 | [SAST and Code Quality](#4-sast-and-code-quality) | SonarQube | source-level security and maintainability | planned gate |
+| 5 | [Package Application](#5-package-application) | Maven | build JAR artifact | yes |
+| 6 | [Build Container Image](#6-build-container-image) | Docker | immutable runtime artifact | yes |
+| 7 | [Generate SBOM](#7-generate-sbom) | Syft | package inventory | reported |
+| 8 | [Scan SBOM](#8-scan-sbom) | Grype | dependency/package CVEs | severity gated |
+| 9 | [Scan Container Image](#9-scan-container-image) | Trivy image | image layer CVEs | reported |
+| 10 | [Scan Filesystem](#10-scan-filesystem) | Trivy fs | source/build context scan | reported |
+| 11 | [Scan Secrets](#11-scan-secrets) | Gitleaks | committed secret detection | yes |
+| 12 | [Apply Security Gates](#12-apply-security-gates) | Jenkins policy logic | promotion decision | yes |
+| 13 | [Push to Registry](#13-push-to-registry) | Docker | artifact promotion | yes |
+| 14 | [Attach SBOM](#14-attach-sbom) | ORAS | OCI artifact attachment | best effort |
+| 15 | [Publish Evidence](#15-publish-evidence) | Jenkins + Git + HTML | audit and review | reported |
 
 ## 1. Source and Checkout
 
@@ -249,7 +261,29 @@ Coverage does not prove quality by itself, but it shows which code paths are exe
 
 - [JaCoCo Coverage Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/jacoco/index.html)
 
-## 4. Package Application
+## 4. SAST and Code Quality
+
+**What happens**
+
+SonarQube analyzes source code, imports JaCoCo coverage, evaluates code quality and security rules, and can publish a quality gate decision back to Jenkins.
+
+**Why this matters**
+
+SAST belongs before package and image promotion because source-level vulnerabilities and maintainability issues should be reviewed before the pipeline creates deployable artifacts.
+
+**Where this is useful**
+
+- Java service quality gates
+- SAST evidence before image promotion
+- code coverage governance
+- security hotspot review
+- future pull request checks
+
+**Tool reference**
+
+- [SonarQube SAST](./tools/sonarqube-sast.md)
+
+## 5. Package Application
 
 **What happens**
 
@@ -265,7 +299,7 @@ The JAR is the application artifact copied into the container image. A packaging
 - release artifact creation
 - reproducible application packaging
 
-## 5. Build Container Image
+## 6. Build Container Image
 
 **What happens**
 
@@ -282,7 +316,7 @@ The image is the deployable unit. It must be immutable, traceable, and tested be
 - container registry promotion
 - environment parity across dev, staging, and production
 
-## 6. Generate SBOM
+## 7. Generate SBOM
 
 **What happens**
 
@@ -309,7 +343,7 @@ An SBOM answers: "What is inside this artifact?" It creates the package inventor
 
 - [SBOM Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/sbom-report.html)
 
-## 7. Scan SBOM
+## 8. Scan SBOM
 
 **What happens**
 
@@ -336,7 +370,7 @@ SBOM scanning separates package inventory from vulnerability matching. This is u
 
 - [Grype SBOM Vulnerability Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/grype-report.html)
 
-## 8. Scan Container Image
+## 9. Scan Container Image
 
 **What happens**
 
@@ -357,7 +391,7 @@ Image scanning checks the actual deployable artifact, not only the source tree. 
 
 - [Trivy Image Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-report.html)
 
-## 9. Scan Filesystem
+## 10. Scan Filesystem
 
 **What happens**
 
@@ -378,7 +412,7 @@ This is the current lightweight replacement for OWASP Dependency-Check. It avoid
 
 - [Trivy Filesystem Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-fs-report.html)
 
-## 10. Scan Secrets
+## 11. Scan Secrets
 
 **What happens**
 
@@ -399,7 +433,7 @@ Secrets in source control are high-risk findings. If a secret is committed, the 
 
 - [Gitleaks Secret Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/gitleaks-report.html)
 
-## 11. Apply Security Gates
+## 12. Apply Security Gates
 
 **What happens**
 
@@ -422,7 +456,7 @@ Security reports are useful, but gates decide whether an artifact is allowed to 
 - release readiness decisions
 - balancing security rigor with pipeline reliability
 
-## 12. Push to Registry
+## 13. Push to Registry
 
 **What happens**
 
@@ -439,7 +473,7 @@ The registry should receive only artifacts that have passed the required quality
 - release candidate storage
 - rollback to known-good images
 
-## 13. Attach SBOM
+## 14. Attach SBOM
 
 **What happens**
 
@@ -453,7 +487,7 @@ Attaching evidence to the artifact keeps inventory close to the image it describ
 
 This step is best effort. If ORAS or the registry attachment fails, the SBOM remains available as Jenkins artifacts and public dashboard evidence.
 
-## 14. Publish Evidence
+## 15. Publish Evidence
 
 **What happens**
 
@@ -491,6 +525,7 @@ Files:
 
 - [Jenkins reference](./phase-1-image-build-jenkins/)
 - [Jenkinsfile](./phase-1-image-build-jenkins/Jenkinsfile)
+- [Jenkins and SonarQube installation](./phase-1-image-build-jenkins/installation-jenkins.md)
 - [Jenkins runbook](./phase-1-image-build-jenkins/jenkins-demo-runbook.md)
 
 ### GitHub Actions
@@ -550,6 +585,8 @@ Planned additions:
 ## Quick Links
 
 - [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
+- [Tools Reference](./tools/README.md)
+- [SonarQube SAST Reference](./tools/sonarqube-sast.md)
 - [Jenkins Reference](./phase-1-image-build-jenkins/)
 - [Jenkins Runbook](./phase-1-image-build-jenkins/jenkins-demo-runbook.md)
 - [GitHub Actions Reference](./phase-1-image-build-github-actions/)

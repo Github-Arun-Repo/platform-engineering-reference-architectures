@@ -106,6 +106,70 @@ For each plugin below, paste the **Plugin ID** directly into the search box — 
 
 Click **Install** and let Jenkins restart.
 
+### 6A. Install SonarQube on Kubernetes for SAST Demo
+
+This repository keeps SonarQube as a SAST placeholder until the scanner token and server URL are configured. For demo purposes, use **SonarQube Community Build** because it is free, self-hosted, and enough to show the SAST control pattern in the supply chain pipeline.
+
+Use a licensed SonarQube plan when you need enterprise governance: larger private codebase analysis, pull request and branch governance, SSO/SCIM, audit evidence, security reports, advanced security features, support, or SLA-backed operation.
+
+Current public pricing signals from SonarSource:
+
+| Option | Cost signal | When to use |
+|---|---:|---|
+| Community Build | Free | Demo, local lab, architecture reference, basic self-hosted SAST |
+| Team | Starts at `$34/month` for up to `100k` private lines of code | Small teams that need paid SonarQube capabilities |
+| Enterprise | Custom annual pricing | Organization-wide governance, scale, security reporting, SSO/SCIM, advanced controls, support |
+
+Install the demo version in Kubernetes:
+
+```bash
+kubectl create namespace sonarqube
+
+helm repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
+helm repo update
+
+helm upgrade --install sonarqube sonarqube/sonarqube \
+  --namespace sonarqube \
+  --set community.enabled=true \
+  --set service.type=NodePort \
+  --set service.nodePort=30090 \
+  --set persistence.enabled=true \
+  --set persistence.size=10Gi
+```
+
+Wait for SonarQube:
+
+```bash
+kubectl get pods -n sonarqube -w
+```
+
+Open the UI:
+
+```text
+http://<NODE-IP>:30090
+```
+
+Fresh demo login is usually `admin` / `admin`. Change the password on first login.
+
+Create a Jenkins token in SonarQube under **My Account -> Security**, then add it to Jenkins as a **Secret text** credential:
+
+| Field | Value |
+|---|---|
+| Kind | Secret text |
+| Secret | SonarQube token value |
+| ID | `sonarqube-token` |
+| Description | SonarQube analysis token |
+
+Configure Jenkins under **Manage Jenkins -> System -> SonarQube servers**:
+
+| Field | Value |
+|---|---|
+| Name | `SonarQube` |
+| Server URL | `http://sonarqube.sonarqube.svc.cluster.local:9000` for in-cluster access, or `http://<NODE-IP>:30090` for NodePort access |
+| Server authentication token | `sonarqube-token` |
+
+More detail: [SonarQube SAST tool reference](../tools/sonarqube-sast.md).
+
 ### 7. Configure Docker Access
 
 Jenkins needs access to Docker to build images. Two approaches:

@@ -21,6 +21,15 @@ The repository contains practical and reusable infrastructure implementations de
 | **Kubernetes Reference Architectures** | Multi-tenant Kubernetes platform patterns, namespace isolation, quotas, RBAC boundaries, network segmentation, and operational failure testing runbooks. | [Explore Kubernetes patterns](./kubernetes-reference-architectures/README.md) |
 | **Terraform Infrastructure** | Modular Terraform, multi-AZ AWS networking, secure S3 patterns, remote state, state locking, reusable modules, and architecture decisions. | [Explore Terraform patterns](./terraform/README.md) |
 
+## Supply Chain Security Tools
+
+The CI/CD reference architecture includes a tools section for engineers who want to compare security controls before choosing an implementation.
+
+| Tool area | Reference |
+|---|---|
+| Full supply chain tools index | [Supply Chain Security Tools Reference](./cicd-reference-architectures/tools/README.md) |
+| SAST and code quality | [SonarQube SAST Reference](./cicd-reference-architectures/tools/sonarqube-sast.md) |
+
 ## Who This Is For
 
 This repository is intended for:
