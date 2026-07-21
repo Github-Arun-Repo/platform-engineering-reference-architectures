@@ -2,7 +2,7 @@
 
 Cosign is the selected image signing and attestation tool for this reference architecture.
 
-For demo use, the best approach in this repository is **Cosign with a Jenkins-managed key pair** because it is easy to explain, easy to run in a self-hosted Jenkins setup, and makes the signature and attestation flow visible to other engineers. For production use, the preferred approach depends on the CI identity model:
+For demo use, the best approach in this repository is **Cosign with a Jenkins-managed key pair** because it is straightforward to operate in a self-hosted Jenkins setup and makes the signature and attestation flow visible to other engineers. For production use, the preferred approach depends on the CI identity model:
 
 - use **keyless OIDC** when the CI platform can mint trusted workload identity tokens
 - use **KMS-backed keys** when the CI platform is self-hosted and identity federation is not mature enough
@@ -48,9 +48,9 @@ It is a strong fit for this reference because it is:
 - aligned with Sigstore patterns and ecosystem tooling
 - compatible with local keys, KMS-backed keys, Kubernetes secrets, and keyless OIDC
 - practical for container registries and Kubernetes-native delivery flows
-- easy to explain in interviews because the model is clear: push, sign, attest, verify
+- based on a clear operational model: push, sign, attest, verify
 
-## Demo-Friendly Recommendation
+## Demo Recommendation
 
 For this repository demo, use **Cosign with a self-managed key pair stored in Jenkins credentials**.
 
@@ -147,7 +147,7 @@ This repository uses the following pattern when Cosign is enabled:
 - attest build metadata
 - publish a verification report to the public dashboard
 
-This is a good interview-friendly sequence because it demonstrates the difference between:
+This is a clear supply chain sequence because it demonstrates the difference between:
 
 - pushing an artifact
 - signing an artifact

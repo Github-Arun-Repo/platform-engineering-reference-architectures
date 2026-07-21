@@ -245,10 +245,10 @@ This creates:
 
 Upload `cosign.key` into Jenkins as a **Secret file** credential and store the password as a **Secret text** credential.
 
-Enable signing by running the pipeline with:
+Cosign signing is enabled by default in the pipeline. If you need to skip it for a temporary run, set:
 
 ```text
-ENABLE_COSIGN=true
+ENABLE_COSIGN=false
 ```
 
 Best-practice guidance:

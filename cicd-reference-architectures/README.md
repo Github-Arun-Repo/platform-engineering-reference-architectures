@@ -526,7 +526,7 @@ Signing proves integrity and gives downstream consumers a way to verify that the
 
 **Where this is useful**
 
-- interview-friendly supply chain demos
+- clear supply chain demonstrations
 - cluster admission verification
 - release provenance and trust establishment
 

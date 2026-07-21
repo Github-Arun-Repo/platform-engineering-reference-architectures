@@ -30,7 +30,7 @@ pipeline {
     }
 
     parameters {
-        booleanParam(name: 'ENABLE_COSIGN', defaultValue: false, description: 'Sign the pushed image digest and create Cosign attestations using Jenkins-managed credentials.')
+        booleanParam(name: 'ENABLE_COSIGN', defaultValue: true, description: 'Sign the pushed image digest and create Cosign attestations using Jenkins-managed credentials.')
     }
 
     options {
