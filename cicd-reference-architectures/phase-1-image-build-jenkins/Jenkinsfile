@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        PIPELINE_VERSION = 'quality-trivy-fs-jacoco-v2-2026-07-17'
+        PIPELINE_VERSION = 'cosign-sign-attest-v1-2026-07-21'
         REGISTRY = 'docker.io'  // Change to your registry: gcr.io, ecr, etc.
         IMAGE_NAME = 'agovindasamy/arun'
         IMAGE_TAG = "${BUILD_NUMBER}"
@@ -23,7 +23,14 @@ pipeline {
         GRYPE_FAIL_ON_SEVERITY = 'critical'
         GRYPE_BLOCK_ON_SCAN_ERROR = 'false'
         ORAS_VERSION = '1.2.2'
+        COSIGN_VERSION = '2.4.1'
+        COSIGN_KEY_CREDENTIALS_ID = 'cosign-private-key'
+        COSIGN_PASSWORD_CREDENTIALS_ID = 'cosign-password'
         SONARQUBE_SERVER = 'SonarQube'  // Configure in Jenkins
+    }
+
+    parameters {
+        booleanParam(name: 'ENABLE_COSIGN', defaultValue: false, description: 'Sign the pushed image digest and create Cosign attestations using Jenkins-managed credentials.')
     }
 
     options {
@@ -735,10 +742,254 @@ EOF
                         echo "Pushing Docker image to registry..."
                         withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                             sh '''
+                                mkdir -p ${SECURITY_REPORT_DIR}
                                 echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
                                 docker push ${IMAGE_NAME}:${IMAGE_TAG}
                                 docker push ${IMAGE_NAME}:${LATEST_TAG}
+
+                                DIGEST_REF=$(docker image inspect ${IMAGE_NAME}:${IMAGE_TAG} --format '{{range .RepoDigests}}{{println .}}{{end}}' | grep '^${REGISTRY}/${IMAGE_NAME}@' | head -n 1)
+                                if [ -n "${DIGEST_REF}" ]; then
+                                    printf '%s' "${DIGEST_REF}" > ${SECURITY_REPORT_DIR}/cosign-image-ref.txt
+                                    echo "Immutable image reference for Cosign: ${DIGEST_REF}"
+                                else
+                                    echo "WARNING: Could not determine immutable image digest reference after push."
+                                fi
+
                                 docker logout
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Sign Image with Cosign') {
+            when {
+                expression { return params.ENABLE_COSIGN }
+            }
+            steps {
+                container('maven') {
+                    script {
+                        echo "Signing pushed image digest with Cosign..."
+                        withCredentials([
+                            file(credentialsId: "${COSIGN_KEY_CREDENTIALS_ID}", variable: 'COSIGN_KEY_FILE'),
+                            string(credentialsId: "${COSIGN_PASSWORD_CREDENTIALS_ID}", variable: 'COSIGN_PASSWORD'),
+                            usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')
+                        ]) {
+                            sh '''
+                                mkdir -p ${SECURITY_REPORT_DIR} .tools .tools/cosign-docker-config
+                                rm -f ${SECURITY_REPORT_DIR}/cosign-sign.txt \
+                                      ${SECURITY_REPORT_DIR}/cosign-verify.txt \
+                                      ${SECURITY_REPORT_DIR}/cosign.pub
+
+                                if [ ! -s ${SECURITY_REPORT_DIR}/cosign-image-ref.txt ]; then
+                                    echo "ERROR: ${SECURITY_REPORT_DIR}/cosign-image-ref.txt is missing. Push stage did not record an immutable digest reference."
+                                    exit 1
+                                fi
+
+                                COSIGN_URL="https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64"
+                                if [ ! -x .tools/cosign ]; then
+                                    echo "Downloading Cosign ${COSIGN_VERSION} from ${COSIGN_URL}"
+                                    curl --fail --location --retry 3 --retry-all-errors \
+                                        --connect-timeout 15 --max-time 180 --progress-bar \
+                                        "${COSIGN_URL}" \
+                                        --output .tools/cosign
+                                    chmod +x .tools/cosign
+                                fi
+
+                                ./.tools/cosign version
+
+                                AUTH_B64=$(printf '%s' "${DOCKER_USER}:${DOCKER_PASS}" | base64 | tr -d '\n')
+                                cat > .tools/cosign-docker-config/config.json <<EOF
+{"auths":{"https://index.docker.io/v1/":{"auth":"${AUTH_B64}"},"${REGISTRY}":{"auth":"${AUTH_B64}"}}}
+EOF
+
+                                export DOCKER_CONFIG="$PWD/.tools/cosign-docker-config"
+                                export COSIGN_PASSWORD="${COSIGN_PASSWORD}"
+
+                                IMAGE_DIGEST_REF=$(cat ${SECURITY_REPORT_DIR}/cosign-image-ref.txt)
+                                GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+
+                                ./.tools/cosign public-key --key "${COSIGN_KEY_FILE}" > ${SECURITY_REPORT_DIR}/cosign.pub
+
+                                ./.tools/cosign sign \
+                                    --yes \
+                                    --tlog-upload=false \
+                                    --key "${COSIGN_KEY_FILE}" \
+                                    -a pipeline=jenkins \
+                                    -a build-number="${BUILD_NUMBER}" \
+                                    -a git-sha="${GIT_SHA}" \
+                                    -a pipeline-version="${PIPELINE_VERSION}" \
+                                    "${IMAGE_DIGEST_REF}" \
+                                    > ${SECURITY_REPORT_DIR}/cosign-sign.txt 2>&1
+
+                                ./.tools/cosign verify \
+                                    --key ${SECURITY_REPORT_DIR}/cosign.pub \
+                                    "${IMAGE_DIGEST_REF}" \
+                                    > ${SECURITY_REPORT_DIR}/cosign-verify.txt 2>&1
+
+                                echo "Cosign image signing complete for ${IMAGE_DIGEST_REF}."
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Attest Image with Cosign') {
+            when {
+                expression { return params.ENABLE_COSIGN }
+            }
+            steps {
+                container('maven') {
+                    script {
+                        echo "Creating Cosign SBOM and build attestations..."
+                        withCredentials([
+                            file(credentialsId: "${COSIGN_KEY_CREDENTIALS_ID}", variable: 'COSIGN_KEY_FILE'),
+                            string(credentialsId: "${COSIGN_PASSWORD_CREDENTIALS_ID}", variable: 'COSIGN_PASSWORD'),
+                            usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')
+                        ]) {
+                            sh '''
+                                mkdir -p ${SECURITY_REPORT_DIR} .tools .tools/cosign-docker-config
+                                rm -f ${SECURITY_REPORT_DIR}/cosign-sbom-attest.txt \
+                                      ${SECURITY_REPORT_DIR}/cosign-build-attest.txt \
+                                      ${SECURITY_REPORT_DIR}/cosign-verify-attestation-sbom.txt \
+                                      ${SECURITY_REPORT_DIR}/cosign-verify-attestation-build.txt \
+                                      ${SECURITY_REPORT_DIR}/cosign-tree.txt \
+                                      ${SECURITY_REPORT_DIR}/cosign-build-attestation.json \
+                                      ${SECURITY_REPORT_DIR}/cosign-report.html
+
+                                if [ ! -x .tools/cosign ]; then
+                                    echo "ERROR: .tools/cosign is missing. Signing stage did not provision Cosign."
+                                    exit 1
+                                fi
+
+                                if [ ! -s ${SECURITY_REPORT_DIR}/cosign-image-ref.txt ]; then
+                                    echo "ERROR: ${SECURITY_REPORT_DIR}/cosign-image-ref.txt is missing."
+                                    exit 1
+                                fi
+
+                                if [ ! -s ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ]; then
+                                    echo "ERROR: ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json is missing. Cannot create SBOM attestation."
+                                    exit 1
+                                fi
+
+                                AUTH_B64=$(printf '%s' "${DOCKER_USER}:${DOCKER_PASS}" | base64 | tr -d '\n')
+                                cat > .tools/cosign-docker-config/config.json <<EOF
+{"auths":{"https://index.docker.io/v1/":{"auth":"${AUTH_B64}"},"${REGISTRY}":{"auth":"${AUTH_B64}"}}}
+EOF
+
+                                export DOCKER_CONFIG="$PWD/.tools/cosign-docker-config"
+                                export COSIGN_PASSWORD="${COSIGN_PASSWORD}"
+
+                                IMAGE_DIGEST_REF=$(cat ${SECURITY_REPORT_DIR}/cosign-image-ref.txt)
+                                GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+                                GITLEAKS_STATUS=$(cat ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt 2>/dev/null || echo 2)
+                                GRYPE_CRITICAL_COUNT=$(cat ${SECURITY_REPORT_DIR}/grype-critical-count.txt 2>/dev/null || echo 0)
+                                GRYPE_HIGH_COUNT=$(cat ${SECURITY_REPORT_DIR}/grype-high-count.txt 2>/dev/null || echo 0)
+                                SBOM_SHA=$(sha256sum ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json | awk '{print $1}')
+                                BUILD_ATTESTATION_TYPE="https://platform-engineering-reference-architectures.dev/attestations/build-metadata/v1"
+
+                                cat > ${SECURITY_REPORT_DIR}/cosign-build-attestation.json <<EOF
+{
+  "buildNumber": "${BUILD_NUMBER}",
+  "pipelineVersion": "${PIPELINE_VERSION}",
+  "gitSha": "${GIT_SHA}",
+  "image": "${IMAGE_DIGEST_REF}",
+  "sbom": {
+    "path": "${SECURITY_REPORT_DIR}/sbom.cyclonedx.json",
+    "sha256": "${SBOM_SHA}"
+  },
+  "securityGates": {
+    "gitleaksStatus": "${GITLEAKS_STATUS}",
+    "grypeCriticalCount": "${GRYPE_CRITICAL_COUNT}",
+    "grypeHighCount": "${GRYPE_HIGH_COUNT}"
+  },
+  "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+EOF
+
+                                ./.tools/cosign attest \
+                                    --yes \
+                                    --tlog-upload=false \
+                                    --key "${COSIGN_KEY_FILE}" \
+                                    --type cyclonedx \
+                                    --predicate ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json \
+                                    "${IMAGE_DIGEST_REF}" \
+                                    > ${SECURITY_REPORT_DIR}/cosign-sbom-attest.txt 2>&1
+
+                                ./.tools/cosign attest \
+                                    --yes \
+                                    --tlog-upload=false \
+                                    --key "${COSIGN_KEY_FILE}" \
+                                    --type "${BUILD_ATTESTATION_TYPE}" \
+                                    --predicate ${SECURITY_REPORT_DIR}/cosign-build-attestation.json \
+                                    "${IMAGE_DIGEST_REF}" \
+                                    > ${SECURITY_REPORT_DIR}/cosign-build-attest.txt 2>&1
+
+                                ./.tools/cosign verify-attestation \
+                                    --key ${SECURITY_REPORT_DIR}/cosign.pub \
+                                    --type cyclonedx \
+                                    "${IMAGE_DIGEST_REF}" \
+                                    > ${SECURITY_REPORT_DIR}/cosign-verify-attestation-sbom.txt 2>&1
+
+                                ./.tools/cosign verify-attestation \
+                                    --key ${SECURITY_REPORT_DIR}/cosign.pub \
+                                    --type "${BUILD_ATTESTATION_TYPE}" \
+                                    "${IMAGE_DIGEST_REF}" \
+                                    > ${SECURITY_REPORT_DIR}/cosign-verify-attestation-build.txt 2>&1
+
+                                ./.tools/cosign tree "${IMAGE_DIGEST_REF}" > ${SECURITY_REPORT_DIR}/cosign-tree.txt 2>&1 || true
+
+                                GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                                cat > ${SECURITY_REPORT_DIR}/cosign-report.html <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosign Signature and Attestation Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #f6f8fa; color: #24292f; margin: 0; padding: 32px; }
+        .panel { max-width: 980px; margin: 0 auto; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 24px; }
+        .meta { color: #57606a; margin: 8px 0 18px; }
+        .badge { display: inline-block; background: #dafbe1; color: #116329; border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 20px 0; }
+        .metric { border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; background: #f6f8fa; }
+        .metric strong { display: block; font-size: 1.1rem; color: #24292f; }
+        .metric span { color: #57606a; font-size: 0.82rem; }
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+        .actions a { display: inline-block; padding: 9px 14px; border-radius: 6px; background: #1f6feb; color: #fff; text-decoration: none; font-size: 0.9rem; }
+        .actions a.secondary { background: #57606a; }
+        pre { background: #0d1117; color: #c9d1d9; border-radius: 8px; padding: 16px; overflow: auto; max-height: 420px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h1>Cosign Signature and Attestation Report</h1>
+        <p class="meta">Image: <strong>${IMAGE_DIGEST_REF}</strong></p>
+        <p class="badge">Signed and attested with Cosign</p>
+        <div class="grid">
+            <div class="metric"><strong>1</strong><span>image signature created for immutable digest</span></div>
+            <div class="metric"><strong>2</strong><span>attestations published: CycloneDX SBOM and build metadata</span></div>
+            <div class="metric"><strong>${SBOM_SHA}</strong><span>sha256 of CycloneDX predicate used for attestation</span></div>
+            <div class="metric"><strong>${GENERATED_AT}</strong><span>generated at UTC</span></div>
+        </div>
+        <div class="actions">
+            <a href="cosign-build-attestation.json">Open Build Attestation Predicate</a>
+            <a href="sbom.cyclonedx.json" class="secondary">Open SBOM Predicate</a>
+            <a href="cosign.pub" class="secondary">Open Public Key</a>
+        </div>
+        <h2>Verification Preview</h2>
+        <pre>$(sed -n '1,120p' ${SECURITY_REPORT_DIR}/cosign-verify.txt)</pre>
+        <h2>Attached Referrers Preview</h2>
+        <pre>$(sed -n '1,120p' ${SECURITY_REPORT_DIR}/cosign-tree.txt)</pre>
+    </div>
+</body>
+</html>
+EOF
+
+                                echo "Cosign attestation complete for ${IMAGE_DIGEST_REF}."
                             '''
                         }
                     }
@@ -845,6 +1096,104 @@ EOF
             }
         }
 
+        stage('Commit Cosign Evidence') {
+            when {
+                expression { return params.ENABLE_COSIGN }
+            }
+            steps {
+                container('maven') {
+                    script {
+                        echo "Publishing Cosign signing evidence to the repository website..."
+                        withCredentials([sshUserPrivateKey(credentialsId: "${GITHUB_CREDENTIALS_ID}", keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                            dir("${WORKSPACE}") {
+                                sh '''
+                                    REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+                                    if [ -z "${REPO_ROOT}" ]; then
+                                        echo "ERROR: Could not locate git repository root for Cosign evidence commit."
+                                        exit 1
+                                    fi
+                                    cd "${REPO_ROOT}"
+
+                                    for required in \
+                                        ${SECURITY_REPORT_DIR}/cosign-report.html \
+                                        ${SECURITY_REPORT_DIR}/cosign-image-ref.txt \
+                                        ${SECURITY_REPORT_DIR}/cosign.pub \
+                                        ${SECURITY_REPORT_DIR}/cosign-build-attestation.json \
+                                        ${SECURITY_REPORT_DIR}/cosign-sign.txt \
+                                        ${SECURITY_REPORT_DIR}/cosign-verify.txt \
+                                        ${SECURITY_REPORT_DIR}/cosign-sbom-attest.txt \
+                                        ${SECURITY_REPORT_DIR}/cosign-build-attest.txt \
+                                        ${SECURITY_REPORT_DIR}/cosign-verify-attestation-sbom.txt \
+                                        ${SECURITY_REPORT_DIR}/cosign-verify-attestation-build.txt \
+                                        ${SECURITY_REPORT_DIR}/cosign-tree.txt; do
+                                        if [ ! -s "${required}" ]; then
+                                            echo "ERROR: Required Cosign evidence file missing: ${required}"
+                                            exit 1
+                                        fi
+                                    done
+
+                                    COSIGN_STAGING_DIR="$(mktemp -d)"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-report.html "${COSIGN_STAGING_DIR}/cosign-report.html"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-image-ref.txt "${COSIGN_STAGING_DIR}/cosign-image-ref.txt"
+                                    cp ${SECURITY_REPORT_DIR}/cosign.pub "${COSIGN_STAGING_DIR}/cosign.pub"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-build-attestation.json "${COSIGN_STAGING_DIR}/cosign-build-attestation.json"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-sign.txt "${COSIGN_STAGING_DIR}/cosign-sign.txt"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-verify.txt "${COSIGN_STAGING_DIR}/cosign-verify.txt"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-sbom-attest.txt "${COSIGN_STAGING_DIR}/cosign-sbom-attest.txt"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-build-attest.txt "${COSIGN_STAGING_DIR}/cosign-build-attest.txt"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-verify-attestation-sbom.txt "${COSIGN_STAGING_DIR}/cosign-verify-attestation-sbom.txt"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-verify-attestation-build.txt "${COSIGN_STAGING_DIR}/cosign-verify-attestation-build.txt"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-tree.txt "${COSIGN_STAGING_DIR}/cosign-tree.txt"
+
+                                    git config user.name "Jenkins CI"
+                                    git config user.email "jenkins-ci@local"
+                                    export GIT_SSH_COMMAND="ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+
+                                    git fetch origin main
+                                    git reset --hard
+                                    git clean -fd
+                                    git checkout -B main origin/main
+
+                                    mkdir -p docs/security-reports
+                                    cp "${COSIGN_STAGING_DIR}/cosign-report.html" docs/security-reports/cosign-report.html
+                                    cp "${COSIGN_STAGING_DIR}/cosign-image-ref.txt" docs/security-reports/cosign-image-ref.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign.pub" docs/security-reports/cosign.pub
+                                    cp "${COSIGN_STAGING_DIR}/cosign-build-attestation.json" docs/security-reports/cosign-build-attestation.json
+                                    cp "${COSIGN_STAGING_DIR}/cosign-sign.txt" docs/security-reports/cosign-sign.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-verify.txt" docs/security-reports/cosign-verify.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-sbom-attest.txt" docs/security-reports/cosign-sbom-attest.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-build-attest.txt" docs/security-reports/cosign-build-attest.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-verify-attestation-sbom.txt" docs/security-reports/cosign-verify-attestation-sbom.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-verify-attestation-build.txt" docs/security-reports/cosign-verify-attestation-build.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-tree.txt" docs/security-reports/cosign-tree.txt
+                                    rm -rf "${COSIGN_STAGING_DIR}"
+
+                                    git add docs/security-reports/cosign-report.html \
+                                            docs/security-reports/cosign-image-ref.txt \
+                                            docs/security-reports/cosign.pub \
+                                            docs/security-reports/cosign-build-attestation.json \
+                                            docs/security-reports/cosign-sign.txt \
+                                            docs/security-reports/cosign-verify.txt \
+                                            docs/security-reports/cosign-sbom-attest.txt \
+                                            docs/security-reports/cosign-build-attest.txt \
+                                            docs/security-reports/cosign-verify-attestation-sbom.txt \
+                                            docs/security-reports/cosign-verify-attestation-build.txt \
+                                            docs/security-reports/cosign-tree.txt
+
+                                    if git diff --staged --quiet; then
+                                        echo "No Cosign evidence changes to commit"
+                                    else
+                                        git commit -m "chore(security): update cosign evidence for build ${BUILD_NUMBER} [skip ci]"
+                                        git push git@github.com:Github-Arun-Repo/platform-engineering-reference-architectures.git HEAD:main
+                                    fi
+                                '''
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Update Deployment Manifests') {
             steps {
                 script {
@@ -864,7 +1213,7 @@ EOF
                 // Archive build artifacts if needed
                 junit testResults: 'cicd-reference-architectures/sample-application/target/surefire-reports/*.xml', allowEmptyResults: true
 
-                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt', allowEmptyArchive: true
 
                 publishHTML(target: [
                     reportDir: 'security-reports',
@@ -915,6 +1264,15 @@ EOF
                     reportDir: 'security-reports',
                     reportFiles: 'grype-report.html',
                     reportName: 'Grype SBOM Vulnerability Report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: true
+                ])
+
+                publishHTML(target: [
+                    reportDir: 'security-reports',
+                    reportFiles: 'cosign-report.html',
+                    reportName: 'Cosign Signature and Attestation Report',
                     keepAll: true,
                     alwaysLinkToLastBuild: true,
                     allowMissing: true

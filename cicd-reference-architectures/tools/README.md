@@ -48,6 +48,7 @@ flowchart LR
 | SBOM generation | Syft | Planned | Strong container package inventory with CycloneDX and SPDX output |
 | SBOM vulnerability scan | Grype | Planned | Vulnerability analysis from SBOM data, useful for repeatable re-scans |
 | Image and filesystem scan | Trivy | Planned | Practical image, filesystem, dependency, secret, and misconfiguration scanning |
+| Image signing and attestations | Cosign | [Cosign Signing](./cosign-signing.md) | Signs immutable image digests and attaches verifiable supply chain evidence |
 | OCI evidence attachment | ORAS | Planned | Attaches SBOM evidence to the image as an OCI artifact |
 
 ## How To Read These Pages

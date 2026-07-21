@@ -29,6 +29,7 @@ The CI/CD reference architecture includes a tools section for engineers who want
 |---|---|
 | Full supply chain tools index | [Supply Chain Security Tools Reference](./cicd-reference-architectures/tools/README.md) |
 | SAST and code quality | [SonarQube SAST Reference](./cicd-reference-architectures/tools/sonarqube-sast.md) |
+| Image signing and attestations | [Cosign Signing Reference](./cicd-reference-architectures/tools/cosign-signing.md) |
 
 ## Who This Is For
 

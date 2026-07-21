@@ -221,6 +221,44 @@ Navigate to: **Manage Jenkins → Credentials → System → Global credentials 
 | ID | `dockerhub-credentials` |
 | Description | Docker Hub push credentials |
 
+### 8A. Prepare Cosign Credentials For Demo Signing
+
+If you want the Jenkins pipeline to sign the pushed image and publish attestations, the simplest demo path is a Jenkins-managed Cosign key pair.
+
+Recommended demo setup:
+
+| Credential | Kind | Suggested ID | Purpose |
+|---|---|---|---|
+| Cosign private key | Secret file | `cosign-private-key` | Used by Cosign to sign and attest |
+| Cosign key password | Secret text | `cosign-password` | Unlocks the encrypted private key |
+
+Generate a demo key pair outside Jenkins:
+
+```bash
+cosign generate-key-pair
+```
+
+This creates:
+
+- `cosign.key`
+- `cosign.pub`
+
+Upload `cosign.key` into Jenkins as a **Secret file** credential and store the password as a **Secret text** credential.
+
+Enable signing by running the pipeline with:
+
+```text
+ENABLE_COSIGN=true
+```
+
+Best-practice guidance:
+
+- for demos: Jenkins-managed key pair is the simplest
+- for self-hosted production Jenkins: prefer AWS KMS, Google Cloud KMS, Azure Key Vault, or Vault-backed keys
+- for CI platforms with strong workload identity: prefer keyless OIDC signing
+
+More detail: [Cosign signing reference](../tools/cosign-signing.md).
+
 ### 9. Add GitHub Credentials (Required for SCM Checkout)
 
 Add credentials in Jenkins:

@@ -176,6 +176,7 @@
             &nbsp;·&nbsp; <a href="https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/sbom-report.html">Direct SBOM Report Link</a>
             &nbsp;·&nbsp; <a href="https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/grype-report.html">Direct Grype Report Link</a>
             &nbsp;·&nbsp; <a href="https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-fs-report.html">Direct Trivy FS Report Link</a>
+            &nbsp;·&nbsp; <a href="https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/cosign-report.html">Direct Cosign Report Link</a>
             &nbsp;·&nbsp; <a href="https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/jacoco/index.html">Direct Coverage Report Link</a>
         </p>
     </div>
@@ -243,6 +244,18 @@
             <a href="https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/grype-report.html" class="btn btn-primary">View Latest Report →</a>
         </div>
 
+        <div class="card active">
+            <div class="card-icon">🔏</div>
+            <span class="badge badge-active">Signed</span>
+            <div class="card-title">Image Signature and Attestations</div>
+            <div class="card-desc">
+                <strong>Cosign</strong> signs the immutable image digest and
+                publishes attestations for the CycloneDX SBOM and build metadata.
+                This provides verifiable integrity evidence beyond the raw image push.
+            </div>
+            <a href="https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/cosign-report.html" class="btn btn-primary">View Latest Report →</a>
+        </div>
+
         <!-- Trivy filesystem scan -->
         <div class="card active">
             <div class="card-icon">🗂️</div>
@@ -306,6 +319,10 @@
             <span class="step highlight">Trivy FS ✓</span>
             <span class="arrow">→</span>
             <span class="step highlight">Publish Reports ✓</span>
+            <span class="arrow">→</span>
+            <span class="step highlight">Cosign Sign</span>
+            <span class="arrow">→</span>
+            <span class="step highlight">Cosign Attest</span>
             <span class="arrow">→</span>
             <span class="step">Push to Registry</span>
             <span class="arrow">→</span>

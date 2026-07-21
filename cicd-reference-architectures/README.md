@@ -173,6 +173,7 @@ The process diagram shows the supply chain. The tool reference explains the tool
 | Tool area | Chosen tool | Reference page | Why it is linked here |
 |---|---|---|---|
 | SAST and code quality | SonarQube | [SonarQube SAST](./tools/sonarqube-sast.md) | Explains why SonarQube is selected, how to install it on Kubernetes, demo vs licensed use, pricing signals, and SAST alternatives |
+| Image signing and attestations | Cosign | [Cosign Signing](./tools/cosign-signing.md) | Explains the demo signing path, KMS and OIDC best-practice paths, and why digest signing plus attestations should happen after push |
 | Supply chain tools catalog | Multiple tools | [Tools Reference](./tools/README.md) | Central place for tool categories, chosen tools, alternatives, and comparison approach |
 
 ## Stage Navigator
@@ -473,6 +474,12 @@ The registry should receive only artifacts that have passed the required quality
 - release candidate storage
 - rollback to known-good images
 
+**Follow-up controls**
+
+After the image is pushed, the strongest next steps are to sign the immutable digest and attach attestations to it.
+
+- [Cosign Signing](./tools/cosign-signing.md)
+
 ## 14. Attach SBOM
 
 **What happens**
@@ -573,8 +580,8 @@ cicd-reference-architectures/
 
 Planned additions:
 
-1. artifact signing
-2. provenance attestations
+1. admission-time verification of signatures and attestations
+2. policy-based promotion using signed evidence
 3. GitOps manifest update
 4. environment promotion strategy
 5. policy-as-code gates
@@ -586,6 +593,7 @@ Planned additions:
 
 - [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
 - [Tools Reference](./tools/README.md)
+- [Cosign Signing Reference](./tools/cosign-signing.md)
 - [SonarQube SAST Reference](./tools/sonarqube-sast.md)
 - [Jenkins Reference](./phase-1-image-build-jenkins/)
 - [Jenkins Runbook](./phase-1-image-build-jenkins/jenkins-demo-runbook.md)
