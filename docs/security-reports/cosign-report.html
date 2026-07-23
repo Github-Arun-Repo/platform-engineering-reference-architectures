@@ -6,23 +6,51 @@
     <title>Cosign Signature and Attestation Report</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #f6f8fa; color: #24292f; margin: 0; padding: 32px; }
-        .panel { max-width: 900px; margin: 0 auto; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 24px; }
-        .meta { color: #57606a; margin-top: 10px; line-height: 1.6; }
-        .badge { display: inline-block; background: #f6f8fa; color: #57606a; border: 1px solid #d0d7de; border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; margin-top: 12px; }
+        .panel { max-width: 980px; margin: 0 auto; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 24px; }
+        .meta { color: #57606a; margin: 8px 0 18px; }
+        .badge { display: inline-block; background: #dafbe1; color: #116329; border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 20px 0; }
+        .metric { border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; background: #f6f8fa; }
+        .metric strong { display: block; font-size: 1.1rem; color: #24292f; }
+        .metric span { color: #57606a; font-size: 0.82rem; }
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+        .actions a { display: inline-block; padding: 9px 14px; border-radius: 6px; background: #1f6feb; color: #fff; text-decoration: none; font-size: 0.9rem; }
+        .actions a.secondary { background: #57606a; }
+        pre { background: #0d1117; color: #c9d1d9; border-radius: 8px; padding: 16px; overflow: auto; max-height: 420px; font-size: 0.8rem; }
     </style>
 </head>
 <body>
     <div class="panel">
         <h1>Cosign Signature and Attestation Report</h1>
-        <p class="badge">Waiting for a Cosign-enabled Jenkins build</p>
-        <p class="meta">
-            This placeholder page will be replaced when the Jenkins pipeline runs with
-            <strong>ENABLE_COSIGN=true</strong> and the required Cosign credentials are configured.
-        </p>
-        <p class="meta">
-            The generated report will show the immutable image digest, signature verification output,
-            SBOM attestation, build metadata attestation, and attached OCI referrers.
-        </p>
+        <p class="meta">Image: <strong>agovindasamy/arun@sha256:5aa96ec0a01fd114e2264af1beb7d40a2c3f9ea5bfac9ae7efde7e4913988b64</strong></p>
+        <p class="badge">Signed and attested with Cosign</p>
+        <div class="grid">
+            <div class="metric"><strong>1</strong><span>image signature created for immutable digest</span></div>
+            <div class="metric"><strong>2</strong><span>attestations published: CycloneDX SBOM and build metadata</span></div>
+            <div class="metric"><strong>c94951410942056b6940df85c5f8c09394bf650b260ec018afc9a79963600ea7</strong><span>sha256 of CycloneDX predicate used for attestation</span></div>
+            <div class="metric"><strong>2026-07-23T13:48:55Z</strong><span>generated at UTC</span></div>
+        </div>
+        <div class="actions">
+            <a href="cosign-build-attestation.json">Open Build Attestation Predicate</a>
+            <a href="sbom.cyclonedx.json" class="secondary">Open SBOM Predicate</a>
+            <a href="cosign.pub" class="secondary">Open Public Key</a>
+        </div>
+        <h2>Verification Preview</h2>
+        <pre>WARNING: Skipping tlog verification is an insecure practice that lacks of transparency and auditability verification for the signature.
+
+Verification for index.docker.io/agovindasamy/arun@sha256:5aa96ec0a01fd114e2264af1beb7d40a2c3f9ea5bfac9ae7efde7e4913988b64 --
+The following checks were performed on each of these signatures:
+  - The cosign claims were validated
+  - The signatures were verified against the specified public key
+
+[{"critical":{"identity":{"docker-reference":"index.docker.io/agovindasamy/arun"},"image":{"docker-manifest-digest":"sha256:5aa96ec0a01fd114e2264af1beb7d40a2c3f9ea5bfac9ae7efde7e4913988b64"},"type":"cosign container image signature"},"optional":{"build-number":"48","git-sha":"fe41c3a","pipeline":"jenkins","pipeline-version":"cosign-sign-attest-v1-2026-07-21"}}]</pre>
+        <h2>Attached Referrers Preview</h2>
+        <pre>📦 Supply Chain Security Related artifacts for an image: agovindasamy/arun@sha256:5aa96ec0a01fd114e2264af1beb7d40a2c3f9ea5bfac9ae7efde7e4913988b64
+└── 💾 Attestations for an image tag: index.docker.io/agovindasamy/arun:sha256-5aa96ec0a01fd114e2264af1beb7d40a2c3f9ea5bfac9ae7efde7e4913988b64.att
+   ├── 🍒 sha256:a81b736a7f9108da9fdbacc01ab19814de3d1cb1aab9ee663c9604f1abf72af8
+   └── 🍒 sha256:80f9a68b9c2a9f35710287da2e41e142649704c3a9131ca001795dd2e178df5f
+└── 🔐 Signatures for an image tag: index.docker.io/agovindasamy/arun:sha256-5aa96ec0a01fd114e2264af1beb7d40a2c3f9ea5bfac9ae7efde7e4913988b64.sig
+   └── 🍒 sha256:aa48d518aff43b8f324808b2612bac91a54773a612c7c388e52785c73ffaa86d</pre>
     </div>
 </body>
 </html>

@@ -1,0 +1,6 @@
+📦 Supply Chain Security Related artifacts for an image: agovindasamy/arun@sha256:5aa96ec0a01fd114e2264af1beb7d40a2c3f9ea5bfac9ae7efde7e4913988b64
+└── 💾 Attestations for an image tag: index.docker.io/agovindasamy/arun:sha256-5aa96ec0a01fd114e2264af1beb7d40a2c3f9ea5bfac9ae7efde7e4913988b64.att
+   ├── 🍒 sha256:a81b736a7f9108da9fdbacc01ab19814de3d1cb1aab9ee663c9604f1abf72af8
+   └── 🍒 sha256:80f9a68b9c2a9f35710287da2e41e142649704c3a9131ca001795dd2e178df5f
+└── 🔐 Signatures for an image tag: index.docker.io/agovindasamy/arun:sha256-5aa96ec0a01fd114e2264af1beb7d40a2c3f9ea5bfac9ae7efde7e4913988b64.sig
+   └── 🍒 sha256:aa48d518aff43b8f324808b2612bac91a54773a612c7c388e52785c73ffaa86d
