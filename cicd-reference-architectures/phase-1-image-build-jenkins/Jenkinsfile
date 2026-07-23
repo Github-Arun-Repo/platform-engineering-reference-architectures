@@ -27,6 +27,7 @@ pipeline {
         COSIGN_KEY_CREDENTIALS_ID = 'cosign-private-key'
         COSIGN_PASSWORD_CREDENTIALS_ID = 'cosign-password'
         SONARQUBE_SERVER = 'SonarQube'  // Configure in Jenkins
+        ENABLE_SONARQUBE = 'false'
     }
 
     parameters {
@@ -164,6 +165,24 @@ EOF
             }
         }
 
+        stage('Dependency CVE Gate') {
+            steps {
+                container('maven') {
+                    script {
+                        echo "Running fail-fast dependency vulnerability gate (OWASP Dependency-Check)..."
+                        dir('cicd-reference-architectures/sample-application') {
+                            sh '''
+                                mvn -B org.owasp:dependency-check-maven:check \
+                                    -Dformat=HTML \
+                                    -Dformat=JSON \
+                                    -DfailBuildOnCVSS=7
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Scan Filesystem with Trivy') {
             steps {
                 container('docker') {
@@ -245,12 +264,21 @@ EOF
             }
         }
 
-        stage('SonarQube Analysis Placeholder') {
+        stage('SonarQube Analysis') {
             when {
-                expression { return false }
+                expression { return env.ENABLE_SONARQUBE?.toBoolean() }
             }
             steps {
-                echo "SonarQube analysis is intentionally disabled for now. Configure ${SONARQUBE_SERVER} and enable this stage later."
+                container('maven') {
+                    script {
+                        echo "Running SonarQube analysis..."
+                        dir('cicd-reference-architectures/sample-application') {
+                            withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                                sh 'mvn -B sonar:sonar -DskipTests'
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -745,16 +773,30 @@ EOF
                             sh '''
                                 mkdir -p ${SECURITY_REPORT_DIR}
                                 echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-                                docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                                PUSH_TAG_OUTPUT=$(docker push ${IMAGE_NAME}:${IMAGE_TAG} 2>&1)
+                                echo "${PUSH_TAG_OUTPUT}"
                                 docker push ${IMAGE_NAME}:${LATEST_TAG}
 
-                                DIGEST_REF=$(docker image inspect ${IMAGE_NAME}:${IMAGE_TAG} --format '{{range .RepoDigests}}{{println .}}{{end}}' | grep '^${REGISTRY}/${IMAGE_NAME}@' | head -n 1)
-                                if [ -n "${DIGEST_REF}" ]; then
-                                    printf '%s' "${DIGEST_REF}" > ${SECURITY_REPORT_DIR}/cosign-image-ref.txt
-                                    echo "Immutable image reference for Cosign: ${DIGEST_REF}"
+                                DIGEST=$(printf '%s\n' "${PUSH_TAG_OUTPUT}" | sed -n 's/^.*digest: \(sha256:[a-f0-9]\{64\}\).*$/\1/p' | head -n 1)
+                                INSPECT_REF=$(docker image inspect ${IMAGE_NAME}:${IMAGE_TAG} --format '{{index .RepoDigests 0}}' 2>/dev/null || true)
+
+                                if [ -n "${INSPECT_REF}" ]; then
+                                    DIGEST_REF="${INSPECT_REF}"
+                                elif [ -n "${DIGEST}" ]; then
+                                    if [[ "${IMAGE_NAME}" == ${REGISTRY}/* ]]; then
+                                        DIGEST_REF="${IMAGE_NAME}@${DIGEST}"
+                                    else
+                                        DIGEST_REF="${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
+                                    fi
                                 else
-                                    echo "WARNING: Could not determine immutable image digest reference after push."
+                                    echo "ERROR: Could not capture immutable digest reference after push."
+                                    echo "Hint: verify Docker daemon returns digest output and RepoDigests are available."
+                                    exit 1
                                 fi
+
+                                printf '%s' "${DIGEST_REF}" > ${SECURITY_REPORT_DIR}/cosign-image-ref.txt
+                                test -s ${SECURITY_REPORT_DIR}/cosign-image-ref.txt
+                                echo "Immutable image reference for Cosign: ${DIGEST_REF}"
 
                                 docker logout
                             '''

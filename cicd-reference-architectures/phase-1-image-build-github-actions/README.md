@@ -34,6 +34,8 @@ Build, test, scan, and push Docker images using GitHub Actions — a native, ful
 
 The GitHub Actions workflow implements a **complete container image build and push workflow** following 2026 best practices, with native GitHub integration.
 
+It now uses a **shift-left security model**: an initial `security_precheck` job must pass before the `build` job starts.
+
 ### Event Triggers
 
 Builds are triggered on:
@@ -42,6 +44,12 @@ Builds are triggered on:
 - **Path-based filtering** — only rebuild when relevant files change:
   - `cicd-reference-architectures/sample-application/**`
   - `.github/workflows/build-docker-image.yml`
+
+### Stage 0: Security Precheck (Fail Fast)
+- Runs before any build or image work
+- Scans repository history and files with **Gitleaks**
+- Runs OWASP dependency vulnerability check on Maven dependencies
+- Fails pipeline immediately when secrets are found or dependency CVEs meet threshold (CVSS >= 7)
 
 ### Stage 1: Checkout
 - Clones repository with full commit history
@@ -97,7 +105,7 @@ Builds are triggered on:
 - Scans image for CVE vulnerabilities
 - **SARIF report** uploaded to GitHub Security tab
 - Results visible as **code scanning alerts**
-- No scan failure (warnings only) — adjust if needed
+- Serves as post-build image assurance (the fail-fast secret/dependency gate already runs first)
 
 ### Stage 11: Build Summary
 - Posts summary to **GitHub Actions** run page
@@ -113,7 +121,9 @@ Builds are triggered on:
 │                    GitHub Actions Workflow                       │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                   │
-│  GitHub Push → [Checkout] → [Setup Docker] → [Auth Registry]    │
+│  GitHub Push → [Security Precheck: Gitleaks + Dependency CVE]   │
+│           ↓                                                       │
+│        [Checkout] → [Setup Docker] → [Auth Registry]             │
 │           ↓                                                       │
 │  [Setup JDK] → [Build & Test] ✗ Fail                            │
 │       ↓                                                           │

@@ -101,9 +101,10 @@ Stages provide visual progress, isolated failure reporting ("failed at Stage 4")
 ```
 Checkout
     -> Scan Repository Secrets with Gitleaks
+    -> Dependency CVE Gate (OWASP Dependency-Check)
     -> Scan Filesystem with Trivy
     -> Unit Tests & Code Coverage
-    -> SonarQube Analysis Placeholder (currently disabled)
+    -> SonarQube Analysis
     -> Build Application
     -> Build Docker Image
     -> Generate Image SBOM
@@ -112,10 +113,10 @@ Checkout
     -> Commit Security Reports
     -> Enforce Security Gates
     -> Push to Registry
-    -> Sign Image with Cosign (optional)
-    -> Attest Image with Cosign (optional)
+    -> Sign Image with Cosign (default enabled)
+    -> Attest Image with Cosign (default enabled)
     -> Attach SBOM to Image
-    -> Commit Cosign Evidence (optional)
+    -> Commit Cosign Evidence (default enabled)
     -> Update Deployment Manifests
 ```
 
@@ -127,9 +128,10 @@ The order is deliberate. Each stage filters defects before they reach the next, 
 |-------|-------------------------------|
 | Checkout | Pull the exact source revision |
 | Scan Repository Secrets | Detect committed credentials before doing any build work |
+| Dependency CVE Gate | Fail fast on vulnerable Maven dependencies before packaging or image build |
 | Scan Filesystem with Trivy | Run source and dependency-oriented checks before packaging or image creation |
 | Unit Tests & Code Coverage | Validate behavior and generate JaCoCo evidence |
-| SonarQube Placeholder | Reserved for source-level SAST and quality gates |
+| SonarQube Analysis | Runs source-level SAST and code quality checks |
 | Build Application | Create the packaged Spring Boot JAR |
 | Build Docker Image | Build the deployable runtime image |
 | Generate Image SBOM | Create CycloneDX, SPDX, and table SBOM outputs |
@@ -142,7 +144,7 @@ The order is deliberate. Each stage filters defects before they reach the next, 
 | Attach SBOM | Attach CycloneDX SBOM as an OCI artifact |
 | Commit Cosign Evidence | Publish signing evidence to Git and the dashboard |
 
-**Design principle:** source-level checks such as secret detection and filesystem analysis should fail fast, before packaging and image creation, while report evidence is still published before promotion so engineers can inspect what happened.
+**Design principle:** source-level checks such as secret detection, dependency CVE gating, and filesystem analysis should fail fast, before packaging and image creation, while report evidence is still published before promotion so engineers can inspect what happened.
 
 ---
 
