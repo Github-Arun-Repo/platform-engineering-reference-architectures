@@ -1038,6 +1038,89 @@ EOF
             }
         }
 
+        stage('Validate Cosign Artifacts in Registry') {
+            when {
+                expression { return params.ENABLE_COSIGN }
+            }
+            steps {
+                container('maven') {
+                    script {
+                        echo "Validating Cosign signature and attestations are present in Docker Hub..."
+                        withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh '''
+                                mkdir -p ${SECURITY_REPORT_DIR} .tools
+
+                                if [ ! -x .tools/cosign ]; then
+                                    COSIGN_URL="https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64"
+                                    echo "Downloading Cosign ${COSIGN_VERSION} from ${COSIGN_URL}"
+                                    curl --fail --location --retry 3 --retry-all-errors \
+                                        --connect-timeout 15 --max-time 180 --progress-bar \
+                                        "${COSIGN_URL}" \
+                                        --output .tools/cosign
+                                    chmod +x .tools/cosign
+                                fi
+
+                                if [ ! -s ${SECURITY_REPORT_DIR}/cosign-image-ref.txt ]; then
+                                    echo "ERROR: ${SECURITY_REPORT_DIR}/cosign-image-ref.txt is missing. Cannot validate registry artifacts."
+                                    exit 1
+                                fi
+
+                                IMAGE_DIGEST_REF=$(cat ${SECURITY_REPORT_DIR}/cosign-image-ref.txt)
+                                SIG_REF=$(.tools/cosign triangulate "${IMAGE_DIGEST_REF}")
+                                ATT_REF=$(.tools/cosign triangulate --type attestation "${IMAGE_DIGEST_REF}")
+                                SIG_TAG="${SIG_REF##*:}"
+                                ATT_TAG="${ATT_REF##*:}"
+
+                                .tools/cosign tree "${IMAGE_DIGEST_REF}" > ${SECURITY_REPORT_DIR}/cosign-tree-verify.txt 2>&1 || true
+
+                                if ! grep -q '\\.sig' ${SECURITY_REPORT_DIR}/cosign-tree-verify.txt; then
+                                    echo "ERROR: Cosign signature referrer not found for ${IMAGE_DIGEST_REF}."
+                                    tail -n 80 ${SECURITY_REPORT_DIR}/cosign-tree-verify.txt || true
+                                    exit 1
+                                fi
+
+                                if ! grep -q '\\.att' ${SECURITY_REPORT_DIR}/cosign-tree-verify.txt; then
+                                    echo "ERROR: Cosign attestation referrer not found for ${IMAGE_DIGEST_REF}."
+                                    tail -n 80 ${SECURITY_REPORT_DIR}/cosign-tree-verify.txt || true
+                                    exit 1
+                                fi
+
+                                REPO_PATH="${IMAGE_NAME#${REGISTRY}/}"
+                                REPO_PATH="${REPO_PATH#index.docker.io/}"
+                                TAGS_API="https://hub.docker.com/v2/repositories/${REPO_PATH}/tags?page_size=200"
+
+                                AUTH_B64=$(printf '%s' "${DOCKER_USER}:${DOCKER_PASS}" | base64 | tr -d '\n')
+                                curl --fail --location --retry 3 --retry-all-errors \
+                                    -H "Authorization: Basic ${AUTH_B64}" \
+                                    "${TAGS_API}" \
+                                    --output ${SECURITY_REPORT_DIR}/cosign-tags.json
+
+                                if ! grep -q '"name":"'"${SIG_TAG}"'"' ${SECURITY_REPORT_DIR}/cosign-tags.json; then
+                                    echo "ERROR: Expected signature tag ${SIG_TAG} not found via Docker Hub tags API."
+                                    exit 1
+                                fi
+
+                                if ! grep -q '"name":"'"${ATT_TAG}"'"' ${SECURITY_REPORT_DIR}/cosign-tags.json; then
+                                    echo "ERROR: Expected attestation tag ${ATT_TAG} not found via Docker Hub tags API."
+                                    exit 1
+                                fi
+
+                                cat > ${SECURITY_REPORT_DIR}/cosign-registry-check.txt <<EOF
+image_digest_ref=${IMAGE_DIGEST_REF}
+expected_signature_ref=${SIG_REF}
+expected_attestation_ref=${ATT_REF}
+dockerhub_repo=${REPO_PATH}
+result=ok
+EOF
+
+                                echo "Cosign registry validation passed for ${IMAGE_DIGEST_REF}."
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Attach SBOM to Image') {
             steps {
                 container('docker') {
@@ -1166,7 +1249,10 @@ EOF
                                         ${SECURITY_REPORT_DIR}/cosign-build-attest.txt \
                                         ${SECURITY_REPORT_DIR}/cosign-verify-attestation-sbom.txt \
                                         ${SECURITY_REPORT_DIR}/cosign-verify-attestation-build.txt \
-                                        ${SECURITY_REPORT_DIR}/cosign-tree.txt; do
+                                        ${SECURITY_REPORT_DIR}/cosign-tree.txt \
+                                        ${SECURITY_REPORT_DIR}/cosign-tree-verify.txt \
+                                        ${SECURITY_REPORT_DIR}/cosign-tags.json \
+                                        ${SECURITY_REPORT_DIR}/cosign-registry-check.txt; do
                                         if [ ! -s "${required}" ]; then
                                             echo "ERROR: Required Cosign evidence file missing: ${required}"
                                             exit 1
@@ -1185,6 +1271,9 @@ EOF
                                     cp ${SECURITY_REPORT_DIR}/cosign-verify-attestation-sbom.txt "${COSIGN_STAGING_DIR}/cosign-verify-attestation-sbom.txt"
                                     cp ${SECURITY_REPORT_DIR}/cosign-verify-attestation-build.txt "${COSIGN_STAGING_DIR}/cosign-verify-attestation-build.txt"
                                     cp ${SECURITY_REPORT_DIR}/cosign-tree.txt "${COSIGN_STAGING_DIR}/cosign-tree.txt"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-tree-verify.txt "${COSIGN_STAGING_DIR}/cosign-tree-verify.txt"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-tags.json "${COSIGN_STAGING_DIR}/cosign-tags.json"
+                                    cp ${SECURITY_REPORT_DIR}/cosign-registry-check.txt "${COSIGN_STAGING_DIR}/cosign-registry-check.txt"
 
                                     git config user.name "Jenkins CI"
                                     git config user.email "jenkins-ci@local"
@@ -1195,7 +1284,24 @@ EOF
                                     git clean -fd
                                     git checkout -B main origin/main
 
+                                    mkdir -p ${SECURITY_REPORT_DIR}
                                     mkdir -p docs/security-reports
+
+                                    cp "${COSIGN_STAGING_DIR}/cosign-report.html" ${SECURITY_REPORT_DIR}/cosign-report.html
+                                    cp "${COSIGN_STAGING_DIR}/cosign-image-ref.txt" ${SECURITY_REPORT_DIR}/cosign-image-ref.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign.pub" ${SECURITY_REPORT_DIR}/cosign.pub
+                                    cp "${COSIGN_STAGING_DIR}/cosign-build-attestation.json" ${SECURITY_REPORT_DIR}/cosign-build-attestation.json
+                                    cp "${COSIGN_STAGING_DIR}/cosign-sign.txt" ${SECURITY_REPORT_DIR}/cosign-sign.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-verify.txt" ${SECURITY_REPORT_DIR}/cosign-verify.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-sbom-attest.txt" ${SECURITY_REPORT_DIR}/cosign-sbom-attest.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-build-attest.txt" ${SECURITY_REPORT_DIR}/cosign-build-attest.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-verify-attestation-sbom.txt" ${SECURITY_REPORT_DIR}/cosign-verify-attestation-sbom.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-verify-attestation-build.txt" ${SECURITY_REPORT_DIR}/cosign-verify-attestation-build.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-tree.txt" ${SECURITY_REPORT_DIR}/cosign-tree.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-tree-verify.txt" ${SECURITY_REPORT_DIR}/cosign-tree-verify.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-tags.json" ${SECURITY_REPORT_DIR}/cosign-tags.json
+                                    cp "${COSIGN_STAGING_DIR}/cosign-registry-check.txt" ${SECURITY_REPORT_DIR}/cosign-registry-check.txt
+
                                     cp "${COSIGN_STAGING_DIR}/cosign-report.html" docs/security-reports/cosign-report.html
                                     cp "${COSIGN_STAGING_DIR}/cosign-image-ref.txt" docs/security-reports/cosign-image-ref.txt
                                     cp "${COSIGN_STAGING_DIR}/cosign.pub" docs/security-reports/cosign.pub
@@ -1207,9 +1313,26 @@ EOF
                                     cp "${COSIGN_STAGING_DIR}/cosign-verify-attestation-sbom.txt" docs/security-reports/cosign-verify-attestation-sbom.txt
                                     cp "${COSIGN_STAGING_DIR}/cosign-verify-attestation-build.txt" docs/security-reports/cosign-verify-attestation-build.txt
                                     cp "${COSIGN_STAGING_DIR}/cosign-tree.txt" docs/security-reports/cosign-tree.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-tree-verify.txt" docs/security-reports/cosign-tree-verify.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-tags.json" docs/security-reports/cosign-tags.json
+                                    cp "${COSIGN_STAGING_DIR}/cosign-registry-check.txt" docs/security-reports/cosign-registry-check.txt
                                     rm -rf "${COSIGN_STAGING_DIR}"
 
-                                    git add docs/security-reports/cosign-report.html \
+                                        git add ${SECURITY_REPORT_DIR}/cosign-report.html \
+                                            ${SECURITY_REPORT_DIR}/cosign-image-ref.txt \
+                                            ${SECURITY_REPORT_DIR}/cosign.pub \
+                                            ${SECURITY_REPORT_DIR}/cosign-build-attestation.json \
+                                            ${SECURITY_REPORT_DIR}/cosign-sign.txt \
+                                            ${SECURITY_REPORT_DIR}/cosign-verify.txt \
+                                            ${SECURITY_REPORT_DIR}/cosign-sbom-attest.txt \
+                                            ${SECURITY_REPORT_DIR}/cosign-build-attest.txt \
+                                            ${SECURITY_REPORT_DIR}/cosign-verify-attestation-sbom.txt \
+                                            ${SECURITY_REPORT_DIR}/cosign-verify-attestation-build.txt \
+                                            ${SECURITY_REPORT_DIR}/cosign-tree.txt \
+                                            ${SECURITY_REPORT_DIR}/cosign-tree-verify.txt \
+                                            ${SECURITY_REPORT_DIR}/cosign-tags.json \
+                                            ${SECURITY_REPORT_DIR}/cosign-registry-check.txt \
+                                            docs/security-reports/cosign-report.html \
                                             docs/security-reports/cosign-image-ref.txt \
                                             docs/security-reports/cosign.pub \
                                             docs/security-reports/cosign-build-attestation.json \
@@ -1219,7 +1342,10 @@ EOF
                                             docs/security-reports/cosign-build-attest.txt \
                                             docs/security-reports/cosign-verify-attestation-sbom.txt \
                                             docs/security-reports/cosign-verify-attestation-build.txt \
-                                            docs/security-reports/cosign-tree.txt
+                                            docs/security-reports/cosign-tree.txt \
+                                            docs/security-reports/cosign-tree-verify.txt \
+                                            docs/security-reports/cosign-tags.json \
+                                            docs/security-reports/cosign-registry-check.txt
 
                                     if git diff --staged --quiet; then
                                         echo "No Cosign evidence changes to commit"
@@ -1275,7 +1401,7 @@ EOF
                 // Archive build artifacts if needed
                 junit testResults: 'cicd-reference-architectures/sample-application/target/surefire-reports/*.xml', allowEmptyResults: true
 
-                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
 
                 publishHTML(target: [
                     reportDir: 'security-reports',
