@@ -306,7 +306,7 @@ EOF
                                                                                 SONAR_COVERAGE=$(get_metric coverage)
                                                                                 SONAR_DUPLICATION=$(get_metric duplicated_lines_density)
                                                                                 SONAR_NCLOC=$(get_metric ncloc)
-                                                                                SONAR_QG_STATUS=$(echo "${SONAR_QG_JSON}" | tr -d "\\n" | grep -Eo "\"status\":\"[^\"]+\"" | head -n 1 | cut -d "\"" -f4)
+                                                                                SONAR_QG_STATUS=$(echo "${SONAR_QG_JSON}" | tr -d "\\n" | sed -n "s/.*\\\"status\\\":\\\"\\([^\\\"]*\\)\\\".*/\\1/p" | head -n 1)
 
                                                                                 [ -n "${SONAR_BUGS}" ] || SONAR_BUGS="unknown"
                                                                                 [ -n "${SONAR_VULNS}" ] || SONAR_VULNS="unknown"
