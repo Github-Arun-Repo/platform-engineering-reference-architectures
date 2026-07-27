@@ -273,24 +273,8 @@ EOF
                                                                                     exit 1
                                                                                 }
 
-                                                                                echo "Checking SonarQube project access for key: ${PROJECT_KEY}"
-                                                                                PROJECT_SEARCH=$(curl -sS -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/projects/search?projects=${PROJECT_KEY}")
-
-                                                                                if ! echo "${PROJECT_SEARCH}" | grep -q '"key":"'"${PROJECT_KEY}"'"'; then
-                                                                                    echo "Project ${PROJECT_KEY} not found. Attempting to create it..."
-                                                                                    CREATE_STATUS=$(curl -sS -o /tmp/sonar-create-response.json -w "%{http_code}" -u "${SONAR_TOKEN}:" -X POST "${SONAR_HOST_URL}/api/projects/create" \
-                                                                                        --data-urlencode "project=${PROJECT_KEY}" \
-                                                                                        --data-urlencode "name=${PROJECT_NAME}")
-                                                                                    if [ "${CREATE_STATUS}" != "200" ]; then
-                                                                                        echo "ERROR: Could not create SonarQube project ${PROJECT_KEY}. HTTP ${CREATE_STATUS}."
-                                                                                        cat /tmp/sonar-create-response.json || true
-                                                                                        echo "Ensure token '${SONARQUBE_TOKEN_CREDENTIALS_ID}' has Create Projects permission or pre-create the project and grant Execute Analysis."
-                                                                                        exit 1
-                                                                                    fi
-                                                                                    echo "Project ${PROJECT_KEY} created successfully."
-                                                                                else
-                                                                                    echo "Project ${PROJECT_KEY} already exists."
-                                                                                fi
+                                                                                echo "Skipping project search/create precheck to avoid permission-gated API failures."
+                                                                                echo "Proceeding with analysis for project key: ${PROJECT_KEY}"
 
                                                                                 mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
                                                                                     -DskipTests \
