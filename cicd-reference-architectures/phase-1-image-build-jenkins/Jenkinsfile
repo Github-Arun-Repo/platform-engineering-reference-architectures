@@ -260,11 +260,11 @@ EOF
                             withCredentials([string(credentialsId: "${SONARQUBE_TOKEN_CREDENTIALS_ID}", variable: 'SONAR_TOKEN')]) {
                                 if (env.SONARQUBE_SERVER?.trim()) {
                                     withSonarQubeEnv("${env.SONARQUBE_SERVER}") {
-                                        sh 'mvn -B sonar:sonar -DskipTests -Dsonar.token=${SONAR_TOKEN}'
+                                        sh 'mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -DskipTests -Dsonar.token=${SONAR_TOKEN}'
                                     }
                                 } else {
                                     withSonarQubeEnv() {
-                                        sh 'mvn -B sonar:sonar -DskipTests -Dsonar.token=${SONAR_TOKEN}'
+                                        sh 'mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -DskipTests -Dsonar.token=${SONAR_TOKEN}'
                                     }
                                 }
                             }
