@@ -267,7 +267,7 @@ EOF
                                                                                 PROJECT_NAME="${SONAR_PROJECT_NAME}"
 
                                                                                 echo "Validating SonarQube token against ${SONAR_HOST_URL}..."
-                                                                                AUTH_RESPONSE=$(curl -sS -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/authentication/validate")
+                                                                                AUTH_RESPONSE=$(curl -sS -H "Authorization: Bearer ${SONAR_TOKEN}" "${SONAR_HOST_URL}/api/authentication/validate")
                                                                                 echo "${AUTH_RESPONSE}" | grep -q '"valid":true' || {
                                                                                     echo "ERROR: Sonar token is invalid for this SonarQube server."
                                                                                     exit 1
