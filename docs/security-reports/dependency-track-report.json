@@ -1,0 +1,10 @@
+{
+  "server": "http://dtrack-dependency-track-api-server.dependency-track.svc.cluster.local:8080",
+  "projectName": "platform-engineering-reference-architectures",
+  "projectVersion": "62",
+  "sbomFile": "security-reports/sbom.cyclonedx.json",
+  "uploadHttpStatus": "400",
+  "curlExitCode": "0",
+  "responseFile": "security-reports/dependency-track-upload-response.json",
+  "result": "upload_attempted"
+}

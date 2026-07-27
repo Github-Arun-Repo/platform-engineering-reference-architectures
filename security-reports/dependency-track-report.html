@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependency-Track SBOM Publish Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #f6f8fa; color: #24292f; margin: 0; padding: 32px; }
+        .panel { max-width: 960px; margin: 0 auto; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 24px; }
+        .badge { display: inline-block; background: #ddf4ff; color: #0969da; border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; }
+        .meta { color: #57606a; margin: 10px 0 18px; }
+        pre { background: #0d1117; color: #c9d1d9; border-radius: 8px; padding: 16px; overflow: auto; max-height: 360px; font-size: 0.82rem; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h1>Dependency-Track SBOM Publish Report</h1>
+        <p class="badge">CycloneDX SBOM uploaded from Jenkins</p>
+        <p class="meta">Project: <strong>platform-engineering-reference-architectures</strong> &nbsp;·&nbsp; Version: <strong>62</strong></p>
+        <p class="meta">Server: <strong>http://dtrack-dependency-track-api-server.dependency-track.svc.cluster.local:8080</strong></p>
+        <p class="meta">SBOM source: <strong>security-reports/sbom.cyclonedx.json</strong></p>
+        <p class="meta">Upload status code: <strong>400</strong> &nbsp;·&nbsp; curl exit: <strong>0</strong></p>
+        <h2>Upload Response</h2>
+        <pre>{"status":400,"title":"The uploaded BOM is invalid","detail":"Unrecognized specVersion 1.7"}</pre>
+    </div>
+</body>
+</html>
