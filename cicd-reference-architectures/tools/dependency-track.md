@@ -43,6 +43,14 @@ Pipeline inputs:
 | `DEPENDENCY_TRACK_PROJECT_NAME` | Logical project name in Dependency-Track |
 | `IMAGE_TAG` | Project version used for the uploaded SBOM |
 
+For this repository, the Jenkins values are:
+
+| Jenkins setting | Value |
+|---|---|
+| `DEPENDENCY_TRACK_URL` | `http://dtrack-dependency-track-api-server.dependency-track.svc.cluster.local:8080` |
+| `DEPENDENCY_TRACK_API_KEY_CREDENTIALS_ID` | `owasp_dependency_track` |
+| `DEPENDENCY_TRACK_PROJECT_NAME` | `platform-engineering-reference-architectures` |
+
 The pipeline writes evidence files to `security-reports/` and republishes them under `docs/security-reports/` so they are visible in the dashboard and in the Git history.
 
 ## How To Install And Integrate With Jenkins
@@ -50,8 +58,8 @@ The pipeline writes evidence files to `security-reports/` and republishes them u
 1. Deploy Dependency-Track in your environment using the official OWASP project deployment guidance.
 2. Create or identify the project that will receive SBOM uploads.
 3. Generate an API key for a service account with permission to upload BOMs.
-4. Add that API key to Jenkins as a secret text credential.
-5. Set `DEPENDENCY_TRACK_URL` in the Jenkins pipeline environment.
+4. Add that API key to Jenkins as a secret text credential named `owasp_dependency_track`.
+5. Set `DEPENDENCY_TRACK_URL` in the Jenkins pipeline environment to `http://dtrack-dependency-track-api-server.dependency-track.svc.cluster.local:8080`.
 6. Ensure the Jenkinsfile publishes the CycloneDX SBOM with `autoCreate=true`.
 7. Confirm that the generated `dependency-track-report.html` and `dependency-track-report.json` files appear in `docs/security-reports/` after the build.
 
