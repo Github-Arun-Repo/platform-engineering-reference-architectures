@@ -1,0 +1,38 @@
+                                                                {
+                                                                    "projectKey": "platform-engineering-reference-architectures",
+                                                                    "projectName": "platform-engineering-reference-architectures",
+                                                                    "server": "http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000",
+                                                                    "dashboardUrl": "http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000/dashboard?id=platform-engineering-reference-architectures",
+                                                                    "qualityGate": "OK",
+                                                                    "measures": {
+                                                                        "bugs": "0",
+                                                                        "vulnerabilities": "3",
+                                                                        "codeSmells": "5",
+                                                                        "coverage": "43.7",
+                                                                        "duplication": "0.0",
+                                                                        "ncloc": "174"
+                                                                    }
+                                                                }
+                                                                EOF
+
+                                                                                cat > "../../security-reports/sonarqube-report.html" <<EOF
+                                                                <html>
+                                                                <head><title>SonarQube Summary</title></head>
+                                                                <body>
+                                                                    <h1>SonarQube Summary</h1>
+                                                                    <p><strong>Project:</strong> platform-engineering-reference-architectures (platform-engineering-reference-architectures)</p>
+                                                                    <p><strong>Quality Gate:</strong> OK</p>
+                                                                    <p><strong>Dashboard:</strong> <a href="http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000/dashboard?id=platform-engineering-reference-architectures">http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000/dashboard?id=platform-engineering-reference-architectures</a></p>
+                                                                    <table border="1" cellspacing="0" cellpadding="6">
+                                                                        <tr><th>Metric</th><th>Value</th></tr>
+                                                                        <tr><td>Bugs</td><td>0</td></tr>
+                                                                        <tr><td>Vulnerabilities</td><td>3</td></tr>
+                                                                        <tr><td>Code Smells</td><td>5</td></tr>
+                                                                        <tr><td>Coverage (%)</td><td>43.7</td></tr>
+                                                                        <tr><td>Duplicated Lines Density (%)</td><td>0.0</td></tr>
+                                                                        <tr><td>Lines of Code</td><td>174</td></tr>
+                                                                    </table>
+                                                                </body>
+                                                                </html>
+                                                                EOF
+                                                                        
