@@ -28,8 +28,8 @@ pipeline {
         COSIGN_PASSWORD_CREDENTIALS_ID = 'cosign-password'
         SONARQUBE_SERVER = ''  // Leave empty to use Jenkins default SonarQube installation
         SONARQUBE_TOKEN_CREDENTIALS_ID = 'sonarqube_secret'
-        SONAR_PROJECT_KEY = 'todo-app'
-        SONAR_PROJECT_NAME = 'TODO Application'
+        SONAR_PROJECT_KEY = 'platform-engineering-reference-architectures'
+        SONAR_PROJECT_NAME = 'platform-engineering-reference-architectures'
         ENABLE_SONARQUBE = 'true'
         ENABLE_OWASP_LAST_STEP = 'false'
     }
