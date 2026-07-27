@@ -1,14 +1,14 @@
 {
   "SchemaVersion": 2,
-  "CreatedAt": "2026-07-23T13:47:26.994718897Z",
-  "ArtifactName": "agovindasamy/arun:48",
+  "CreatedAt": "2026-07-27T13:48:25.176516004Z",
+  "ArtifactName": "agovindasamy/arun:53",
   "ArtifactType": "container_image",
   "Metadata": {
     "OS": {
       "Family": "alpine",
       "Name": "3.23.5"
     },
-    "ImageID": "sha256:5aa96ec0a01fd114e2264af1beb7d40a2c3f9ea5bfac9ae7efde7e4913988b64",
+    "ImageID": "sha256:43a9f06a870faed09e7966c25977f2809290841acb1ea554de9b9645b95db9ad",
     "DiffIDs": [
       "sha256:31ad4a471c6852bfec14d757cc75a566c82a9769f12c3918cf6bf52cc0eeb3d0",
       "sha256:751fe7c90841e5c1a9f465ef72cd52a86d5b6ebaa5cd2491cac866d856e12c07",
@@ -22,11 +22,11 @@
       "sha256:7c0e11e93a82d2dfd82f301281eac2bf1c1f4dfc5e0a57a38c48ebcdfc9d7b4b"
     ],
     "RepoTags": [
-      "agovindasamy/arun:48",
+      "agovindasamy/arun:53",
       "agovindasamy/arun:latest"
     ],
     "RepoDigests": [
-      "agovindasamy/arun@sha256:5aa96ec0a01fd114e2264af1beb7d40a2c3f9ea5bfac9ae7efde7e4913988b64"
+      "agovindasamy/arun@sha256:43a9f06a870faed09e7966c25977f2809290841acb1ea554de9b9645b95db9ad"
     ],
     "ImageConfig": {
       "architecture": "amd64",
@@ -191,7 +191,7 @@
   },
   "Results": [
     {
-      "Target": "agovindasamy/arun:48 (alpine 3.23.5)",
+      "Target": "agovindasamy/arun:53 (alpine 3.23.5)",
       "Class": "os-pkgs",
       "Type": "alpine",
       "Vulnerabilities": [
@@ -862,7 +862,7 @@
             "https://www.cve.org/CVERecord?id=CVE-2026-2100"
           ],
           "PublishedDate": "2026-03-26T21:17:04.247Z",
-          "LastModifiedDate": "2026-07-19T18:16:31.763Z"
+          "LastModifiedDate": "2026-07-26T00:16:47.727Z"
         },
         {
           "VulnerabilityID": "CVE-2026-2100",
@@ -930,7 +930,7 @@
             "https://www.cve.org/CVERecord?id=CVE-2026-2100"
           ],
           "PublishedDate": "2026-03-26T21:17:04.247Z",
-          "LastModifiedDate": "2026-07-19T18:16:31.763Z"
+          "LastModifiedDate": "2026-07-26T00:16:47.727Z"
         }
       ]
     },
@@ -1533,7 +1533,7 @@
             "https://github.com/FasterXML/jackson-databind/issues/5988",
             "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-j3rv-43j4-c7qm",
             "https://linux.oracle.com/cve/CVE-2026-54512.html",
-            "https://linux.oracle.com/errata/ELSA-2026-40895.html",
+            "https://linux.oracle.com/errata/ELSA-2026-43400.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2026-54512",
             "https://www.cve.org/CVERecord?id=CVE-2026-54512"
           ],
@@ -1616,7 +1616,7 @@
             "https://github.com/FasterXML/jackson-databind/pull/5984",
             "https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-rmj7-2vxq-3g9f",
             "https://linux.oracle.com/cve/CVE-2026-54513.html",
-            "https://linux.oracle.com/errata/ELSA-2026-40895.html",
+            "https://linux.oracle.com/errata/ELSA-2026-43400.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2026-54513",
             "https://security.access.redhat.com/data/csaf/v2/vex/2026/cve-2026-54513.json",
             "https://www.cve.org/CVERecord?id=CVE-2026-54513"
@@ -2458,7 +2458,7 @@
           ],
           "VendorSeverity": {
             "alma": 3,
-            "amazon": 3,
+            "amazon": 2,
             "bitnami": 3,
             "ghsa": 3,
             "oracle-oval": 3,
@@ -4294,7 +4294,7 @@
           ],
           "VendorSeverity": {
             "alma": 3,
-            "amazon": 3,
+            "amazon": 2,
             "bitnami": 2,
             "ghsa": 1,
             "oracle-oval": 3,

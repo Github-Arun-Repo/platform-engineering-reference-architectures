@@ -1,1 +1,22 @@
-[]
+[
+ {
+  "RuleID": "curl-auth-user",
+  "Description": "Discovered a potential basic authorization token provided in a curl command, which could compromise the curl accessed resource.",
+  "StartLine": 270,
+  "EndLine": 270,
+  "StartColumn": 98,
+  "EndColumn": 127,
+  "Match": "curl -sS -u REDACTED ",
+  "Secret": "REDACTED",
+  "File": "cicd-reference-architectures/phase-1-image-build-jenkins/Jenkinsfile",
+  "SymlinkFile": "",
+  "Commit": "",
+  "Entropy": 3.7345216,
+  "Author": "",
+  "Email": "",
+  "Date": "",
+  "Message": "",
+  "Tags": [],
+  "Fingerprint": "cicd-reference-architectures/phase-1-image-build-jenkins/Jenkinsfile:curl-auth-user:270"
+ }
+]
