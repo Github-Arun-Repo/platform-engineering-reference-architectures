@@ -281,6 +281,79 @@ EOF
                                                                                     -Dsonar.projectKey="${PROJECT_KEY}" \
                                                                                     -Dsonar.projectName="${PROJECT_NAME}" \
                                                                                     -Dsonar.token="${SONAR_TOKEN}"
+
+                                                                                mkdir -p ../../${SECURITY_REPORT_DIR}
+                                                                                SONAR_REPORT_JSON="../../${SECURITY_REPORT_DIR}/sonarqube-report.json"
+                                                                                SONAR_REPORT_HTML="../../${SECURITY_REPORT_DIR}/sonarqube-report.html"
+
+                                                                                SONAR_MEASURES_JSON=$(curl -sS -H "Authorization: Bearer ${SONAR_TOKEN}" --get \
+                                                                                        "${SONAR_HOST_URL}/api/measures/component" \
+                                                                                        --data-urlencode "component=${PROJECT_KEY}" \
+                                                                                        --data-urlencode "metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc")
+
+                                                                                SONAR_QG_JSON=$(curl -sS -H "Authorization: Bearer ${SONAR_TOKEN}" --get \
+                                                                                        "${SONAR_HOST_URL}/api/qualitygates/project_status" \
+                                                                                        --data-urlencode "projectKey=${PROJECT_KEY}" || true)
+
+                                                                                get_metric() {
+                                                                                        key="$1"
+                                                                                        echo "${SONAR_MEASURES_JSON}" | tr -d '\n' | sed -n "s/.*\\\"metric\\\":\\\"${key}\\\",\\\"value\\\":\\\"\\([^\\\"]*\\)\\\".*/\\1/p" | head -n 1
+                                                                                }
+
+                                                                                SONAR_BUGS=$(get_metric bugs)
+                                                                                SONAR_VULNS=$(get_metric vulnerabilities)
+                                                                                SONAR_SMELLS=$(get_metric code_smells)
+                                                                                SONAR_COVERAGE=$(get_metric coverage)
+                                                                                SONAR_DUPLICATION=$(get_metric duplicated_lines_density)
+                                                                                SONAR_NCLOC=$(get_metric ncloc)
+                                                                                SONAR_QG_STATUS=$(echo "${SONAR_QG_JSON}" | tr -d '\n' | sed -n 's/.*"status":"\([^"]*\)".*/\1/p' | head -n 1)
+
+                                                                                [ -n "${SONAR_BUGS}" ] || SONAR_BUGS="unknown"
+                                                                                [ -n "${SONAR_VULNS}" ] || SONAR_VULNS="unknown"
+                                                                                [ -n "${SONAR_SMELLS}" ] || SONAR_SMELLS="unknown"
+                                                                                [ -n "${SONAR_COVERAGE}" ] || SONAR_COVERAGE="unknown"
+                                                                                [ -n "${SONAR_DUPLICATION}" ] || SONAR_DUPLICATION="unknown"
+                                                                                [ -n "${SONAR_NCLOC}" ] || SONAR_NCLOC="unknown"
+                                                                                [ -n "${SONAR_QG_STATUS}" ] || SONAR_QG_STATUS="unknown"
+
+                                                                                cat > "${SONAR_REPORT_JSON}" <<EOF
+                                                                {
+                                                                    "projectKey": "${PROJECT_KEY}",
+                                                                    "projectName": "${PROJECT_NAME}",
+                                                                    "server": "${SONAR_HOST_URL}",
+                                                                    "dashboardUrl": "${SONAR_HOST_URL}/dashboard?id=${PROJECT_KEY}",
+                                                                    "qualityGate": "${SONAR_QG_STATUS}",
+                                                                    "measures": {
+                                                                        "bugs": "${SONAR_BUGS}",
+                                                                        "vulnerabilities": "${SONAR_VULNS}",
+                                                                        "codeSmells": "${SONAR_SMELLS}",
+                                                                        "coverage": "${SONAR_COVERAGE}",
+                                                                        "duplication": "${SONAR_DUPLICATION}",
+                                                                        "ncloc": "${SONAR_NCLOC}"
+                                                                    }
+                                                                }
+                                                                EOF
+
+                                                                                cat > "${SONAR_REPORT_HTML}" <<EOF
+                                                                <html>
+                                                                <head><title>SonarQube Summary</title></head>
+                                                                <body>
+                                                                    <h1>SonarQube Summary</h1>
+                                                                    <p><strong>Project:</strong> ${PROJECT_NAME} (${PROJECT_KEY})</p>
+                                                                    <p><strong>Quality Gate:</strong> ${SONAR_QG_STATUS}</p>
+                                                                    <p><strong>Dashboard:</strong> <a href="${SONAR_HOST_URL}/dashboard?id=${PROJECT_KEY}">${SONAR_HOST_URL}/dashboard?id=${PROJECT_KEY}</a></p>
+                                                                    <table border="1" cellspacing="0" cellpadding="6">
+                                                                        <tr><th>Metric</th><th>Value</th></tr>
+                                                                        <tr><td>Bugs</td><td>${SONAR_BUGS}</td></tr>
+                                                                        <tr><td>Vulnerabilities</td><td>${SONAR_VULNS}</td></tr>
+                                                                        <tr><td>Code Smells</td><td>${SONAR_SMELLS}</td></tr>
+                                                                        <tr><td>Coverage (%)</td><td>${SONAR_COVERAGE}</td></tr>
+                                                                        <tr><td>Duplicated Lines Density (%)</td><td>${SONAR_DUPLICATION}</td></tr>
+                                                                        <tr><td>Lines of Code</td><td>${SONAR_NCLOC}</td></tr>
+                                                                    </table>
+                                                                </body>
+                                                                </html>
+                                                                EOF
                                                                         '''
                                                                 }
 
@@ -658,6 +731,8 @@ EOF
                                     test -f ${SECURITY_REPORT_DIR}/grype-exit-code.txt || echo '2' > ${SECURITY_REPORT_DIR}/grype-exit-code.txt
                                     test -f ${SECURITY_REPORT_DIR}/grype-critical-count.txt || echo '0' > ${SECURITY_REPORT_DIR}/grype-critical-count.txt
                                     test -f ${SECURITY_REPORT_DIR}/grype-high-count.txt || echo '0' > ${SECURITY_REPORT_DIR}/grype-high-count.txt
+                                      test -f ${SECURITY_REPORT_DIR}/sonarqube-report.json || echo '{"note":"No SonarQube report generated"}' > ${SECURITY_REPORT_DIR}/sonarqube-report.json
+                                      test -f ${SECURITY_REPORT_DIR}/sonarqube-report.html || echo '<html><body><h1>No SonarQube report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/sonarqube-report.html
 
                                     REPORT_STAGING_DIR="$(mktemp -d)"
                                     cp -R ${SECURITY_REPORT_DIR} "${REPORT_STAGING_DIR}/security-reports"
@@ -703,6 +778,8 @@ EOF
                                     cp ${SECURITY_REPORT_DIR}/grype-report.html docs/security-reports/grype-report.html
                                     cp ${SECURITY_REPORT_DIR}/grype-report.json docs/security-reports/grype-report.json
                                     cp ${SECURITY_REPORT_DIR}/grype-report.txt docs/security-reports/grype-report.txt
+                                      cp ${SECURITY_REPORT_DIR}/sonarqube-report.html docs/security-reports/sonarqube-report.html
+                                      cp ${SECURITY_REPORT_DIR}/sonarqube-report.json docs/security-reports/sonarqube-report.json
                                     printf '{"build":"%s","timestamp":"%s"}' "${BUILD_NUMBER}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/security-reports/build-meta.json
 
                                     git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html \
@@ -710,11 +787,13 @@ EOF
                                             ${SECURITY_REPORT_DIR}/gitleaks-report.json ${SECURITY_REPORT_DIR}/gitleaks-report.html ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt \
                                             ${SECURITY_REPORT_DIR}/sbom-report.html ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ${SECURITY_REPORT_DIR}/sbom.spdx.json ${SECURITY_REPORT_DIR}/sbom.syft.txt \
                                             ${SECURITY_REPORT_DIR}/grype-report.html ${SECURITY_REPORT_DIR}/grype-report.json ${SECURITY_REPORT_DIR}/grype-report.txt ${SECURITY_REPORT_DIR}/grype-exit-code.txt ${SECURITY_REPORT_DIR}/grype-critical-count.txt ${SECURITY_REPORT_DIR}/grype-high-count.txt \
+                                              ${SECURITY_REPORT_DIR}/sonarqube-report.html ${SECURITY_REPORT_DIR}/sonarqube-report.json \
                                             docs/security-reports/trivy-report.html docs/security-reports/trivy-report.json \
                                             docs/security-reports/trivy-fs-report.html docs/security-reports/trivy-fs-report.json \
                                             docs/security-reports/gitleaks-report.html docs/security-reports/gitleaks-report.json \
                                             docs/security-reports/sbom-report.html docs/security-reports/sbom.cyclonedx.json docs/security-reports/sbom.spdx.json docs/security-reports/sbom.syft.txt \
                                             docs/security-reports/grype-report.html docs/security-reports/grype-report.json docs/security-reports/grype-report.txt \
+                                              docs/security-reports/sonarqube-report.html docs/security-reports/sonarqube-report.json \
                                             docs/security-reports/build-meta.json
                                     if [ -d docs/security-reports/jacoco ]; then
                                         git add docs/security-reports/jacoco
@@ -1443,7 +1522,7 @@ EOF
                 // Archive build artifacts if needed
                 junit testResults: 'cicd-reference-architectures/sample-application/target/surefire-reports/*.xml', allowEmptyResults: true
 
-                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt,security-reports/sonarqube-report.html,security-reports/sonarqube-report.json,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
 
                 publishHTML(target: [
                     reportDir: 'security-reports',
@@ -1494,6 +1573,15 @@ EOF
                     reportDir: 'security-reports',
                     reportFiles: 'grype-report.html',
                     reportName: 'Grype SBOM Vulnerability Report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: true
+                ])
+
+                publishHTML(target: [
+                    reportDir: 'security-reports',
+                    reportFiles: 'sonarqube-report.html',
+                    reportName: 'SonarQube Summary Report',
                     keepAll: true,
                     alwaysLinkToLastBuild: true,
                     allowMissing: true
