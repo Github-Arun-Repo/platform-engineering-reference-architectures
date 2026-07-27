@@ -30,6 +30,9 @@ pipeline {
         SONARQUBE_TOKEN_CREDENTIALS_ID = 'sonarqube_secret'
         SONAR_PROJECT_KEY = 'platform-engineering-reference-architectures'
         SONAR_PROJECT_NAME = 'platform-engineering-reference-architectures'
+        DEPENDENCY_TRACK_URL = ''
+        DEPENDENCY_TRACK_API_KEY_CREDENTIALS_ID = 'dependencytrack_secret'
+        DEPENDENCY_TRACK_PROJECT_NAME = 'platform-engineering-reference-architectures'
         ENABLE_SONARQUBE = 'true'
         ENABLE_OWASP_LAST_STEP = 'false'
     }
@@ -506,6 +509,155 @@ EOF
             }
         }
 
+        stage('Publish SBOM to Dependency-Track') {
+            steps {
+                container('maven') {
+                    script {
+                        echo "Publishing CycloneDX SBOM to Dependency-Track..."
+                        if (env.DEPENDENCY_TRACK_URL?.trim()) {
+                            withCredentials([string(credentialsId: "${DEPENDENCY_TRACK_API_KEY_CREDENTIALS_ID}", variable: 'DEPENDENCY_TRACK_API_KEY')]) {
+                                sh '''
+                                    set -e
+                                    mkdir -p ${SECURITY_REPORT_DIR}
+                                    rm -f ${SECURITY_REPORT_DIR}/dependency-track-report.json \
+                                          ${SECURITY_REPORT_DIR}/dependency-track-report.html \
+                                          ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json
+
+                                    if [ ! -s ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ]; then
+                                        cat > ${SECURITY_REPORT_DIR}/dependency-track-report.json <<EOF
+{
+  "server": "${DEPENDENCY_TRACK_URL}",
+  "projectName": "${DEPENDENCY_TRACK_PROJECT_NAME}",
+  "projectVersion": "${IMAGE_TAG}",
+  "sbomFile": "${SECURITY_REPORT_DIR}/sbom.cyclonedx.json",
+  "uploadHttpStatus": "missing_sbom",
+  "result": "skipped_missing_sbom"
+}
+EOF
+
+                                        cat > ${SECURITY_REPORT_DIR}/dependency-track-report.html <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependency-Track SBOM Publish Report</title>
+</head>
+<body>
+    <h1>Dependency-Track SBOM Publish Report</h1>
+    <p>SBOM file was missing, so upload was skipped.</p>
+    <p>Project: ${DEPENDENCY_TRACK_PROJECT_NAME}</p>
+    <p>Version: ${IMAGE_TAG}</p>
+</body>
+</html>
+EOF
+                                        exit 0
+                                    fi
+
+                                    UPLOAD_HTTP_STATUS=000
+                                    CURL_STATUS=0
+                                    set +e
+                                    UPLOAD_HTTP_STATUS=$(curl --silent --show-error --location --retry 3 --retry-all-errors \
+                                        -H "X-Api-Key: ${DEPENDENCY_TRACK_API_KEY}" \
+                                        -F "autoCreate=true" \
+                                        -F "projectName=${DEPENDENCY_TRACK_PROJECT_NAME}" \
+                                        -F "projectVersion=${IMAGE_TAG}" \
+                                        -F "bom=@${SECURITY_REPORT_DIR}/sbom.cyclonedx.json" \
+                                        --output ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json \
+                                        --write-out "%{http_code}" \
+                                        "${DEPENDENCY_TRACK_URL%/}/api/v1/bom")
+                                    CURL_STATUS=$?
+                                    set -e
+
+                                    if [ ! -s ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json ]; then
+                                        echo '{}' > ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json
+                                    fi
+
+                                    if [ "${CURL_STATUS}" -ne 0 ]; then
+                                        echo "WARN: Dependency-Track upload request returned curl exit ${CURL_STATUS}."
+                                    fi
+
+                                    cat > ${SECURITY_REPORT_DIR}/dependency-track-report.json <<EOF
+{
+  "server": "${DEPENDENCY_TRACK_URL}",
+  "projectName": "${DEPENDENCY_TRACK_PROJECT_NAME}",
+  "projectVersion": "${IMAGE_TAG}",
+  "sbomFile": "${SECURITY_REPORT_DIR}/sbom.cyclonedx.json",
+  "uploadHttpStatus": "${UPLOAD_HTTP_STATUS}",
+  "curlExitCode": "${CURL_STATUS}",
+  "responseFile": "${SECURITY_REPORT_DIR}/dependency-track-upload-response.json",
+  "result": "upload_attempted"
+}
+EOF
+
+                                    cat > ${SECURITY_REPORT_DIR}/dependency-track-report.html <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependency-Track SBOM Publish Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #f6f8fa; color: #24292f; margin: 0; padding: 32px; }
+        .panel { max-width: 960px; margin: 0 auto; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 24px; }
+        .badge { display: inline-block; background: #ddf4ff; color: #0969da; border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; }
+        .meta { color: #57606a; margin: 10px 0 18px; }
+        pre { background: #0d1117; color: #c9d1d9; border-radius: 8px; padding: 16px; overflow: auto; max-height: 360px; font-size: 0.82rem; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h1>Dependency-Track SBOM Publish Report</h1>
+        <p class="badge">CycloneDX SBOM uploaded from Jenkins</p>
+        <p class="meta">Project: <strong>${DEPENDENCY_TRACK_PROJECT_NAME}</strong> &nbsp;·&nbsp; Version: <strong>${IMAGE_TAG}</strong></p>
+        <p class="meta">Server: <strong>${DEPENDENCY_TRACK_URL}</strong></p>
+        <p class="meta">SBOM source: <strong>${SECURITY_REPORT_DIR}/sbom.cyclonedx.json</strong></p>
+        <p class="meta">Upload status code: <strong>${UPLOAD_HTTP_STATUS}</strong> &nbsp;·&nbsp; curl exit: <strong>${CURL_STATUS}</strong></p>
+        <h2>Upload Response</h2>
+        <pre>$(sed -n '1,120p' ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json)</pre>
+    </div>
+</body>
+</html>
+EOF
+                                '''
+                            }
+                        } else {
+                            sh '''
+                                mkdir -p ${SECURITY_REPORT_DIR}
+                                cat > ${SECURITY_REPORT_DIR}/dependency-track-report.json <<EOF
+{
+  "server": "",
+  "projectName": "${DEPENDENCY_TRACK_PROJECT_NAME}",
+  "projectVersion": "${IMAGE_TAG}",
+  "sbomFile": "${SECURITY_REPORT_DIR}/sbom.cyclonedx.json",
+  "uploadHttpStatus": "skipped",
+  "result": "skipped_not_configured"
+}
+EOF
+                                cat > ${SECURITY_REPORT_DIR}/dependency-track-report.html <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependency-Track SBOM Publish Report</title>
+</head>
+<body>
+    <h1>Dependency-Track SBOM Publish Report</h1>
+    <p>Dependency-Track URL is not configured in Jenkins, so the SBOM upload was skipped.</p>
+    <p>Project: ${DEPENDENCY_TRACK_PROJECT_NAME}</p>
+    <p>Version: ${IMAGE_TAG}</p>
+    <p>SBOM: ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json</p>
+</body>
+</html>
+EOF
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Scan SBOM with Grype') {
             steps {
                 container('docker') {
@@ -725,6 +877,9 @@ EOF
                                     test -f ${SECURITY_REPORT_DIR}/sbom.spdx.json || echo '{"spdxVersion":"SPDX-2.3","dataLicense":"CC0-1.0","SPDXID":"SPDXRef-DOCUMENT","name":"No SBOM generated","documentNamespace":"https://example.invalid/no-sbom"}' > ${SECURITY_REPORT_DIR}/sbom.spdx.json
                                     test -f ${SECURITY_REPORT_DIR}/sbom.syft.txt || echo 'No Syft SBOM generated in this build.' > ${SECURITY_REPORT_DIR}/sbom.syft.txt
                                     test -f ${SECURITY_REPORT_DIR}/sbom-report.html || echo '<html><body><h1>No SBOM report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/sbom-report.html
+                                    test -f ${SECURITY_REPORT_DIR}/dependency-track-report.json || echo '{"result":"skipped_not_generated"}' > ${SECURITY_REPORT_DIR}/dependency-track-report.json
+                                    test -f ${SECURITY_REPORT_DIR}/dependency-track-report.html || echo '<html><body><h1>No Dependency-Track report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/dependency-track-report.html
+                                    test -f ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json || echo '{}' > ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json
                                     test -f ${SECURITY_REPORT_DIR}/grype-report.json || echo '{"matches":[],"source":{"type":"sbom"},"note":"No Grype report generated"}' > ${SECURITY_REPORT_DIR}/grype-report.json
                                     test -f ${SECURITY_REPORT_DIR}/grype-report.txt || echo 'No Grype report generated in this build.' > ${SECURITY_REPORT_DIR}/grype-report.txt
                                     test -f ${SECURITY_REPORT_DIR}/grype-report.html || echo '<html><body><h1>No Grype report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/grype-report.html
@@ -775,25 +930,29 @@ EOF
                                     cp ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json docs/security-reports/sbom.cyclonedx.json
                                     cp ${SECURITY_REPORT_DIR}/sbom.spdx.json docs/security-reports/sbom.spdx.json
                                     cp ${SECURITY_REPORT_DIR}/sbom.syft.txt docs/security-reports/sbom.syft.txt
+                                                                        cp ${SECURITY_REPORT_DIR}/dependency-track-report.html docs/security-reports/dependency-track-report.html
+                                                                        cp ${SECURITY_REPORT_DIR}/dependency-track-report.json docs/security-reports/dependency-track-report.json
+                                                                        cp ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json docs/security-reports/dependency-track-upload-response.json
                                     cp ${SECURITY_REPORT_DIR}/grype-report.html docs/security-reports/grype-report.html
                                     cp ${SECURITY_REPORT_DIR}/grype-report.json docs/security-reports/grype-report.json
                                     cp ${SECURITY_REPORT_DIR}/grype-report.txt docs/security-reports/grype-report.txt
-                                      cp ${SECURITY_REPORT_DIR}/sonarqube-report.html docs/security-reports/sonarqube-report.html
-                                      cp ${SECURITY_REPORT_DIR}/sonarqube-report.json docs/security-reports/sonarqube-report.json
+                                                                        cp ${SECURITY_REPORT_DIR}/sonarqube-report.html docs/security-reports/sonarqube-report.html
+                                                                        cp ${SECURITY_REPORT_DIR}/sonarqube-report.json docs/security-reports/sonarqube-report.json
                                     printf '{"build":"%s","timestamp":"%s"}' "${BUILD_NUMBER}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/security-reports/build-meta.json
 
                                     git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html \
                                             ${SECURITY_REPORT_DIR}/trivy-fs-report.json ${SECURITY_REPORT_DIR}/trivy-fs-report.html \
                                             ${SECURITY_REPORT_DIR}/gitleaks-report.json ${SECURITY_REPORT_DIR}/gitleaks-report.html ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt \
                                             ${SECURITY_REPORT_DIR}/sbom-report.html ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ${SECURITY_REPORT_DIR}/sbom.spdx.json ${SECURITY_REPORT_DIR}/sbom.syft.txt \
+                                                                                        ${SECURITY_REPORT_DIR}/dependency-track-report.html ${SECURITY_REPORT_DIR}/dependency-track-report.json ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json \
                                             ${SECURITY_REPORT_DIR}/grype-report.html ${SECURITY_REPORT_DIR}/grype-report.json ${SECURITY_REPORT_DIR}/grype-report.txt ${SECURITY_REPORT_DIR}/grype-exit-code.txt ${SECURITY_REPORT_DIR}/grype-critical-count.txt ${SECURITY_REPORT_DIR}/grype-high-count.txt \
-                                              ${SECURITY_REPORT_DIR}/sonarqube-report.html ${SECURITY_REPORT_DIR}/sonarqube-report.json \
+                                                                                        ${SECURITY_REPORT_DIR}/sonarqube-report.html ${SECURITY_REPORT_DIR}/sonarqube-report.json \
                                             docs/security-reports/trivy-report.html docs/security-reports/trivy-report.json \
                                             docs/security-reports/trivy-fs-report.html docs/security-reports/trivy-fs-report.json \
                                             docs/security-reports/gitleaks-report.html docs/security-reports/gitleaks-report.json \
-                                            docs/security-reports/sbom-report.html docs/security-reports/sbom.cyclonedx.json docs/security-reports/sbom.spdx.json docs/security-reports/sbom.syft.txt \
+                                                                                        docs/security-reports/sbom-report.html docs/security-reports/sbom.cyclonedx.json docs/security-reports/sbom.spdx.json docs/security-reports/sbom.syft.txt docs/security-reports/dependency-track-report.html docs/security-reports/dependency-track-report.json docs/security-reports/dependency-track-upload-response.json \
                                             docs/security-reports/grype-report.html docs/security-reports/grype-report.json docs/security-reports/grype-report.txt \
-                                              docs/security-reports/sonarqube-report.html docs/security-reports/sonarqube-report.json \
+                                                                                        docs/security-reports/sonarqube-report.html docs/security-reports/sonarqube-report.json \
                                             docs/security-reports/build-meta.json
                                     if [ -d docs/security-reports/jacoco ]; then
                                         git add docs/security-reports/jacoco
@@ -1522,7 +1681,7 @@ EOF
                 // Archive build artifacts if needed
                 junit testResults: 'cicd-reference-architectures/sample-application/target/surefire-reports/*.xml', allowEmptyResults: true
 
-                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt,security-reports/sonarqube-report.html,security-reports/sonarqube-report.json,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/dependency-track-report.html,security-reports/dependency-track-report.json,security-reports/dependency-track-upload-response.json,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt,security-reports/sonarqube-report.html,security-reports/sonarqube-report.json,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
 
                 publishHTML(target: [
                     reportDir: 'security-reports',
@@ -1564,6 +1723,15 @@ EOF
                     reportDir: 'security-reports',
                     reportFiles: 'sbom-report.html',
                     reportName: 'Image SBOM Report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: true
+                ])
+
+                publishHTML(target: [
+                    reportDir: 'security-reports',
+                    reportFiles: 'dependency-track-report.html',
+                    reportName: 'Dependency-Track SBOM Publish Report',
                     keepAll: true,
                     alwaysLinkToLastBuild: true,
                     allowMissing: true

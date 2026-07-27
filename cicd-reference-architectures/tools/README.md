@@ -14,6 +14,7 @@ flowchart LR
     secrets[Secrets<br/>Gitleaks]
     image[Container Image]
     sbom[SBOM<br/>Syft]
+    dtrack[SBOM Publish<br/>Dependency-Track]
     sca[SBOM Risk<br/>Grype]
     vuln[Image + FS Risk<br/>Trivy]
     gates[Security Gates]
@@ -22,7 +23,7 @@ flowchart LR
     source --> sast --> gates
     source --> tests --> gates
     source --> secrets --> gates
-    image --> sbom --> sca --> gates
+    image --> sbom --> dtrack --> sca --> gates
     image --> vuln --> gates
     gates --> evidence
 
@@ -33,7 +34,7 @@ flowchart LR
 
     class source,image code;
     class tests quality;
-    class sast,secrets,sbom,sca,vuln,gates security;
+    class sast,secrets,sbom,dtrack,sca,vuln,gates security;
     class evidence evidence;
 ```
 
@@ -46,6 +47,7 @@ flowchart LR
 | Code coverage | JaCoCo | Planned | Native Maven/JUnit coverage evidence for Java |
 | Secret scanning | Gitleaks | Planned | Fast repository secret detection with simple CI gating |
 | SBOM generation | Syft | Planned | Strong container package inventory with CycloneDX and SPDX output |
+| SBOM publication and intelligence | OWASP Dependency-Track | [Dependency-Track](./dependency-track.md) | Publishes the CycloneDX SBOM into a vulnerability intelligence platform and keeps the component risk history accessible via API and UI |
 | SBOM vulnerability scan | Grype | Planned | Vulnerability analysis from SBOM data, useful for repeatable re-scans |
 | Image and filesystem scan | Trivy | Planned | Practical image, filesystem, dependency, secret, and misconfiguration scanning |
 | Image signing and attestations | Cosign | [Cosign Signing](./cosign-signing.md) | Signs immutable image digests and attaches verifiable supply chain evidence |

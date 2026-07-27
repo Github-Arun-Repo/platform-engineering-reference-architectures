@@ -108,6 +108,7 @@ Checkout
     -> Build Application
     -> Build Docker Image
     -> Generate Image SBOM
+    -> Publish SBOM to Dependency-Track
     -> Scan SBOM with Grype
     -> Scan Docker Image with Trivy
     -> Commit Security Reports
@@ -135,6 +136,7 @@ The order is deliberate. Each stage filters defects before they reach the next, 
 | Build Application | Create the packaged Spring Boot JAR |
 | Build Docker Image | Build the deployable runtime image |
 | Generate Image SBOM | Create CycloneDX, SPDX, and table SBOM outputs |
+| Publish SBOM to Dependency-Track | Upload the CycloneDX SBOM to Dependency-Track and capture upload evidence |
 | Scan SBOM with Grype | Evaluate package inventory for vulnerability risk |
 | Scan Docker Image | Evaluate runtime image layers for vulnerabilities |
 | Commit Security Reports | Publish report evidence to Git and the dashboard |

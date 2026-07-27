@@ -31,15 +31,16 @@ The focus is not simply "run CI/CD." The focus is the **security supply chain** 
 13. [7. Package Application](#7-package-application)
 14. [8. Build Container Image](#8-build-container-image)
 15. [9. Generate SBOM](#9-generate-sbom)
-16. [10. Scan SBOM](#10-scan-sbom)
-17. [11. Scan Container Image](#11-scan-container-image)
-18. [12. Publish Report Evidence](#12-publish-report-evidence)
-19. [13. Apply Security Gates](#13-apply-security-gates)
-20. [14. Push to Registry](#14-push-to-registry)
-21. [15. Sign Image](#15-sign-image)
-22. [16. Attest Image](#16-attest-image)
-23. [17. Attach SBOM](#17-attach-sbom)
-24. [18. Publish Cosign Evidence](#18-publish-cosign-evidence)
+16. [10. Publish SBOM to Dependency-Track](#10-publish-sbom-to-dependency-track)
+17. [11. Scan SBOM](#11-scan-sbom)
+18. [12. Scan Container Image](#12-scan-container-image)
+19. [13. Publish Report Evidence](#13-publish-report-evidence)
+20. [14. Apply Security Gates](#14-apply-security-gates)
+21. [15. Push to Registry](#15-push-to-registry)
+22. [16. Sign Image](#16-sign-image)
+23. [17. Attest Image](#17-attest-image)
+24. [18. Attach SBOM](#18-attach-sbom)
+25. [19. Publish Cosign Evidence](#19-publish-cosign-evidence)
 24. [Reference Implementations](#reference-implementations)
 25. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
 26. [Roadmap](#roadmap)
@@ -73,18 +74,19 @@ flowchart LR
     package[08<br/>Package App]
     image[09<br/>Build Image]
     sbom[10<br/>Generate SBOM]
-    grype[11<br/>SBOM Risk Scan]
-    trivyImage[12<br/>Image Scan]
-    reportCommit[13<br/>Publish Report Evidence]
-    gates[14<br/>Security Gates]
-    registry[15<br/>Registry Push]
-    sign[16<br/>Cosign Sign (Default On)]
-    attest[17<br/>Cosign Attest (Default On)]
-    attach[18<br/>Attach SBOM]
-    cosignCommit[19<br/>Publish Cosign Evidence]
-    evidence[20<br/>Evidence Dashboard]
+    dtrack[11<br/>Dependency-Track Upload]
+    grype[12<br/>SBOM Risk Scan]
+    trivyImage[13<br/>Image Scan]
+    reportCommit[14<br/>Publish Report Evidence]
+    gates[15<br/>Security Gates]
+    registry[16<br/>Registry Push]
+    sign[17<br/>Cosign Sign (Default On)]
+    attest[18<br/>Cosign Attest (Default On)]
+    attach[19<br/>Attach SBOM]
+    cosignCommit[20<br/>Publish Cosign Evidence]
+    evidence[21<br/>Evidence Dashboard]
 
-    commit --> checkout --> gitleaks --> trivyFs --> tests --> coverage --> sonar --> package --> image --> sbom --> grype --> trivyImage --> reportCommit --> gates --> registry --> sign --> attest --> attach --> cosignCommit --> evidence
+    commit --> checkout --> gitleaks --> trivyFs --> tests --> coverage --> sonar --> package --> image --> sbom --> dtrack --> grype --> trivyImage --> reportCommit --> gates --> registry --> sign --> attest --> attach --> cosignCommit --> evidence
     gitleaks --> gates
     trivyFs --> gates
     grype --> gates
@@ -104,7 +106,7 @@ flowchart LR
 
     class commit,checkout source;
     class tests,coverage quality;
-    class package,image,sbom artifact;
+    class package,image,sbom,dtrack artifact;
     class grype,trivyImage,trivyFs,gitleaks,gates,sign,attest security;
     class registry,reportCommit,attach,cosignCommit,evidence publish;
 ```
@@ -206,15 +208,16 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 7 | [Package Application](#7-package-application) | Maven | build JAR artifact | yes |
 | 8 | [Build Container Image](#8-build-container-image) | Docker | immutable runtime artifact | yes |
 | 9 | [Generate SBOM](#9-generate-sbom) | Syft | package inventory | reported |
-| 10 | [Scan SBOM](#10-scan-sbom) | Grype | dependency/package CVEs | severity gated |
-| 11 | [Scan Container Image](#11-scan-container-image) | Trivy image | image layer CVEs | reported |
-| 12 | [Publish Report Evidence](#12-publish-report-evidence) | Jenkins + Git + HTML | public report publication before promotion | reported |
-| 13 | [Apply Security Gates](#13-apply-security-gates) | Jenkins policy logic | promotion decision | yes |
-| 14 | [Push to Registry](#14-push-to-registry) | Docker | artifact promotion | yes |
-| 15 | [Sign Image](#15-sign-image) | Cosign | digest integrity proof | yes (default on) |
-| 16 | [Attest Image](#16-attest-image) | Cosign | SBOM and build evidence referrers | yes (default on) |
-| 17 | [Attach SBOM](#17-attach-sbom) | ORAS | OCI artifact attachment | best effort |
-| 18 | [Publish Cosign Evidence](#18-publish-cosign-evidence) | Jenkins + Git + HTML | public signing and attestation evidence | yes (default on) |
+| 10 | [Publish SBOM to Dependency-Track](#10-publish-sbom-to-dependency-track) | OWASP Dependency-Track | SBOM publication and project/version vulnerability intelligence | best effort |
+| 11 | [Scan SBOM](#11-scan-sbom) | Grype | dependency/package CVEs | severity gated |
+| 12 | [Scan Container Image](#12-scan-container-image) | Trivy image | image layer CVEs | reported |
+| 13 | [Publish Report Evidence](#13-publish-report-evidence) | Jenkins + Git + HTML | public report publication before promotion | reported |
+| 14 | [Apply Security Gates](#14-apply-security-gates) | Jenkins policy logic | promotion decision | yes |
+| 15 | [Push to Registry](#15-push-to-registry) | Docker | artifact promotion | yes |
+| 16 | [Sign Image](#16-sign-image) | Cosign | digest integrity proof | yes (default on) |
+| 17 | [Attest Image](#17-attest-image) | Cosign | SBOM and build evidence referrers | yes (default on) |
+| 18 | [Attach SBOM](#18-attach-sbom) | ORAS | OCI artifact attachment | best effort |
+| 19 | [Publish Cosign Evidence](#19-publish-cosign-evidence) | Jenkins + Git + HTML | public signing and attestation evidence | yes (default on) |
 
 ## 1. Source and Checkout
 
@@ -404,7 +407,28 @@ An SBOM answers: "What is inside this artifact?" It creates the package inventor
 
 - [SBOM Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/sbom-report.html)
 
-## 10. Scan SBOM
+## 10. Publish SBOM to Dependency-Track
+
+**What happens**
+
+Jenkins uploads the generated CycloneDX SBOM to Dependency-Track so the repository has a central SBOM system of record in addition to the build-time scans.
+
+**Why this matters**
+
+Dependency-Track keeps project/version history, supports API-driven workflows, and makes the SBOM useful after the build has finished. That complements Grype, which still performs the fast build-time vulnerability gate.
+
+**Where this is useful**
+
+- SBOM historical tracking
+- long-lived vulnerability intelligence
+- compliance evidence
+- release review and audit trails
+
+**Evidence produced**
+
+- [Dependency-Track SBOM Publish Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/dependency-track-report.html)
+
+## 11. Scan SBOM
 
 **What happens**
 
@@ -431,7 +455,7 @@ SBOM scanning separates package inventory from vulnerability matching. This is u
 
 - [Grype SBOM Vulnerability Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/grype-report.html)
 
-## 11. Scan Container Image
+## 12. Scan Container Image
 
 **What happens**
 
@@ -452,7 +476,7 @@ Image scanning checks the actual deployable artifact, not only the source tree. 
 
 - [Trivy Image Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-report.html)
 
-## 12. Publish Report Evidence
+## 13. Publish Report Evidence
 
 **What happens**
 
@@ -469,7 +493,7 @@ This makes the security evidence visible even when a later gate blocks the relea
 - engineering demos and walkthroughs
 - failure analysis when promotion is blocked
 
-## 13. Apply Security Gates
+## 14. Apply Security Gates
 
 **What happens**
 
@@ -492,7 +516,7 @@ Security reports are useful, but gates decide whether an artifact is allowed to 
 - release readiness decisions
 - balancing security rigor with pipeline reliability
 
-## 14. Push to Registry
+## 15. Push to Registry
 
 **What happens**
 
@@ -515,7 +539,7 @@ After the image is pushed, the strongest next steps are to sign the immutable di
 
 - [Cosign Signing](./tools/cosign-signing.md)
 
-## 15. Sign Image
+## 16. Sign Image
 
 **What happens**
 
@@ -535,7 +559,7 @@ Signing proves integrity and gives downstream consumers a way to verify that the
 
 - [Cosign Signing](./tools/cosign-signing.md)
 
-## 16. Attest Image
+## 17. Attest Image
 
 **What happens**
 
@@ -555,7 +579,7 @@ Attestations carry evidence about the artifact, not just a proof that the artifa
 
 - [Cosign Signing](./tools/cosign-signing.md)
 
-## 17. Attach SBOM
+## 18. Attach SBOM
 
 **What happens**
 
@@ -569,7 +593,7 @@ Attaching evidence to the artifact keeps inventory close to the image it describ
 
 This step is best effort. If ORAS or the registry attachment fails, the SBOM remains available as Jenkins artifacts and public dashboard evidence.
 
-## 18. Publish Cosign Evidence
+## 19. Publish Cosign Evidence
 
 **What happens**
 
