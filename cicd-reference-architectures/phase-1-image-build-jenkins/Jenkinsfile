@@ -27,7 +27,8 @@ pipeline {
         COSIGN_KEY_CREDENTIALS_ID = 'cosign-private-key'
         COSIGN_PASSWORD_CREDENTIALS_ID = 'cosign-password'
         SONARQUBE_SERVER = 'SonarQube'  // Configure in Jenkins
-        ENABLE_SONARQUBE = 'false'
+        SONARQUBE_TOKEN_CREDENTIALS_ID = 'sonarqube_secret'
+        ENABLE_SONARQUBE = 'true'
         ENABLE_OWASP_LAST_STEP = 'false'
     }
 
@@ -256,8 +257,10 @@ EOF
                     script {
                         echo "Running SonarQube analysis..."
                         dir('cicd-reference-architectures/sample-application') {
-                            withSonarQubeEnv("${SONARQUBE_SERVER}") {
-                                sh 'mvn -B sonar:sonar -DskipTests'
+                            withCredentials([string(credentialsId: "${SONARQUBE_TOKEN_CREDENTIALS_ID}", variable: 'SONAR_TOKEN')]) {
+                                withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                                    sh 'mvn -B sonar:sonar -DskipTests -Dsonar.token=${SONAR_TOKEN}'
+                                }
                             }
                         }
                     }
