@@ -28,6 +28,8 @@ pipeline {
         COSIGN_PASSWORD_CREDENTIALS_ID = 'cosign-password'
         SONARQUBE_SERVER = ''  // Leave empty to use Jenkins default SonarQube installation
         SONARQUBE_TOKEN_CREDENTIALS_ID = 'sonarqube_secret'
+        SONAR_PROJECT_KEY = 'todo-app'
+        SONAR_PROJECT_NAME = 'TODO Application'
         ENABLE_SONARQUBE = 'true'
         ENABLE_OWASP_LAST_STEP = 'false'
     }
@@ -258,13 +260,53 @@ EOF
                         echo "Running SonarQube analysis..."
                         dir('cicd-reference-architectures/sample-application') {
                             withCredentials([string(credentialsId: "${SONARQUBE_TOKEN_CREDENTIALS_ID}", variable: 'SONAR_TOKEN')]) {
+                                                                def runSonarScan = {
+                                                                        sh '''
+                                                                                set -e
+                                                                                PROJECT_KEY="${SONAR_PROJECT_KEY}"
+                                                                                PROJECT_NAME="${SONAR_PROJECT_NAME}"
+
+                                                                                echo "Validating SonarQube token against ${SONAR_HOST_URL}..."
+                                                                                AUTH_RESPONSE=$(curl -sS -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/authentication/validate")
+                                                                                echo "${AUTH_RESPONSE}" | grep -q '"valid":true' || {
+                                                                                    echo "ERROR: Sonar token is invalid for this SonarQube server."
+                                                                                    exit 1
+                                                                                }
+
+                                                                                echo "Checking SonarQube project access for key: ${PROJECT_KEY}"
+                                                                                PROJECT_SEARCH=$(curl -sS -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/projects/search?projects=${PROJECT_KEY}")
+
+                                                                                if ! echo "${PROJECT_SEARCH}" | grep -q '"key":"'"${PROJECT_KEY}"'"'; then
+                                                                                    echo "Project ${PROJECT_KEY} not found. Attempting to create it..."
+                                                                                    CREATE_STATUS=$(curl -sS -o /tmp/sonar-create-response.json -w "%{http_code}" -u "${SONAR_TOKEN}:" -X POST "${SONAR_HOST_URL}/api/projects/create" \
+                                                                                        --data-urlencode "project=${PROJECT_KEY}" \
+                                                                                        --data-urlencode "name=${PROJECT_NAME}")
+                                                                                    if [ "${CREATE_STATUS}" != "200" ]; then
+                                                                                        echo "ERROR: Could not create SonarQube project ${PROJECT_KEY}. HTTP ${CREATE_STATUS}."
+                                                                                        cat /tmp/sonar-create-response.json || true
+                                                                                        echo "Ensure token '${SONARQUBE_TOKEN_CREDENTIALS_ID}' has Create Projects permission or pre-create the project and grant Execute Analysis."
+                                                                                        exit 1
+                                                                                    fi
+                                                                                    echo "Project ${PROJECT_KEY} created successfully."
+                                                                                else
+                                                                                    echo "Project ${PROJECT_KEY} already exists."
+                                                                                fi
+
+                                                                                mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+                                                                                    -DskipTests \
+                                                                                    -Dsonar.projectKey="${PROJECT_KEY}" \
+                                                                                    -Dsonar.projectName="${PROJECT_NAME}" \
+                                                                                    -Dsonar.token="${SONAR_TOKEN}"
+                                                                        '''
+                                                                }
+
                                 if (env.SONARQUBE_SERVER?.trim()) {
                                     withSonarQubeEnv("${env.SONARQUBE_SERVER}") {
-                                        sh 'mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -DskipTests -Dsonar.token=${SONAR_TOKEN}'
+                                                                                runSonarScan()
                                     }
                                 } else {
                                     withSonarQubeEnv() {
-                                        sh 'mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -DskipTests -Dsonar.token=${SONAR_TOKEN}'
+                                                                                runSonarScan()
                                     }
                                 }
                             }
