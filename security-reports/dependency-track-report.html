@@ -7,7 +7,9 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #f6f8fa; color: #24292f; margin: 0; padding: 32px; }
         .panel { max-width: 960px; margin: 0 auto; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 24px; }
-        .badge { display: inline-block; background: #ddf4ff; color: #0969da; border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; }
+        .badge { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; }
+        .badge.success { background: #dafbe1; color: #116329; }
+        .badge.error { background: #ffebe9; color: #cf222e; }
         .meta { color: #57606a; margin: 10px 0 18px; }
         pre { background: #0d1117; color: #c9d1d9; border-radius: 8px; padding: 16px; overflow: auto; max-height: 360px; font-size: 0.82rem; }
     </style>
@@ -15,13 +17,14 @@
 <body>
     <div class="panel">
         <h1>Dependency-Track SBOM Publish Report</h1>
-        <p class="badge">CycloneDX SBOM uploaded from Jenkins</p>
-        <p class="meta">Project: <strong>platform-engineering-reference-architectures</strong> &nbsp;·&nbsp; Version: <strong>65</strong></p>
+        <p class="badge success">Upload accepted by Dependency-Track</p>
+        <p class="meta">Project: <strong>platform-engineering-reference-architectures</strong> &nbsp;·&nbsp; Version: <strong>68</strong></p>
         <p class="meta">Server: <strong>http://dtrack-dependency-track-api-server.dependency-track.svc.cluster.local:8080</strong></p>
         <p class="meta">SBOM source: <strong>security-reports/sbom.cyclonedx.json</strong></p>
-        <p class="meta">Upload status code: <strong>400</strong> &nbsp;·&nbsp; curl exit: <strong>0</strong></p>
+        <p class="meta">Upload status code: <strong>200</strong> &nbsp;·&nbsp; curl exit: <strong>0</strong></p>
+        <p class="meta">Processing token: <strong>6ffcc621-1593-4eb0-a6af-0ef729c06f26</strong></p>
         <h2>Upload Response</h2>
-        <pre>{"status":400,"title":"The uploaded BOM is invalid","detail":"Unrecognized specVersion 1.7"}</pre>
+        <pre>{"token":"6ffcc621-1593-4eb0-a6af-0ef729c06f26"}</pre>
     </div>
 </body>
 </html>
