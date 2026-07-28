@@ -582,7 +582,7 @@ EOF
                                         echo '{}' > ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json
                                     fi
 
-                                    PROCESSING_TOKEN=$(sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json | head -n 1)
+                                    PROCESSING_TOKEN=$(awk -F'"' '/token/ {for (i = 1; i <= NF; i++) if ($i == "token") {print $(i + 2); exit}}' ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json)
 
                                     if [ "${CURL_STATUS}" -ne 0 ]; then
                                         echo "WARN: Dependency-Track upload request returned curl exit ${CURL_STATUS}."
