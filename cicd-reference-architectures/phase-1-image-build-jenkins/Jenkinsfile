@@ -429,6 +429,11 @@ EOF
                                 > ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json \
                                 2> ${SECURITY_REPORT_DIR}/sbom-syft.log
 
+                            if grep -q '"specVersion":"1.7"' ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json; then
+                                echo "Normalizing CycloneDX JSON from 1.7 to 1.6 for Dependency-Track compatibility"
+                                sed -i 's#http://cyclonedx.org/schema/bom-1\.7\.schema\.json#http://cyclonedx.org/schema/bom-1.6.schema.json#g; s#"specVersion":"1\.7"#"specVersion":"1.6"#g' ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json
+                            fi
+
                             echo "Running Syft SPDX JSON scan for ${IMAGE_NAME}:${IMAGE_TAG}"
                             docker run --rm \
                                 -v /var/run/docker.sock:/var/run/docker.sock \
@@ -556,6 +561,10 @@ EOF
 
                                     UPLOAD_HTTP_STATUS=000
                                     CURL_STATUS=0
+                                    UPLOAD_RESULT="upload_failed"
+                                    UPLOAD_STATUS_TEXT="Upload failed"
+                                    UPLOAD_STATUS_CLASS="error"
+                                    PROCESSING_TOKEN=""
                                     set +e
                                     UPLOAD_HTTP_STATUS=$(curl --silent --show-error --location --retry 3 --retry-all-errors \
                                         -H "X-Api-Key: ${DEPENDENCY_TRACK_API_KEY}" \
@@ -573,8 +582,14 @@ EOF
                                         echo '{}' > ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json
                                     fi
 
+                                    PROCESSING_TOKEN=$(sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json | head -n 1)
+
                                     if [ "${CURL_STATUS}" -ne 0 ]; then
                                         echo "WARN: Dependency-Track upload request returned curl exit ${CURL_STATUS}."
+                                    elif [ "${UPLOAD_HTTP_STATUS}" -ge 200 ] && [ "${UPLOAD_HTTP_STATUS}" -lt 300 ]; then
+                                        UPLOAD_RESULT="upload_succeeded"
+                                        UPLOAD_STATUS_TEXT="Upload accepted by Dependency-Track"
+                                        UPLOAD_STATUS_CLASS="success"
                                     fi
 
                                     cat > ${SECURITY_REPORT_DIR}/dependency-track-report.json <<EOF
@@ -585,8 +600,9 @@ EOF
   "sbomFile": "${SECURITY_REPORT_DIR}/sbom.cyclonedx.json",
   "uploadHttpStatus": "${UPLOAD_HTTP_STATUS}",
   "curlExitCode": "${CURL_STATUS}",
+    "processingToken": "${PROCESSING_TOKEN}",
   "responseFile": "${SECURITY_REPORT_DIR}/dependency-track-upload-response.json",
-  "result": "upload_attempted"
+    "result": "${UPLOAD_RESULT}"
 }
 EOF
 
@@ -600,7 +616,9 @@ EOF
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #f6f8fa; color: #24292f; margin: 0; padding: 32px; }
         .panel { max-width: 960px; margin: 0 auto; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 24px; }
-        .badge { display: inline-block; background: #ddf4ff; color: #0969da; border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; }
+        .badge { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600; }
+        .badge.success { background: #dafbe1; color: #116329; }
+        .badge.error { background: #ffebe9; color: #cf222e; }
         .meta { color: #57606a; margin: 10px 0 18px; }
         pre { background: #0d1117; color: #c9d1d9; border-radius: 8px; padding: 16px; overflow: auto; max-height: 360px; font-size: 0.82rem; }
     </style>
@@ -608,17 +626,24 @@ EOF
 <body>
     <div class="panel">
         <h1>Dependency-Track SBOM Publish Report</h1>
-        <p class="badge">CycloneDX SBOM uploaded from Jenkins</p>
+        <p class="badge ${UPLOAD_STATUS_CLASS}">${UPLOAD_STATUS_TEXT}</p>
         <p class="meta">Project: <strong>${DEPENDENCY_TRACK_PROJECT_NAME}</strong> &nbsp;·&nbsp; Version: <strong>${IMAGE_TAG}</strong></p>
         <p class="meta">Server: <strong>${DEPENDENCY_TRACK_URL}</strong></p>
         <p class="meta">SBOM source: <strong>${SECURITY_REPORT_DIR}/sbom.cyclonedx.json</strong></p>
         <p class="meta">Upload status code: <strong>${UPLOAD_HTTP_STATUS}</strong> &nbsp;·&nbsp; curl exit: <strong>${CURL_STATUS}</strong></p>
+        <p class="meta">Processing token: <strong>${PROCESSING_TOKEN}</strong></p>
         <h2>Upload Response</h2>
         <pre>$(sed -n '1,120p' ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json)</pre>
     </div>
 </body>
 </html>
 EOF
+
+                                    if [ "${UPLOAD_RESULT}" != "upload_succeeded" ]; then
+                                        echo "ERROR: Dependency-Track BOM upload failed with HTTP ${UPLOAD_HTTP_STATUS} and curl exit ${CURL_STATUS}."
+                                        sed -n '1,120p' ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json
+                                        exit 1
+                                    fi
                                 '''
                             }
                         } else {
