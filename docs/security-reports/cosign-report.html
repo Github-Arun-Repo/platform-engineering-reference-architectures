@@ -22,13 +22,13 @@
 <body>
     <div class="panel">
         <h1>Cosign Signature and Attestation Report</h1>
-        <p class="meta">Image: <strong>agovindasamy/arun@sha256:4659cdb1040d112ab80407b9f167d5fe448bac20d1fd0eecd2d607b8655025f4</strong></p>
+        <p class="meta">Image: <strong>agovindasamy/arun@sha256:0399f1811ae81e2f447ec8784650a6287867db017871201d36403a169afd94fe</strong></p>
         <p class="badge">Signed and attested with Cosign</p>
         <div class="grid">
             <div class="metric"><strong>1</strong><span>image signature created for immutable digest</span></div>
             <div class="metric"><strong>2</strong><span>attestations published: CycloneDX SBOM and build metadata</span></div>
-            <div class="metric"><strong>0b5d60fee163cef63957c2c4af48013e66728b7d355853d62432c0764caddde7</strong><span>sha256 of CycloneDX predicate used for attestation</span></div>
-            <div class="metric"><strong>2026-07-27T21:23:54Z</strong><span>generated at UTC</span></div>
+            <div class="metric"><strong>b0a3cd66a3fc117d12c74e0d0c8bdbf518b85d0ae42f81073734aa2c3d785e8e</strong><span>sha256 of CycloneDX predicate used for attestation</span></div>
+            <div class="metric"><strong>2026-07-28T12:52:53Z</strong><span>generated at UTC</span></div>
         </div>
         <div class="actions">
             <a href="cosign-build-attestation.json">Open Build Attestation Predicate</a>
@@ -38,19 +38,19 @@
         <h2>Verification Preview</h2>
         <pre>WARNING: Skipping tlog verification is an insecure practice that lacks of transparency and auditability verification for the signature.
 
-Verification for index.docker.io/agovindasamy/arun@sha256:4659cdb1040d112ab80407b9f167d5fe448bac20d1fd0eecd2d607b8655025f4 --
+Verification for index.docker.io/agovindasamy/arun@sha256:0399f1811ae81e2f447ec8784650a6287867db017871201d36403a169afd94fe --
 The following checks were performed on each of these signatures:
   - The cosign claims were validated
   - The signatures were verified against the specified public key
 
-[{"critical":{"identity":{"docker-reference":"index.docker.io/agovindasamy/arun"},"image":{"docker-manifest-digest":"sha256:4659cdb1040d112ab80407b9f167d5fe448bac20d1fd0eecd2d607b8655025f4"},"type":"cosign container image signature"},"optional":{"build-number":"62","git-sha":"8cd09d4","pipeline":"jenkins","pipeline-version":"cosign-sign-attest-v1-2026-07-21"}}]</pre>
+[{"critical":{"identity":{"docker-reference":"index.docker.io/agovindasamy/arun"},"image":{"docker-manifest-digest":"sha256:0399f1811ae81e2f447ec8784650a6287867db017871201d36403a169afd94fe"},"type":"cosign container image signature"},"optional":{"build-number":"63","git-sha":"9138e49","pipeline":"jenkins","pipeline-version":"cosign-sign-attest-v1-2026-07-21"}}]</pre>
         <h2>Attached Referrers Preview</h2>
-        <pre>📦 Supply Chain Security Related artifacts for an image: agovindasamy/arun@sha256:4659cdb1040d112ab80407b9f167d5fe448bac20d1fd0eecd2d607b8655025f4
-└── 💾 Attestations for an image tag: index.docker.io/agovindasamy/arun:sha256-4659cdb1040d112ab80407b9f167d5fe448bac20d1fd0eecd2d607b8655025f4.att
-   ├── 🍒 sha256:efd0a59766c4a5397d7302c799112bc25745cd85b3fc0d4781fcc453ba4275a6
-   └── 🍒 sha256:816e3ec9dc8f423b7959f6f7e0cb822599fbdda400cd1f07667a33583edf38f3
-└── 🔐 Signatures for an image tag: index.docker.io/agovindasamy/arun:sha256-4659cdb1040d112ab80407b9f167d5fe448bac20d1fd0eecd2d607b8655025f4.sig
-   └── 🍒 sha256:909d2165761b69e8fbc1491ddd4d5af7e4a49cda816dca946559e37b16dbef7d</pre>
+        <pre>📦 Supply Chain Security Related artifacts for an image: agovindasamy/arun@sha256:0399f1811ae81e2f447ec8784650a6287867db017871201d36403a169afd94fe
+└── 🔐 Signatures for an image tag: index.docker.io/agovindasamy/arun:sha256-0399f1811ae81e2f447ec8784650a6287867db017871201d36403a169afd94fe.sig
+   └── 🍒 sha256:6e60e21cd34579918d384178d883875acf0bc208cd471545eeac286de4686529
+└── 💾 Attestations for an image tag: index.docker.io/agovindasamy/arun:sha256-0399f1811ae81e2f447ec8784650a6287867db017871201d36403a169afd94fe.att
+   ├── 🍒 sha256:92faaf1b4e0a7e6c925c976b2f9acbcf68975949018c434bb60f2a3c9c0e6fc1
+   └── 🍒 sha256:935fd4940593df2a95b6dbeaa5999952a4282a31c4c05b2f715477db7a7b244a</pre>
     </div>
 </body>
 </html>
