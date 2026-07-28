@@ -431,7 +431,7 @@ EOF
 
                             if grep -q '"specVersion":"1.7"' ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json; then
                                 echo "Normalizing CycloneDX JSON from 1.7 to 1.6 for Dependency-Track compatibility"
-                                sed -i 's#http://cyclonedx.org/schema/bom-1\.7\.schema\.json#http://cyclonedx.org/schema/bom-1.6.schema.json#g; s#"specVersion":"1\.7"#"specVersion":"1.6"#g' ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json
+                                sed -i 's#http://cyclonedx.org/schema/bom-1[.]7[.]schema[.]json#http://cyclonedx.org/schema/bom-1.6.schema.json#g; s#"specVersion":"1[.]7"#"specVersion":"1.6"#g' ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json
                             fi
 
                             echo "Running Syft SPDX JSON scan for ${IMAGE_NAME}:${IMAGE_TAG}"
