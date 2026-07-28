@@ -1,8 +1,8 @@
 WARNING: Skipping tlog verification is an insecure practice that lacks of transparency and auditability verification for the signature.
 
-Verification for index.docker.io/agovindasamy/arun@sha256:0399f1811ae81e2f447ec8784650a6287867db017871201d36403a169afd94fe --
+Verification for index.docker.io/agovindasamy/arun@sha256:ae664140770b3dd311a340b7995f2afa7db2617783c85775730953e6df80102c --
 The following checks were performed on each of these signatures:
   - The cosign claims were validated
   - The signatures were verified against the specified public key
 
-[{"critical":{"identity":{"docker-reference":"index.docker.io/agovindasamy/arun"},"image":{"docker-manifest-digest":"sha256:0399f1811ae81e2f447ec8784650a6287867db017871201d36403a169afd94fe"},"type":"cosign container image signature"},"optional":{"build-number":"63","git-sha":"9138e49","pipeline":"jenkins","pipeline-version":"cosign-sign-attest-v1-2026-07-21"}}]
+[{"critical":{"identity":{"docker-reference":"index.docker.io/agovindasamy/arun"},"image":{"docker-manifest-digest":"sha256:ae664140770b3dd311a340b7995f2afa7db2617783c85775730953e6df80102c"},"type":"cosign container image signature"},"optional":{"build-number":"64","git-sha":"25086d3","pipeline":"jenkins","pipeline-version":"cosign-sign-attest-v1-2026-07-21"}}]
