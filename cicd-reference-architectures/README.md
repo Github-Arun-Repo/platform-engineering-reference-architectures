@@ -15,9 +15,12 @@ Executed and validated by **Arunasalam Govindasamy** against the sample Spring B
 What this implementation demonstrates with generated evidence:
 
 - unit test execution and code coverage outputs
+- SonarQube analysis with a required quality-gate placeholder step
+- optional OWASP Dependency-Check placeholder stage (toggle-driven)
 - filesystem and container vulnerability scan results
 - SBOM generation in CycloneDX and SPDX formats
-- dependency intelligence publication to Dependency-Track
+- SBOM vulnerability gating before promotion
+- dependency intelligence publication to Dependency-Track after security gates
 - secret scanning results from repository content
 - registry push controls, signing, attestation, and SBOM attachment evidence
 - report publication to Git so teams can review without Jenkins access
@@ -37,11 +40,11 @@ What this implementation demonstrates with generated evidence:
 11. [7. Package Application](#7-package-application)
 12. [8. Build Container Image](#8-build-container-image)
 13. [9. Generate SBOM](#9-generate-sbom)
-14. [10. Publish SBOM to Dependency-Track](#10-publish-sbom-to-dependency-track)
-15. [11. Scan SBOM](#11-scan-sbom)
-16. [12. Scan Container Image](#12-scan-container-image)
-17. [13. Publish Report Evidence](#13-publish-report-evidence)
-18. [14. Apply Security Gates](#14-apply-security-gates)
+14. [10. Scan SBOM](#10-scan-sbom)
+15. [11. Apply Security Gates](#11-apply-security-gates)
+16. [12. Publish SBOM to Dependency-Track](#12-publish-sbom-to-dependency-track)
+17. [13. Scan Container Image](#13-scan-container-image)
+18. [14. Publish Report Evidence](#14-publish-report-evidence)
 19. [15. Push to Registry](#15-push-to-registry)
 20. [16. Sign Image](#16-sign-image)
 21. [17. Attest Image](#17-attest-image)
@@ -77,26 +80,27 @@ flowchart LR
     tests[05<br/>Unit Tests]
     coverage[06<br/>Coverage]
     sonar[07<br/>SonarQube]
-    package[08<br/>Package App]
-    image[09<br/>Build Image]
-    sbom[10<br/>Generate SBOM]
-    dtrack[11<br/>Dependency-Track Upload]
-    grype[12<br/>SBOM Risk Scan]
-    trivyImage[13<br/>Image Scan]
-    reportCommit[14<br/>Publish Report Evidence]
-    gates[15<br/>Security Gates]
-    registry[16<br/>Registry Push]
-    sign["17<br/>Cosign Sign (Default On)"]
-    attest["18<br/>Cosign Attest (Default On)"]
-    attach[19<br/>Attach SBOM]
-    cosignCommit[20<br/>Publish Cosign Evidence]
-    evidence[21<br/>Evidence Dashboard]
+    sonarGate[08<br/>SonarQube Quality Gate<br/>Placeholder Required Step]
+    owasp[09<br/>OWASP Dependency-Check<br/>Optional Placeholder]
+    package[10<br/>Package App]
+    image[11<br/>Build Image]
+    sbom[12<br/>Generate SBOM]
+    grype[13<br/>SBOM Risk Scan]
+    gates[14<br/>Security Gates]
+    dtrack[15<br/>Dependency-Track Upload]
+    trivyImage[16<br/>Image Scan]
+    reportCommit[17<br/>Publish Report Evidence]
+    registry[18<br/>Registry Push]
+    sign["19<br/>Cosign Sign (Default On)"]
+    attest["20<br/>Cosign Attest (Default On)"]
+    attach[21<br/>Attach SBOM]
+    cosignCommit[22<br/>Publish Cosign Evidence]
+    evidence[23<br/>Evidence Dashboard]
 
-    commit --> checkout --> gitleaks --> trivyFs --> tests --> coverage --> sonar --> package --> image --> sbom --> dtrack --> grype --> trivyImage --> reportCommit --> gates --> registry --> sign --> attest --> attach --> cosignCommit --> evidence
+    commit --> checkout --> gitleaks --> trivyFs --> tests --> coverage --> sonar --> sonarGate --> owasp --> package --> image --> sbom --> grype --> gates --> dtrack --> trivyImage --> reportCommit --> registry --> sign --> attest --> attach --> cosignCommit --> evidence
     gitleaks --> gates
     trivyFs --> gates
     grype --> gates
-    trivyImage --> gates
     gitleaks --> reportCommit
     trivyFs --> reportCommit
     grype --> reportCommit
@@ -111,9 +115,9 @@ flowchart LR
     classDef publish fill:#f6f8fa,stroke:#57606a,color:#24292f,stroke-width:1px;
 
     class commit,checkout source;
-    class tests,coverage quality;
+    class tests,coverage,sonar,sonarGate quality;
     class package,image,sbom,dtrack artifact;
-    class grype,trivyImage,trivyFs,gitleaks,gates,sign,attest security;
+    class grype,trivyImage,trivyFs,gitleaks,gates,owasp,sign,attest security;
     class registry,reportCommit,attach,cosignCommit,evidence publish;
 ```
 
@@ -153,14 +157,16 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 4 | [Unit Tests](#4-unit-tests) | Maven Surefire + JUnit | behavior validation | yes |
 | 5 | [Code Coverage](#5-code-coverage) | JaCoCo | coverage evidence | reported |
 | 6 | [SAST and Code Quality](#6-sast-and-code-quality) | SonarQube | source-level security and maintainability | yes |
+| 6a | [SAST and Code Quality](#6-sast-and-code-quality) | SonarQube `waitForQualityGate` | required quality gate placeholder step | placeholder |
+| 6b | [SAST and Code Quality](#6-sast-and-code-quality) | OWASP Dependency-Check | optional placeholder pre-image check | optional (default off) |
 | 7 | [Package Application](#7-package-application) | Maven | build JAR artifact | yes |
 | 8 | [Build Container Image](#8-build-container-image) | Docker | immutable runtime artifact | yes |
 | 9 | [Generate SBOM](#9-generate-sbom) | Syft | package inventory | reported |
-| 10 | [Publish SBOM to Dependency-Track](#10-publish-sbom-to-dependency-track) | OWASP Dependency-Track | SBOM publication and project/version vulnerability intelligence | best effort |
-| 11 | [Scan SBOM](#11-scan-sbom) | Grype | dependency/package CVEs | severity gated |
-| 12 | [Scan Container Image](#12-scan-container-image) | Trivy image | image layer CVEs | reported |
-| 13 | [Publish Report Evidence](#13-publish-report-evidence) | Jenkins + Git + HTML | public report publication before promotion | reported |
-| 14 | [Apply Security Gates](#14-apply-security-gates) | Jenkins policy logic | promotion decision | yes |
+| 10 | [Scan SBOM](#10-scan-sbom) | Grype | dependency/package CVEs | severity gated |
+| 11 | [Apply Security Gates](#11-apply-security-gates) | Jenkins policy logic | promotion decision before Dependency-Track upload | yes |
+| 12 | [Publish SBOM to Dependency-Track](#12-publish-sbom-to-dependency-track) | OWASP Dependency-Track | SBOM publication after gates | best effort |
+| 13 | [Scan Container Image](#13-scan-container-image) | Trivy image | image layer CVEs | reported |
+| 14 | [Publish Report Evidence](#14-publish-report-evidence) | Jenkins + Git + HTML | public report publication after gating and post-gate uploads | reported |
 | 15 | [Push to Registry](#15-push-to-registry) | Docker | artifact promotion | yes |
 | 16 | [Sign Image](#16-sign-image) | Cosign | digest integrity proof | yes (default on) |
 | 17 | [Attest Image](#17-attest-image) | Cosign | SBOM and build evidence referrers | yes (default on) |
@@ -197,6 +203,8 @@ Gitleaks scans the repository immediately after checkout for hardcoded credentia
 **Why this matters**
 
 Secrets in source control are high-risk findings and should fail the build before the pipeline spends time compiling, packaging, or creating images.
+
+Current behavior in Jenkins: Gitleaks fails immediately in the secret scan stage when findings or scan errors are detected.
 
 **Where this is useful**
 
@@ -279,6 +287,17 @@ Coverage does not prove quality by itself, but it shows which code paths are exe
 
 SonarQube analyzes source code, imports JaCoCo coverage, evaluates code quality and security rules, and can publish a quality gate decision back to Jenkins.
 
+**Required placeholder step in this pipeline**
+
+- SonarQube quality gate stage is explicitly present as a required placeholder step.
+- The enforcement command is: `waitForQualityGate abortPipeline: true`.
+- Current default behavior is placeholder mode (`ENABLE_SONARQUBE_QUALITY_GATE=false`) until teams enable hard enforcement.
+
+**Optional placeholder before image build**
+
+- OWASP Dependency-Check is positioned before image build as an optional placeholder stage.
+- Toggle: `ENABLE_OWASP_DEPENDENCY_CHECK` (default `false`).
+
 **Why this matters**
 
 SAST belongs before package and image promotion because source-level vulnerabilities and maintainability issues should be reviewed before the pipeline creates deployable artifacts.
@@ -355,28 +374,7 @@ An SBOM answers: "What is inside this artifact?" It creates the package inventor
 
 - [SBOM Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/sbom-report.html)
 
-## 10. Publish SBOM to Dependency-Track
-
-**What happens**
-
-Jenkins uploads the generated CycloneDX SBOM to Dependency-Track so the repository has a central SBOM system of record in addition to the build-time scans.
-
-**Why this matters**
-
-Dependency-Track keeps project/version history, supports API-driven workflows, and makes the SBOM useful after the build has finished. That complements Grype, which still performs the fast build-time vulnerability gate.
-
-**Where this is useful**
-
-- SBOM historical tracking
-- long-lived vulnerability intelligence
-- compliance evidence
-- release review and audit trails
-
-**Evidence produced**
-
-- [Dependency-Track SBOM Publish Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/dependency-track-report.html)
-
-## 11. Scan SBOM
+## 10. Scan SBOM
 
 **What happens**
 
@@ -403,7 +401,56 @@ SBOM scanning separates package inventory from vulnerability matching. This is u
 
 - [Grype SBOM Vulnerability Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/grype-report.html)
 
-## 12. Scan Container Image
+## 11. Apply Security Gates
+
+**What happens**
+
+Jenkins evaluates security gate inputs before promotion and before Dependency-Track publication.
+
+**Why this matters**
+
+Security reports are useful, but gates decide whether the artifact is allowed to continue in the supply chain.
+
+**Security gate policy (implemented)**
+
+| Control | Report/status checked | Fail condition | Warning condition | Pass condition |
+|---|---|---|---|---|
+| Gitleaks secrets gate | `security-reports/gitleaks-exit-code.txt` and `security-reports/gitleaks-report.json` | exit code `1` (findings) or `>1` (scan/runtime error) | none | exit code `0` |
+| Grype SBOM vulnerability gate | `security-reports/grype-exit-code.txt`, `security-reports/grype-critical-count.txt`, `security-reports/grype-high-count.txt` | blocking count `> 0` based on configured severity threshold | scan error with continue policy enabled | scan status `0` and blocking count `0` |
+
+**Current threshold configuration set (Jenkins environment)**
+
+- `GRYPE_FAIL_ON_SEVERITY=critical`
+- `GRYPE_BLOCK_ON_SCAN_ERROR=false`
+
+With current settings:
+
+- any Gitleaks finding fails immediately in the secret scan stage
+- any Grype critical vulnerability fails in the security gate stage
+- Grype scan/tool errors generate warning and continue by default
+
+## 12. Publish SBOM to Dependency-Track
+
+**What happens**
+
+After security gates pass, Jenkins uploads the generated CycloneDX SBOM to Dependency-Track.
+
+**Why this matters**
+
+This keeps Dependency-Track publication aligned with promoted artifacts while preserving central SBOM history and vulnerability intelligence.
+
+**Where this is useful**
+
+- SBOM historical tracking
+- long-lived vulnerability intelligence
+- compliance evidence
+- release review and audit trails
+
+**Evidence produced**
+
+- [Dependency-Track SBOM Publish Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/dependency-track-report.html)
+
+## 13. Scan Container Image
 
 **What happens**
 
@@ -424,15 +471,15 @@ Image scanning checks the actual deployable artifact, not only the source tree. 
 
 - [Trivy Image Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-report.html)
 
-## 13. Publish Report Evidence
+## 14. Publish Report Evidence
 
 **What happens**
 
-Before the promotion gate is evaluated, Jenkins commits the latest report artifacts back into the repository and updates the public dashboard content.
+After security gating and post-gate SBOM publication, Jenkins commits the latest report artifacts back into the repository and updates the public dashboard content.
 
 **Why this matters**
 
-This makes the security evidence visible even when a later gate blocks the release. Reviewers can inspect the exact build outputs without requiring Jenkins access.
+This makes the security evidence visible in Git and dashboard form so reviewers can inspect exact build outputs without requiring Jenkins access.
 
 **Where this is useful**
 
@@ -440,47 +487,6 @@ This makes the security evidence visible even when a later gate blocks the relea
 - audit-friendly evidence publication
 - engineering demos and walkthroughs
 - failure analysis when promotion is blocked
-
-## 14. Apply Security Gates
-
-**What happens**
-
-Jenkins evaluates scan results before pushing the image.
-
-**Why this matters**
-
-Security reports are useful, but gates decide whether an artifact is allowed to move forward.
-
-**Security gate policy (implemented)**
-
-| Control | Report/status checked | Fail condition | Warning condition | Pass condition |
-|---|---|---|---|---|
-| Gitleaks secrets gate | `security-reports/gitleaks-exit-code.txt` and `security-reports/gitleaks-report.json` | exit code `1` (findings) or `>1` (scan/runtime error) | none | exit code `0` |
-| Grype SBOM vulnerability gate | `security-reports/grype-exit-code.txt`, `security-reports/grype-critical-count.txt`, `security-reports/grype-high-count.txt` | blocking count `> 0` based on configured severity threshold | scan error with continue policy enabled | scan status `0` and blocking count `0` |
-| Trivy image and filesystem evidence | `security-reports/trivy-report.json` and `security-reports/trivy-fs-report.json` | not used as gate in current policy | report-only by design | reports generated and published |
-
-**Current threshold configuration set (Jenkins environment)**
-
-- `GRYPE_FAIL_ON_SEVERITY=critical`
-- `GRYPE_BLOCK_ON_SCAN_ERROR=false`
-
-With the current settings:
-
-- any Gitleaks finding fails the pipeline before registry push
-- any Grype critical vulnerability fails the pipeline before registry push
-- Grype scan/tool errors generate a warning and continue (non-blocking)
-- Trivy filesystem and image scans remain non-blocking evidence stages
-
-To tighten the gate later:
-
-- set `GRYPE_FAIL_ON_SEVERITY=high` to block on both high and critical findings
-- set `GRYPE_BLOCK_ON_SCAN_ERROR=true` to fail when Grype cannot complete a scan
-
-**Where this is useful**
-
-- progressive policy adoption
-- release readiness decisions
-- balancing security rigor with pipeline reliability
 
 ## 15. Push to Registry
 
