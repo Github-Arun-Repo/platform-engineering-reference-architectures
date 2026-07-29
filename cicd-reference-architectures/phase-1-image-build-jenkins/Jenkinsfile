@@ -36,6 +36,10 @@ pipeline {
         ENABLE_SONARQUBE = 'true'
         ENABLE_SONARQUBE_QUALITY_GATE = 'false'
         ENABLE_OWASP_DEPENDENCY_CHECK = 'false'
+        ENABLE_TRIVY_IMAGE_GATE_PLACEHOLDER = 'true'
+        TRIVY_GATE_MAX_CRITICAL = '10'
+        TRIVY_GATE_MAX_HIGH = '40'
+        TRIVY_GATE_MAX_MEDIUM = '200'
     }
 
     parameters {
@@ -964,6 +968,69 @@ EOF
             }
         }
 
+        stage('Evaluate Trivy Image Gate (Placeholder Non-Blocking)') {
+            when {
+                expression { return env.ENABLE_TRIVY_IMAGE_GATE_PLACEHOLDER?.toBoolean() }
+            }
+            steps {
+                container('maven') {
+                    script {
+                        echo "Evaluating Trivy image gate placeholder (warn-only)..."
+                        sh '''
+                            mkdir -p ${SECURITY_REPORT_DIR}
+
+                            TRIVY_REPORT_FILE="${SECURITY_REPORT_DIR}/trivy-report.json"
+                            TRIVY_SUMMARY_FILE="${SECURITY_REPORT_DIR}/trivy-gate-summary.txt"
+
+                            if [ ! -s "${TRIVY_REPORT_FILE}" ]; then
+                                echo "WARNING: ${TRIVY_REPORT_FILE} is missing. Trivy gate placeholder check skipped." | tee "${TRIVY_SUMMARY_FILE}"
+                                exit 0
+                            fi
+
+                            CRITICAL_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"critical"' "${TRIVY_REPORT_FILE}" | wc -l | tr -d ' ')
+                            HIGH_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"high"' "${TRIVY_REPORT_FILE}" | wc -l | tr -d ' ')
+                            MEDIUM_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"medium"' "${TRIVY_REPORT_FILE}" | wc -l | tr -d ' ')
+
+                            [ -n "${CRITICAL_COUNT}" ] || CRITICAL_COUNT=0
+                            [ -n "${HIGH_COUNT}" ] || HIGH_COUNT=0
+                            [ -n "${MEDIUM_COUNT}" ] || MEDIUM_COUNT=0
+
+                            WARNINGS=0
+                            if [ "${CRITICAL_COUNT}" -gt "${TRIVY_GATE_MAX_CRITICAL}" ]; then
+                                echo "WARNING: Trivy critical count ${CRITICAL_COUNT} exceeds relaxed placeholder threshold ${TRIVY_GATE_MAX_CRITICAL}."
+                                WARNINGS=$((WARNINGS + 1))
+                            fi
+                            if [ "${HIGH_COUNT}" -gt "${TRIVY_GATE_MAX_HIGH}" ]; then
+                                echo "WARNING: Trivy high count ${HIGH_COUNT} exceeds relaxed placeholder threshold ${TRIVY_GATE_MAX_HIGH}."
+                                WARNINGS=$((WARNINGS + 1))
+                            fi
+                            if [ "${MEDIUM_COUNT}" -gt "${TRIVY_GATE_MAX_MEDIUM}" ]; then
+                                echo "WARNING: Trivy medium count ${MEDIUM_COUNT} exceeds relaxed placeholder threshold ${TRIVY_GATE_MAX_MEDIUM}."
+                                WARNINGS=$((WARNINGS + 1))
+                            fi
+
+                            {
+                                echo "Trivy Gate Placeholder Summary"
+                                echo "Critical=${CRITICAL_COUNT} (max ${TRIVY_GATE_MAX_CRITICAL})"
+                                echo "High=${HIGH_COUNT} (max ${TRIVY_GATE_MAX_HIGH})"
+                                echo "Medium=${MEDIUM_COUNT} (max ${TRIVY_GATE_MAX_MEDIUM})"
+                                echo "Warnings=${WARNINGS}"
+                                echo "Result=warn-only-non-blocking"
+                            } > "${TRIVY_SUMMARY_FILE}"
+
+                            if [ "${WARNINGS}" -gt 0 ]; then
+                                echo "WARNING: Trivy gate placeholder thresholds exceeded. Continuing because this gate is non-blocking by design."
+                            else
+                                echo "Trivy gate placeholder check is within relaxed thresholds."
+                            fi
+
+                            exit 0
+                        '''
+                    }
+                }
+            }
+        }
+
 
         stage('Commit Security Reports') {
             steps {
@@ -989,6 +1056,7 @@ EOF
                                     mkdir -p ${SECURITY_REPORT_DIR}
                                     test -f ${SECURITY_REPORT_DIR}/trivy-report.json || echo '{}' > ${SECURITY_REPORT_DIR}/trivy-report.json
                                     test -f ${SECURITY_REPORT_DIR}/trivy-report.html || echo '<html><body><h1>No Trivy report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-report.html
+                                    test -f ${SECURITY_REPORT_DIR}/trivy-gate-summary.txt || echo 'Trivy gate placeholder summary not generated in this build.' > ${SECURITY_REPORT_DIR}/trivy-gate-summary.txt
                                     test -f ${SECURITY_REPORT_DIR}/trivy-fs-report.json || echo '{}' > ${SECURITY_REPORT_DIR}/trivy-fs-report.json
                                     test -f ${SECURITY_REPORT_DIR}/trivy-fs-report.html || echo '<html><body><h1>No Trivy filesystem report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-fs-report.html
                                     test -f ${SECURITY_REPORT_DIR}/gitleaks-report.json || echo '[]' > ${SECURITY_REPORT_DIR}/gitleaks-report.json
@@ -1043,6 +1111,7 @@ EOF
                                     mkdir -p docs/security-reports
                                     cp ${SECURITY_REPORT_DIR}/trivy-report.html docs/security-reports/trivy-report.html
                                     cp ${SECURITY_REPORT_DIR}/trivy-report.json docs/security-reports/trivy-report.json
+                                    cp ${SECURITY_REPORT_DIR}/trivy-gate-summary.txt docs/security-reports/trivy-gate-summary.txt
                                     cp ${SECURITY_REPORT_DIR}/trivy-fs-report.html docs/security-reports/trivy-fs-report.html
                                     cp ${SECURITY_REPORT_DIR}/trivy-fs-report.json docs/security-reports/trivy-fs-report.json
                                     cp ${SECURITY_REPORT_DIR}/gitleaks-report.html docs/security-reports/gitleaks-report.html
@@ -1061,14 +1130,14 @@ EOF
                                                                         cp ${SECURITY_REPORT_DIR}/sonarqube-report.json docs/security-reports/sonarqube-report.json
                                     printf '{"build":"%s","timestamp":"%s"}' "${BUILD_NUMBER}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/security-reports/build-meta.json
 
-                                    git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html \
+                                        git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html ${SECURITY_REPORT_DIR}/trivy-gate-summary.txt \
                                             ${SECURITY_REPORT_DIR}/trivy-fs-report.json ${SECURITY_REPORT_DIR}/trivy-fs-report.html \
                                             ${SECURITY_REPORT_DIR}/gitleaks-report.json ${SECURITY_REPORT_DIR}/gitleaks-report.html ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt \
                                             ${SECURITY_REPORT_DIR}/sbom-report.html ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ${SECURITY_REPORT_DIR}/sbom.spdx.json ${SECURITY_REPORT_DIR}/sbom.syft.txt \
                                                                                         ${SECURITY_REPORT_DIR}/dependency-track-report.html ${SECURITY_REPORT_DIR}/dependency-track-report.json ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json \
                                             ${SECURITY_REPORT_DIR}/grype-report.html ${SECURITY_REPORT_DIR}/grype-report.json ${SECURITY_REPORT_DIR}/grype-report.txt ${SECURITY_REPORT_DIR}/grype-exit-code.txt ${SECURITY_REPORT_DIR}/grype-critical-count.txt ${SECURITY_REPORT_DIR}/grype-high-count.txt \
                                                                                         ${SECURITY_REPORT_DIR}/sonarqube-report.html ${SECURITY_REPORT_DIR}/sonarqube-report.json \
-                                            docs/security-reports/trivy-report.html docs/security-reports/trivy-report.json \
+                                            docs/security-reports/trivy-report.html docs/security-reports/trivy-report.json docs/security-reports/trivy-gate-summary.txt \
                                             docs/security-reports/trivy-fs-report.html docs/security-reports/trivy-fs-report.json \
                                             docs/security-reports/gitleaks-report.html docs/security-reports/gitleaks-report.json \
                                                                                         docs/security-reports/sbom-report.html docs/security-reports/sbom.cyclonedx.json docs/security-reports/sbom.spdx.json docs/security-reports/sbom.syft.txt docs/security-reports/dependency-track-report.html docs/security-reports/dependency-track-report.json docs/security-reports/dependency-track-upload-response.json \
@@ -1734,7 +1803,7 @@ EOF
                 // Archive build artifacts if needed
                 junit testResults: 'cicd-reference-architectures/sample-application/target/surefire-reports/*.xml', allowEmptyResults: true
 
-                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/dependency-track-report.html,security-reports/dependency-track-report.json,security-reports/dependency-track-upload-response.json,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt,security-reports/sonarqube-report.html,security-reports/sonarqube-report.json,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-gate-summary.txt,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/dependency-track-report.html,security-reports/dependency-track-report.json,security-reports/dependency-track-upload-response.json,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt,security-reports/sonarqube-report.html,security-reports/sonarqube-report.json,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
 
                 publishHTML(target: [
                     reportDir: 'security-reports',

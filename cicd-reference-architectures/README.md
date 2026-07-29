@@ -18,6 +18,7 @@ What this implementation demonstrates with generated evidence:
 - SonarQube analysis with a required quality-gate placeholder step
 - optional OWASP Dependency-Check placeholder stage (toggle-driven)
 - filesystem and container vulnerability scan results
+- Trivy image gate placeholder in warn-only mode with relaxed thresholds
 - SBOM generation in CycloneDX and SPDX formats
 - SBOM vulnerability gating before promotion
 - dependency intelligence publication to Dependency-Track after security gates
@@ -165,7 +166,7 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 10 | [Scan SBOM](#10-scan-sbom) | Grype | dependency/package CVEs | severity gated |
 | 11 | [Apply Security Gates](#11-apply-security-gates) | Jenkins policy logic | promotion decision before Dependency-Track upload | yes |
 | 12 | [Publish SBOM to Dependency-Track](#12-publish-sbom-to-dependency-track) | OWASP Dependency-Track | SBOM publication after gates | best effort |
-| 13 | [Scan Container Image](#13-scan-container-image) | Trivy image | image layer CVEs | reported |
+| 13 | [Scan Container Image](#13-scan-container-image) | Trivy image | image layer CVEs and placeholder gate evaluation | placeholder (warn-only) |
 | 14 | [Publish Report Evidence](#14-publish-report-evidence) | Jenkins + Git + HTML | public report publication after gating and post-gate uploads | reported |
 | 15 | [Push to Registry](#15-push-to-registry) | Docker | artifact promotion | yes |
 | 16 | [Sign Image](#16-sign-image) | Cosign | digest integrity proof | yes (default on) |
@@ -460,6 +461,19 @@ Trivy scans the final image for vulnerabilities in operating system packages and
 
 Image scanning checks the actual deployable artifact, not only the source tree. This catches risks introduced by base images, package managers, and runtime layers.
 
+**Current gate behavior (placeholder)**
+
+- Trivy image findings are evaluated by a dedicated placeholder gate stage.
+- This placeholder gate is intentionally non-blocking and does not fail the pipeline.
+- It logs warnings when relaxed thresholds are exceeded.
+
+**Current placeholder threshold configuration**
+
+- `ENABLE_TRIVY_IMAGE_GATE_PLACEHOLDER=true`
+- `TRIVY_GATE_MAX_CRITICAL=10`
+- `TRIVY_GATE_MAX_HIGH=40`
+- `TRIVY_GATE_MAX_MEDIUM=200`
+
 **Where this is useful**
 
 - base image reviews
@@ -470,6 +484,7 @@ Image scanning checks the actual deployable artifact, not only the source tree. 
 **Evidence produced**
 
 - [Trivy Image Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-report.html)
+- [Trivy Gate Summary](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-gate-summary.txt)
 
 ## 14. Publish Report Evidence
 
