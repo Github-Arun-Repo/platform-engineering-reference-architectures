@@ -6,13 +6,13 @@ useDefault = true
 [[allowlists]]
 description = "Generated reports and build outputs"
 paths = [
-  '''^security-reports/''',
-  '''^docs/security-reports/''',
-  '''^cicd-reference-architectures/sample-application/target/'''
+  '''(^|.*/)security-reports/''',
+  '''(^|.*/)docs/security-reports/''',
+  '''(^|.*/)cicd-reference-architectures/sample-application/target/'''
 ]
 
 [[allowlists]]
 description = "Local tooling cache"
 paths = [
-  '''^\.tools/'''
+  '''(^|.*/)\.tools/'''
 ]
