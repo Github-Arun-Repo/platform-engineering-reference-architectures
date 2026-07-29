@@ -18,32 +18,31 @@ The focus is not simply "run CI/CD." The focus is the **security supply chain** 
 
 1. [Architecture Intent](#architecture-intent)
 2. [End-to-End Supply Chain](#end-to-end-supply-chain)
-3. [Pipeline Control Map](#pipeline-control-map)
-4. [Evidence Model](#evidence-model)
-5. [Tool Reference Library](#tool-reference-library)
-6. [Stage Navigator](#stage-navigator)
-7. [1. Source and Checkout](#1-source-and-checkout)
-8. [2. Scan Secrets](#2-scan-secrets)
-9. [3. Scan Filesystem](#3-scan-filesystem)
-10. [4. Unit Tests](#4-unit-tests)
-11. [5. Code Coverage](#5-code-coverage)
-12. [6. SAST and Code Quality](#6-sast-and-code-quality)
-13. [7. Package Application](#7-package-application)
-14. [8. Build Container Image](#8-build-container-image)
-15. [9. Generate SBOM](#9-generate-sbom)
-16. [10. Publish SBOM to Dependency-Track](#10-publish-sbom-to-dependency-track)
-17. [11. Scan SBOM](#11-scan-sbom)
-18. [12. Scan Container Image](#12-scan-container-image)
-19. [13. Publish Report Evidence](#13-publish-report-evidence)
-20. [14. Apply Security Gates](#14-apply-security-gates)
-21. [15. Push to Registry](#15-push-to-registry)
-22. [16. Sign Image](#16-sign-image)
-23. [17. Attest Image](#17-attest-image)
-24. [18. Attach SBOM](#18-attach-sbom)
-25. [19. Publish Cosign Evidence](#19-publish-cosign-evidence)
-24. [Reference Implementations](#reference-implementations)
-25. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
-26. [Roadmap](#roadmap)
+3. [Evidence Model](#evidence-model)
+4. [Tool Reference Library](#tool-reference-library)
+5. [Stage Navigator](#stage-navigator)
+6. [1. Source and Checkout](#1-source-and-checkout)
+7. [2. Scan Secrets](#2-scan-secrets)
+8. [3. Scan Filesystem](#3-scan-filesystem)
+9. [4. Unit Tests](#4-unit-tests)
+10. [5. Code Coverage](#5-code-coverage)
+11. [6. SAST and Code Quality](#6-sast-and-code-quality)
+12. [7. Package Application](#7-package-application)
+13. [8. Build Container Image](#8-build-container-image)
+14. [9. Generate SBOM](#9-generate-sbom)
+15. [10. Publish SBOM to Dependency-Track](#10-publish-sbom-to-dependency-track)
+16. [11. Scan SBOM](#11-scan-sbom)
+17. [12. Scan Container Image](#12-scan-container-image)
+18. [13. Publish Report Evidence](#13-publish-report-evidence)
+19. [14. Apply Security Gates](#14-apply-security-gates)
+20. [15. Push to Registry](#15-push-to-registry)
+21. [16. Sign Image](#16-sign-image)
+22. [17. Attest Image](#17-attest-image)
+23. [18. Attach SBOM](#18-attach-sbom)
+24. [19. Publish Cosign Evidence](#19-publish-cosign-evidence)
+25. [Reference Implementations](#reference-implementations)
+26. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
+27. [Roadmap](#roadmap)
 
 ## Architecture Intent
 
@@ -80,8 +79,8 @@ flowchart LR
     reportCommit[14<br/>Publish Report Evidence]
     gates[15<br/>Security Gates]
     registry[16<br/>Registry Push]
-    sign[17<br/>Cosign Sign (Default On)]
-    attest[18<br/>Cosign Attest (Default On)]
+    sign["17<br/>Cosign Sign (Default On)"]
+    attest["18<br/>Cosign Attest (Default On)"]
     attach[19<br/>Attach SBOM]
     cosignCommit[20<br/>Publish Cosign Evidence]
     evidence[21<br/>Evidence Dashboard]
@@ -112,54 +111,6 @@ flowchart LR
 ```
 
 This is the core chain: code enters, controls run one after another, evidence is produced, and only approved artifacts move forward.
-
-## Pipeline Control Map
-
-```mermaid
-flowchart TB
-    subgraph Quality[Quality Controls: prove the code works]
-        unit[Unit Tests]
-        cov[JaCoCo Coverage]
-    end
-
-    subgraph Inventory[Inventory Controls: prove what is inside]
-        syft[SBOM: Syft]
-        formats[CycloneDX JSON + SPDX JSON]
-    end
-
-    subgraph Vulnerability[Vulnerability Controls: prove known risk is visible]
-        grype[Grype SBOM Analysis]
-        trivy1[Trivy Image Scan]
-        trivy2[Trivy Filesystem Scan]
-    end
-
-    subgraph Secrets[Secret Controls: prevent credential exposure]
-        leaks[Gitleaks]
-    end
-
-    subgraph Promotion[Promotion Controls: decide what can move forward]
-        gate[Security Gate]
-        push[Registry Push]
-        oras[SBOM Attachment]
-    end
-
-    Quality --> Inventory --> Vulnerability --> Promotion
-    Secrets --> Promotion
-
-    classDef q fill:#ecfdf3,stroke:#1a7f37,color:#062b16;
-    classDef i fill:#fff8c5,stroke:#9a6700,color:#3b2300;
-    classDef v fill:#ffebe9,stroke:#cf222e,color:#4d1113;
-    classDef s fill:#f0e7ff,stroke:#8250df,color:#2f184f;
-    classDef p fill:#e7f0ff,stroke:#1f6feb,color:#0b1f44;
-
-    class unit,cov q;
-    class syft,formats i;
-    class grype,trivy1,trivy2 v;
-    class leaks s;
-    class gate,push,oras p;
-```
-
-Each control answers a different question. The pipeline uses several controls because no single scanner gives complete coverage.
 
 ## Evidence Model
 
