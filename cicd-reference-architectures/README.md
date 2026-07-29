@@ -27,30 +27,29 @@ What this implementation demonstrates with generated evidence:
 1. [Architecture Intent](#architecture-intent)
 2. [End-to-End Supply Chain](#end-to-end-supply-chain)
 3. [Evidence Model](#evidence-model)
-4. [Tool Reference Library](#tool-reference-library)
-5. [Stage Navigator](#stage-navigator)
-6. [1. Source and Checkout](#1-source-and-checkout)
-7. [2. Scan Secrets](#2-scan-secrets)
-8. [3. Scan Filesystem](#3-scan-filesystem)
-9. [4. Unit Tests](#4-unit-tests)
-10. [5. Code Coverage](#5-code-coverage)
-11. [6. SAST and Code Quality](#6-sast-and-code-quality)
-12. [7. Package Application](#7-package-application)
-13. [8. Build Container Image](#8-build-container-image)
-14. [9. Generate SBOM](#9-generate-sbom)
-15. [10. Publish SBOM to Dependency-Track](#10-publish-sbom-to-dependency-track)
-16. [11. Scan SBOM](#11-scan-sbom)
-17. [12. Scan Container Image](#12-scan-container-image)
-18. [13. Publish Report Evidence](#13-publish-report-evidence)
-19. [14. Apply Security Gates](#14-apply-security-gates)
-20. [15. Push to Registry](#15-push-to-registry)
-21. [16. Sign Image](#16-sign-image)
-22. [17. Attest Image](#17-attest-image)
-23. [18. Attach SBOM](#18-attach-sbom)
-24. [19. Publish Cosign Evidence](#19-publish-cosign-evidence)
-25. [Reference Implementations](#reference-implementations)
-26. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
-27. [Roadmap](#roadmap)
+4. [Stage Navigator](#stage-navigator)
+5. [1. Source and Checkout](#1-source-and-checkout)
+6. [2. Scan Secrets](#2-scan-secrets)
+7. [3. Scan Filesystem](#3-scan-filesystem)
+8. [4. Unit Tests](#4-unit-tests)
+9. [5. Code Coverage](#5-code-coverage)
+10. [6. SAST and Code Quality](#6-sast-and-code-quality)
+11. [7. Package Application](#7-package-application)
+12. [8. Build Container Image](#8-build-container-image)
+13. [9. Generate SBOM](#9-generate-sbom)
+14. [10. Publish SBOM to Dependency-Track](#10-publish-sbom-to-dependency-track)
+15. [11. Scan SBOM](#11-scan-sbom)
+16. [12. Scan Container Image](#12-scan-container-image)
+17. [13. Publish Report Evidence](#13-publish-report-evidence)
+18. [14. Apply Security Gates](#14-apply-security-gates)
+19. [15. Push to Registry](#15-push-to-registry)
+20. [16. Sign Image](#16-sign-image)
+21. [17. Attest Image](#17-attest-image)
+22. [18. Attach SBOM](#18-attach-sbom)
+23. [19. Publish Cosign Evidence](#19-publish-cosign-evidence)
+24. [Reference Implementations](#reference-implementations)
+25. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
+26. [Roadmap](#roadmap)
 
 ## Architecture Intent
 
@@ -141,16 +140,6 @@ Jenkins executes the pipeline. Git stores the published evidence. The dashboard 
 Current dashboard:
 
 - [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
-
-## Tool Reference Library
-
-The process diagram shows the supply chain. The tool reference explains the tool choices behind each control.
-
-| Tool area | Chosen tool | Reference page | Why it is linked here |
-|---|---|---|---|
-| SAST and code quality | SonarQube | [SonarQube SAST](./tools/sonarqube-sast.md) | Explains why SonarQube is selected, how to install it on Kubernetes, demo vs licensed use, pricing signals, and SAST alternatives |
-| Image signing and attestations | Cosign | [Cosign Signing](./tools/cosign-signing.md) | Explains the demo signing path, KMS and OIDC best-practice paths, and why digest signing plus attestations should happen after push |
-| Supply chain tools catalog | Multiple tools | [Tools Reference](./tools/README.md) | Central place for tool categories, chosen tools, alternatives, and comparison approach |
 
 ## Stage Navigator
 

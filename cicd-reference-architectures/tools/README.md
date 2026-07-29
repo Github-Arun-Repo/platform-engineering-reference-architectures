@@ -1,72 +1,36 @@
 # Supply Chain Security Tools Reference
 
-This section explains the tools behind the supply chain security reference architecture: what each tool is used for, why it is selected, what alternatives exist, and when a licensed option is worth choosing.
+This page lists the **active tools used in this repository** for the CI/CD security supply chain reference architecture.
 
-The main pipeline README explains the process. These pages explain the tool choices.
+If you are looking for proof that these controls were run, start here:
 
-## Tool Map
+- Security evidence dashboard: [docs/security-reports/index.html](../../docs/security-reports/index.html)
+- CI/CD architecture overview: [cicd-reference-architectures/README.md](../README.md)
+- Pipeline implementation: [phase-1-image-build-jenkins/Jenkinsfile](../phase-1-image-build-jenkins/Jenkinsfile)
 
-```mermaid
-flowchart LR
-    source[Source Code]
-    sast[SAST<br/>SonarQube]
-    tests[Tests + Coverage<br/>JUnit + JaCoCo]
-    secrets[Secrets<br/>Gitleaks]
-    image[Container Image]
-    sbom[SBOM<br/>Syft]
-    dtrack[SBOM Publish<br/>Dependency-Track]
-    sca[SBOM Risk<br/>Grype]
-    vuln[Image + FS Risk<br/>Trivy]
-    gates[Security Gates]
-    evidence[Evidence Dashboard]
+## Active Tool Stack In This Repository
 
-    source --> sast --> gates
-    source --> tests --> gates
-    source --> secrets --> gates
-    image --> sbom --> dtrack --> sca --> gates
-    image --> vuln --> gates
-    gates --> evidence
-
-    classDef code fill:#e7f0ff,stroke:#1f6feb,color:#0b1f44;
-    classDef quality fill:#ecfdf3,stroke:#1a7f37,color:#062b16;
-    classDef security fill:#ffebe9,stroke:#cf222e,color:#4d1113;
-    classDef evidence fill:#fff8c5,stroke:#9a6700,color:#3b2300;
-
-    class source,image code;
-    class tests quality;
-    class sast,secrets,sbom,dtrack,sca,vuln,gates security;
-    class evidence evidence;
-```
-
-## Tool Decision Index
-
-| Security area | Chosen tool | Detail page | Why this is used here |
+| Control area | Tool used | Status in this repo | Reference |
 |---|---|---|---|
-| SAST and code quality | SonarQube | [SonarQube SAST](./sonarqube-sast.md) | Central code quality, SAST, security hotspots, coverage import, and quality gates |
-| Unit testing | JUnit | Planned | Java unit testing standard for the sample Spring Boot application |
-| Code coverage | JaCoCo | Planned | Native Maven/JUnit coverage evidence for Java |
-| Secret scanning | Gitleaks | Planned | Fast repository secret detection with simple CI gating |
-| SBOM generation | Syft | Planned | Strong container package inventory with CycloneDX and SPDX output |
-| SBOM publication and intelligence | OWASP Dependency-Track | [Dependency-Track](./dependency-track.md) | Publishes the CycloneDX SBOM into a vulnerability intelligence platform and keeps the component risk history accessible via API and UI |
-| SBOM vulnerability scan | Grype | Planned | Vulnerability analysis from SBOM data, useful for repeatable re-scans |
-| Image and filesystem scan | Trivy | Planned | Practical image, filesystem, dependency, secret, and misconfiguration scanning |
-| Image signing and attestations | Cosign | [Cosign Signing](./cosign-signing.md) | Signs immutable image digests and attaches verifiable supply chain evidence |
-| OCI evidence attachment | ORAS | Planned | Attaches SBOM evidence to the image as an OCI artifact |
+| Source checkout and pipeline orchestration | Jenkins + Git SCM | implemented | [Jenkins pipeline](../phase-1-image-build-jenkins/Jenkinsfile) |
+| Unit testing | Maven Surefire + JUnit | implemented | [Sample app](../sample-application/README.md) |
+| Code coverage | JaCoCo | implemented | [CI/CD architecture](../README.md#5-code-coverage) |
+| SAST and code quality | SonarQube | implemented | [SonarQube SAST](./sonarqube-sast.md) |
+| Secret scanning | Gitleaks | implemented | [CI/CD architecture](../README.md#2-scan-secrets) |
+| Filesystem vulnerability scanning | Trivy fs | implemented | [CI/CD architecture](../README.md#3-scan-filesystem) |
+| Container image scanning | Trivy image | implemented | [CI/CD architecture](../README.md#12-scan-container-image) |
+| SBOM generation | Syft | implemented | [CI/CD architecture](../README.md#9-generate-sbom) |
+| SBOM vulnerability analysis | Grype | implemented | [CI/CD architecture](../README.md#11-scan-sbom) |
+| SBOM intelligence platform | OWASP Dependency-Track | implemented | [Dependency-Track](./dependency-track.md) |
+| Image signing and attestations | Cosign | implemented | [Cosign signing](./cosign-signing.md) |
+| SBOM OCI attachment | ORAS | implemented | [CI/CD architecture](../README.md#18-attach-sbom) |
 
-## How To Read These Pages
+## Scope Of This Tools Folder
 
-Each tool page follows the same pattern:
+This folder contains focused reference guides for selected components in the implemented stack:
 
-| Section | What it answers |
-|---|---|
-| Why this tool | Why it belongs in the supply chain |
-| What we use in this reference | What is implemented or planned in this repository |
-| Demo vs licensed choice | What to use for local demos and what changes in enterprise use |
-| Alternatives | Other tools engineers can evaluate |
-| Comparison table | When to choose which option |
+- [SonarQube SAST](./sonarqube-sast.md)
+- [Dependency-Track](./dependency-track.md)
+- [Cosign signing](./cosign-signing.md)
 
-## Current Recommendation
-
-For this reference architecture, use free or community editions for the demo path and document the licensed path separately.
-
-That keeps the repository easy to run while still showing engineers where production teams normally upgrade for support, scale, audit controls, SSO, compliance reports, and advanced security features.
+As additional controls are expanded in this repository, matching tool guides are added here.
