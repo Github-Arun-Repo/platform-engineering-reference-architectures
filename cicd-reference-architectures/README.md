@@ -4,15 +4,23 @@ This reference architecture shows how to design a secure container delivery pipe
 
 [![Security Reports](https://img.shields.io/badge/Security%20Reports-View%20Dashboard-blue?logo=github)](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
 
-The focus is not simply "run CI/CD." The focus is the **security supply chain** around modern software delivery:
+## Start Here: Verified Report Evidence
 
-- prove the code was tested
-- prove the build produced an auditable artifact
-- prove the container image was inspected
-- prove dependencies and packages are inventoried
-- prove secrets were not committed
-- prove vulnerability gates ran before registry promotion
-- publish evidence so engineers can inspect the result without Jenkins access
+Executed and validated by **Arunasalam Govindasamy** against the sample Spring Boot TODO application in this repository, with full report outputs published for public review.
+
+- [Open Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
+- Application under test: [sample-application](./sample-application/)
+- Full security report files: [security-reports](../security-reports/)
+
+What this implementation demonstrates with generated evidence:
+
+- unit test execution and code coverage outputs
+- filesystem and container vulnerability scan results
+- SBOM generation in CycloneDX and SPDX formats
+- dependency intelligence publication to Dependency-Track
+- secret scanning results from repository content
+- registry push controls, signing, attestation, and SBOM attachment evidence
+- report publication to Git so teams can review without Jenkins access
 
 ## Contents
 
