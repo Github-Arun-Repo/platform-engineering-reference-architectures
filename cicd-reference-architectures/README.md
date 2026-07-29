@@ -451,12 +451,30 @@ Jenkins evaluates scan results before pushing the image.
 
 Security reports are useful, but gates decide whether an artifact is allowed to move forward.
 
-**Current gate decisions**
+**Security gate policy (implemented)**
 
-- Gitleaks findings block the pipeline
-- Grype findings at the configured threshold block the pipeline
-- Grype operational errors warn by default
-- Trivy image and filesystem scans publish evidence without blocking by default
+| Control | Report/status checked | Fail condition | Warning condition | Pass condition |
+|---|---|---|---|---|
+| Gitleaks secrets gate | `security-reports/gitleaks-exit-code.txt` and `security-reports/gitleaks-report.json` | exit code `1` (findings) or `>1` (scan/runtime error) | none | exit code `0` |
+| Grype SBOM vulnerability gate | `security-reports/grype-exit-code.txt`, `security-reports/grype-critical-count.txt`, `security-reports/grype-high-count.txt` | blocking count `> 0` based on configured severity threshold | scan error with continue policy enabled | scan status `0` and blocking count `0` |
+| Trivy image and filesystem evidence | `security-reports/trivy-report.json` and `security-reports/trivy-fs-report.json` | not used as gate in current policy | report-only by design | reports generated and published |
+
+**Current threshold configuration set (Jenkins environment)**
+
+- `GRYPE_FAIL_ON_SEVERITY=critical`
+- `GRYPE_BLOCK_ON_SCAN_ERROR=false`
+
+With the current settings:
+
+- any Gitleaks finding fails the pipeline before registry push
+- any Grype critical vulnerability fails the pipeline before registry push
+- Grype scan/tool errors generate a warning and continue (non-blocking)
+- Trivy filesystem and image scans remain non-blocking evidence stages
+
+To tighten the gate later:
+
+- set `GRYPE_FAIL_ON_SEVERITY=high` to block on both high and critical findings
+- set `GRYPE_BLOCK_ON_SCAN_ERROR=true` to fail when Grype cannot complete a scan
 
 **Where this is useful**
 
