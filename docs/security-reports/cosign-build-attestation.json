@@ -1,16 +1,16 @@
 {
-  "buildNumber": "71",
+  "buildNumber": "72",
   "pipelineVersion": "cosign-sign-attest-v1-2026-07-21",
-  "gitSha": "0ed48dc",
-  "image": "agovindasamy/arun@sha256:c1a369cb9e347dffac62f4438c8c9e47ab6f6cc5bed836ccabd21db043a6d1a3",
+  "gitSha": "4db0156",
+  "image": "agovindasamy/arun@sha256:51d7a1ae58780fd338c127c9c9fc63216b618bb6939d1f5ae42d03dd6f07c3e9",
   "sbom": {
     "path": "security-reports/sbom.cyclonedx.json",
-    "sha256": "9cbf9d237c424fd75c88938bd504bed553c283627a51eb391dc84b492dc4dc29"
+    "sha256": "94af39bf4cd5bdb035e920e6fe09155c5da03c85a96137feb75f0ec326eaf698"
   },
   "securityGates": {
     "gitleaksStatus": "0",
     "grypeCriticalCount": "0",
     "grypeHighCount": "0"
   },
-  "generatedAt": "2026-07-29T15:24:33Z"
+  "generatedAt": "2026-07-29T15:38:51Z"
 }
