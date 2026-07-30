@@ -1,14 +1,14 @@
 {
   "SchemaVersion": 2,
-  "CreatedAt": "2026-07-29T15:37:34.739391914Z",
-  "ArtifactName": "agovindasamy/arun:72",
+  "CreatedAt": "2026-07-30T08:38:00.671979033Z",
+  "ArtifactName": "agovindasamy/arun:73",
   "ArtifactType": "container_image",
   "Metadata": {
     "OS": {
       "Family": "alpine",
       "Name": "3.23.5"
     },
-    "ImageID": "sha256:51d7a1ae58780fd338c127c9c9fc63216b618bb6939d1f5ae42d03dd6f07c3e9",
+    "ImageID": "sha256:543cb453e21ae3ecd74bd3d05d1bc499d6e3699cb1daf68d4b12f8a1537ea400",
     "DiffIDs": [
       "sha256:31ad4a471c6852bfec14d757cc75a566c82a9769f12c3918cf6bf52cc0eeb3d0",
       "sha256:751fe7c90841e5c1a9f465ef72cd52a86d5b6ebaa5cd2491cac866d856e12c07",
@@ -22,11 +22,11 @@
       "sha256:7c0e11e93a82d2dfd82f301281eac2bf1c1f4dfc5e0a57a38c48ebcdfc9d7b4b"
     ],
     "RepoTags": [
-      "agovindasamy/arun:72",
+      "agovindasamy/arun:73",
       "agovindasamy/arun:latest"
     ],
     "RepoDigests": [
-      "agovindasamy/arun@sha256:51d7a1ae58780fd338c127c9c9fc63216b618bb6939d1f5ae42d03dd6f07c3e9"
+      "agovindasamy/arun@sha256:543cb453e21ae3ecd74bd3d05d1bc499d6e3699cb1daf68d4b12f8a1537ea400"
     ],
     "ImageConfig": {
       "architecture": "amd64",
@@ -191,7 +191,7 @@
   },
   "Results": [
     {
-      "Target": "agovindasamy/arun:72 (alpine 3.23.5)",
+      "Target": "agovindasamy/arun:73 (alpine 3.23.5)",
       "Class": "os-pkgs",
       "Type": "alpine",
       "Vulnerabilities": [
@@ -232,44 +232,6 @@
           ],
           "PublishedDate": "2026-06-19T06:17:10.107Z",
           "LastModifiedDate": "2026-06-23T20:15:48.007Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2026-56407",
-          "PkgID": "libexpat@2.8.1-r0",
-          "PkgName": "libexpat",
-          "PkgIdentifier": {
-            "PURL": "pkg:apk/alpine/libexpat@2.8.1-r0?arch=x86_64\u0026distro=3.23.5",
-            "UID": "e326c34c46583c35"
-          },
-          "InstalledVersion": "2.8.1-r0",
-          "FixedVersion": "2.8.2-r0",
-          "Status": "fixed",
-          "Layer": {
-            "Digest": "sha256:37871e84e40af454a54b03c545cfa7a05d360b1cf8bdc2b2faef8da08b487358",
-            "DiffID": "sha256:751fe7c90841e5c1a9f465ef72cd52a86d5b6ebaa5cd2491cac866d856e12c07"
-          },
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-56407",
-          "DataSource": {
-            "ID": "alpine",
-            "Name": "Alpine Secdb",
-            "URL": "https://secdb.alpinelinux.org/"
-          },
-          "Title": "libexpat before 2.8.2 has an integer overflow in doProlog that is rela ...",
-          "Description": "libexpat before 2.8.2 has an integer overflow in doProlog that is related to storeEntityValue and entity textLen.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-190"
-          ],
-          "VendorSeverity": {
-            "amazon": 3,
-            "azure": 2
-          },
-          "References": [
-            "https://github.com/libexpat/libexpat/pull/1262",
-            "https://nvd.nist.gov/vuln/detail/CVE-2026-56407"
-          ],
-          "PublishedDate": "2026-06-21T16:16:27.987Z",
-          "LastModifiedDate": "2026-06-23T16:28:29.983Z"
         },
         {
           "VulnerabilityID": "CVE-2026-56408",
@@ -615,6 +577,53 @@
           "LastModifiedDate": "2026-06-23T16:29:06.077Z"
         },
         {
+          "VulnerabilityID": "CVE-2026-56407",
+          "PkgID": "libexpat@2.8.1-r0",
+          "PkgName": "libexpat",
+          "PkgIdentifier": {
+            "PURL": "pkg:apk/alpine/libexpat@2.8.1-r0?arch=x86_64\u0026distro=3.23.5",
+            "UID": "e326c34c46583c35"
+          },
+          "InstalledVersion": "2.8.1-r0",
+          "FixedVersion": "2.8.2-r0",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:37871e84e40af454a54b03c545cfa7a05d360b1cf8bdc2b2faef8da08b487358",
+            "DiffID": "sha256:751fe7c90841e5c1a9f465ef72cd52a86d5b6ebaa5cd2491cac866d856e12c07"
+          },
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-56407",
+          "DataSource": {
+            "ID": "alpine",
+            "Name": "Alpine Secdb",
+            "URL": "https://secdb.alpinelinux.org/"
+          },
+          "Title": "libexpat: libexpat: Arbitrary code execution due to integer overflow",
+          "Description": "libexpat before 2.8.2 has an integer overflow in doProlog that is related to storeEntityValue and entity textLen.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-190"
+          ],
+          "VendorSeverity": {
+            "amazon": 3,
+            "azure": 2,
+            "redhat": 2
+          },
+          "CVSS": {
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L",
+              "V3Score": 6.9
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2026-56407",
+            "https://github.com/libexpat/libexpat/pull/1262",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-56407",
+            "https://www.cve.org/CVERecord?id=CVE-2026-56407"
+          ],
+          "PublishedDate": "2026-06-21T16:16:27.987Z",
+          "LastModifiedDate": "2026-06-23T16:28:29.983Z"
+        },
+        {
           "VulnerabilityID": "CVE-2026-56409",
           "PkgID": "libexpat@2.8.1-r0",
           "PkgName": "libexpat",
@@ -853,7 +862,7 @@
             "https://bugzilla.redhat.com/show_bug.cgi?id=2437308",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-2100",
             "https://errata.almalinux.org/9/ALSA-2026-18599.html",
-            "https://errata.rockylinux.org/RLSA-2026:18599",
+            "https://errata.rockylinux.org/RLSA-2026:18143",
             "https://github.com/p11-glue/p11-kit/pull/740",
             "https://github.com/p11-glue/p11-kit/releases/tag/0.26.2",
             "https://linux.oracle.com/cve/CVE-2026-2100.html",
@@ -921,7 +930,7 @@
             "https://bugzilla.redhat.com/show_bug.cgi?id=2437308",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-2100",
             "https://errata.almalinux.org/9/ALSA-2026-18599.html",
-            "https://errata.rockylinux.org/RLSA-2026:18599",
+            "https://errata.rockylinux.org/RLSA-2026:18143",
             "https://github.com/p11-glue/p11-kit/pull/740",
             "https://github.com/p11-glue/p11-kit/releases/tag/0.26.2",
             "https://linux.oracle.com/cve/CVE-2026-2100.html",
@@ -1527,7 +1536,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-54512",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-54513",
             "https://errata.almalinux.org/9/ALSA-2026-40895.html",
-            "https://errata.rockylinux.org/RLSA-2026:40895",
+            "https://errata.rockylinux.org/RLSA-2026:43400",
             "https://github.com/FasterXML/jackson-databind",
             "https://github.com/FasterXML/jackson-databind/commit/434d6c511de7fdd9872f29157aafb6162d12d8d5",
             "https://github.com/FasterXML/jackson-databind/issues/5988",
@@ -1607,7 +1616,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-54512",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-54513",
             "https://errata.almalinux.org/9/ALSA-2026-40895.html",
-            "https://errata.rockylinux.org/RLSA-2026:40895",
+            "https://errata.rockylinux.org/RLSA-2026:43400",
             "https://github.com/FasterXML/jackson-databind",
             "https://github.com/FasterXML/jackson-databind/commit/01d1692c8d0ed03e51a0e3c4f8a9e6908e4931e5",
             "https://github.com/FasterXML/jackson-databind/commit/24529da29fdf46ff94ca38de9ebf31cd188f5e8e",
@@ -1858,12 +1867,14 @@
             "https://access.redhat.com/security/cve/CVE-2025-24813",
             "https://bugzilla.redhat.com/2332817",
             "https://bugzilla.redhat.com/2351129",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2332817",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2326972",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2332815",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2351129",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-50379",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-52316",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-54677",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-24813",
             "https://errata.almalinux.org/9/ALSA-2025-3645.html",
-            "https://errata.rockylinux.org/RLSA-2025:3645",
+            "https://errata.rockylinux.org/RLSA-2025:7497",
             "https://github.com/absholi7ly/POC-CVE-2025-24813/blob/main/README.md",
             "https://github.com/apache/tomcat",
             "https://github.com/apache/tomcat/commit/0a668e0c27f2b7ca0cc7c6eea32253b9b5ecb29c",
@@ -2417,7 +2428,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-56337",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-31650",
             "https://errata.almalinux.org/9/ALSA-2025-11335.html",
-            "https://errata.rockylinux.org/RLSA-2025:11335",
+            "https://errata.rockylinux.org/RLSA-2025:11332",
             "https://github.com/apache/tomcat",
             "https://linux.oracle.com/cve/CVE-2024-56337.html",
             "https://linux.oracle.com/errata/ELSA-2025-11335.html",
@@ -2465,7 +2476,7 @@
           ],
           "VendorSeverity": {
             "alma": 3,
-            "amazon": 3,
+            "amazon": 2,
             "bitnami": 3,
             "ghsa": 3,
             "oracle-oval": 3,
@@ -2506,17 +2517,15 @@
             "https://bugzilla.redhat.com/show_bug.cgi?id=2373020",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2373309",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2379374",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2379382",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2379386",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48976",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48988",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48989",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-49125",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-52434",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-52520",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-53506",
             "https://errata.almalinux.org/9/ALSA-2025-14181.html",
-            "https://errata.rockylinux.org/RLSA-2025:14181",
+            "https://errata.rockylinux.org/RLSA-2025:14179",
             "https://github.com/apache/tomcat",
             "https://github.com/apache/tomcat/commit/2b0ab14fb55d4edc896e5f1817f2ab76f714ae5e",
             "https://github.com/apache/tomcat/commit/2b0ab14fb55d4edc896e5f1817f2ab76f714ae5e%20%2811.0.8%29",
@@ -2605,18 +2614,16 @@
             "https://bugzilla.redhat.com/show_bug.cgi?id=2373020",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2373309",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2379374",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2379382",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2379386",
             "https://cert-portal.siemens.com/productcert/html/ssa-032379.html",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48976",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48988",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48989",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-49125",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-52434",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-52520",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-53506",
             "https://errata.almalinux.org/9/ALSA-2025-14181.html",
-            "https://errata.rockylinux.org/RLSA-2025:14181",
+            "https://errata.rockylinux.org/RLSA-2025:14179",
             "https://github.com/apache/tomcat",
             "https://github.com/apache/tomcat/commit/73c04a10395774bda71a0b37802cf983662ce255",
             "https://github.com/apache/tomcat/commit/73c04a10395774bda71a0b37802cf983662ce255%20%2810.1.44%29",
@@ -2708,17 +2715,15 @@
             "https://bugzilla.redhat.com/show_bug.cgi?id=2373020",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2373309",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2379374",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2379382",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2379386",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48976",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48988",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48989",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-49125",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-52434",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-52520",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-53506",
             "https://errata.almalinux.org/9/ALSA-2025-14181.html",
-            "https://errata.rockylinux.org/RLSA-2025:14181",
+            "https://errata.rockylinux.org/RLSA-2025:14179",
             "https://github.com/apache/tomcat",
             "https://github.com/apache/tomcat/commit/927d66fbc294cb65242102b817a45fd80834e040",
             "https://github.com/apache/tomcat/commit/927d66fbc294cb65242102b817a45fd80834e040%20%289.0.107%29",
@@ -2805,17 +2810,15 @@
             "https://bugzilla.redhat.com/show_bug.cgi?id=2373020",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2373309",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2379374",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2379382",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2379386",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48976",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48988",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48989",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-49125",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-52434",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-52520",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-53506",
             "https://errata.almalinux.org/9/ALSA-2025-14181.html",
-            "https://errata.rockylinux.org/RLSA-2025:14181",
+            "https://errata.rockylinux.org/RLSA-2025:14179",
             "https://github.com/apache/tomcat",
             "https://github.com/apache/tomcat/commit/2aa6261276ebe50b99276953591e3a2be7898bdb",
             "https://github.com/apache/tomcat/commit/2aa6261276ebe50b99276953591e3a2be7898bdb%20%2810.1.43%29",
@@ -2899,7 +2902,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-31651",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-55752",
             "https://errata.almalinux.org/9/ALSA-2025-23049.html",
-            "https://errata.rockylinux.org/RLSA-2025:23049",
+            "https://errata.rockylinux.org/RLSA-2025:23052",
             "https://github.com/apache/tomcat",
             "https://github.com/apache/tomcat/commit/130d36d8492ef9e4eb22952c17c92423cb35fd06",
             "https://github.com/apache/tomcat/commit/130d36d8492ef9e4eb22952c17c92423cb35fd06%20%2810.1.45%29",
@@ -2991,9 +2994,33 @@
             "https://access.redhat.com/security/cve/CVE-2026-24734",
             "https://bugzilla.redhat.com/2440426",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2440426",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2440430",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2440437",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2457020",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2457025",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2457027",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2457031",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2457037",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2457038",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2457039",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2457040",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2457043",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=2457044",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-66614",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-24733",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-24734",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-24880",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-25854",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-29129",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-29145",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-29146",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-32990",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-34483",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-34486",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-34487",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-34500",
             "https://errata.almalinux.org/9/ALSA-2026-26323.html",
-            "https://errata.rockylinux.org/RLSA-2026:26323",
+            "https://errata.rockylinux.org/RLSA-2026:36790",
             "https://github.com/apache/tomcat",
             "https://linux.oracle.com/cve/CVE-2026-24734.html",
             "https://linux.oracle.com/errata/ELSA-2026-26323.html",
@@ -3554,7 +3581,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-56337",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-31650",
             "https://errata.almalinux.org/9/ALSA-2025-11335.html",
-            "https://errata.rockylinux.org/RLSA-2025:11335",
+            "https://errata.rockylinux.org/RLSA-2025:11332",
             "https://github.com/apache/tomcat",
             "https://github.com/apache/tomcat/commit/1eef1dc459c45f1e421d8bd25ef340fc1cc34edc",
             "https://github.com/apache/tomcat/commit/40ae788c2e64d018b4e58cd4210bb96434d0100d",
@@ -3706,17 +3733,15 @@
             "https://bugzilla.redhat.com/show_bug.cgi?id=2373020",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2373309",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2379374",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2379382",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2379386",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48976",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48988",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-48989",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-49125",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-52434",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-52520",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-53506",
             "https://errata.almalinux.org/9/ALSA-2025-14181.html",
-            "https://errata.rockylinux.org/RLSA-2025:14181",
+            "https://errata.rockylinux.org/RLSA-2025:14179",
             "https://github.com/apache/tomcat",
             "https://github.com/apache/tomcat/commit/7617b9c247bc77ed0444dd69adcd8aa48777886c",
             "https://github.com/apache/tomcat/commit/7617b9c247bc77ed0444dd69adcd8aa48777886c%20%2810.1.42%29",
@@ -4080,7 +4105,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-31651",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-55752",
             "https://errata.almalinux.org/9/ALSA-2025-23049.html",
-            "https://errata.rockylinux.org/RLSA-2025:23049",
+            "https://errata.rockylinux.org/RLSA-2025:23052",
             "https://github.com/apache/tomcat",
             "https://github.com/apache/tomcat/commit/066bf6b6a15a4e7e0941d4acf096841165b97098",
             "https://github.com/apache/tomcat/commit/175dc75fc428930034a6c93fb52f830d955d8e64",
@@ -4301,7 +4326,7 @@
           ],
           "VendorSeverity": {
             "alma": 3,
-            "amazon": 3,
+            "amazon": 2,
             "bitnami": 2,
             "ghsa": 1,
             "oracle-oval": 3,

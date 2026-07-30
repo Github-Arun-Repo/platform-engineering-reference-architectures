@@ -1,6 +1,6 @@
 Trivy Gate Placeholder Summary
 Critical=4 (max 10)
-High=32 (max 40)
-Medium=31 (max 200)
+High=31 (max 40)
+Medium=32 (max 200)
 Warnings=0
 Result=warn-only-non-blocking
