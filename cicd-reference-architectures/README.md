@@ -20,9 +20,8 @@ What this implementation demonstrates with generated evidence:
 - SonarQube analysis with a required quality-gate placeholder step
 - optional OWASP Dependency-Check placeholder stage (toggle-driven)
 - filesystem and container vulnerability scan results
-- Trivy image gate placeholder in warn-only mode with relaxed thresholds
-- SBOM generation in CycloneDX and SPDX formats
-- SBOM vulnerability gating before promotion
+- Trivy-based CycloneDX SBOM generation
+- Trivy severity gating before promotion (Critical fail, High configurable, Medium report-only)
 - dependency intelligence publication to Dependency-Track after security gates
 - secret scanning results from repository content
 - registry push controls, signing, attestation, and SBOM attachment evidence
@@ -42,20 +41,21 @@ What this implementation demonstrates with generated evidence:
 10. [6. SAST and Code Quality](#6-sast-and-code-quality)
 11. [7. Package Application](#7-package-application)
 12. [8. Build Container Image](#8-build-container-image)
-13. [9. Generate SBOM](#9-generate-sbom)
-14. [10. Scan SBOM](#10-scan-sbom)
-15. [11. Apply Security Gates](#11-apply-security-gates)
+13. [9. Generate CycloneDX SBOM](#9-generate-cyclonedx-sbom)
+14. [10. Scan Container Image](#10-scan-container-image)
+15. [11. Evaluate Security Gates](#11-evaluate-security-gates)
 16. [12. Publish SBOM to Dependency-Track](#12-publish-sbom-to-dependency-track)
-17. [13. Scan Container Image](#13-scan-container-image)
+17. [13. Archive Security Reports](#13-archive-security-reports)
 18. [14. Publish Report Evidence](#14-publish-report-evidence)
 19. [15. Push to Registry](#15-push-to-registry)
-20. [16. Sign Image](#16-sign-image)
-21. [17. Attest Image](#17-attest-image)
-22. [18. Attach SBOM](#18-attach-sbom)
-23. [19. Publish Cosign Evidence](#19-publish-cosign-evidence)
-24. [Reference Implementations](#reference-implementations)
-25. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
-26. [Roadmap](#roadmap)
+20. [16. Deploy with ArgoCD](#16-deploy-with-argocd)
+21. [17. Sign Image](#17-sign-image)
+22. [18. Attest Image](#18-attest-image)
+23. [19. Attach SBOM](#19-attach-sbom)
+24. [20. Publish Cosign Evidence](#20-publish-cosign-evidence)
+25. [Reference Implementations](#reference-implementations)
+26. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
+27. [Roadmap](#roadmap)
 
 ## Architecture Intent
 
@@ -87,26 +87,26 @@ flowchart LR
     owasp[09<br/>OWASP Dependency-Check<br/>Optional Placeholder]
     package[10<br/>Package App]
     image[11<br/>Build Image]
-    sbom[12<br/>Generate SBOM]
-    grype[13<br/>SBOM Risk Scan]
+    sbom[12<br/>Trivy CycloneDX SBOM]
+    trivyImage[13<br/>Trivy Image Scan]
     gates[14<br/>Security Gates]
     dtrack[15<br/>Dependency-Track Upload]
-    trivyImage[16<br/>Image Scan]
+    archive[16<br/>Archive Reports]
     reportCommit[17<br/>Publish Report Evidence]
     registry[18<br/>Registry Push]
-    sign["19<br/>Cosign Sign (Default On)"]
-    attest["20<br/>Cosign Attest (Default On)"]
-    attach[21<br/>Attach SBOM]
-    cosignCommit[22<br/>Publish Cosign Evidence]
-    evidence[23<br/>Evidence Dashboard]
+    deploy[19<br/>Deploy with ArgoCD]
+    sign["20<br/>Cosign Sign (Default On)"]
+    attest["21<br/>Cosign Attest (Default On)"]
+    attach[22<br/>Attach SBOM]
+    cosignCommit[23<br/>Publish Cosign Evidence]
+    evidence[24<br/>Evidence Dashboard]
 
-    commit --> checkout --> gitleaks --> trivyFs --> tests --> coverage --> sonar --> sonarGate --> owasp --> package --> image --> sbom --> grype --> gates --> dtrack --> trivyImage --> reportCommit --> registry --> sign --> attest --> attach --> cosignCommit --> evidence
+    commit --> checkout --> gitleaks --> trivyFs --> tests --> coverage --> sonar --> sonarGate --> owasp --> package --> image --> sbom --> trivyImage --> gates --> dtrack --> archive --> reportCommit --> registry --> sign --> attest --> attach --> cosignCommit --> deploy --> evidence
     gitleaks --> gates
     trivyFs --> gates
-    grype --> gates
+    trivyImage --> gates
     gitleaks --> reportCommit
     trivyFs --> reportCommit
-    grype --> reportCommit
     trivyImage --> reportCommit
     reportCommit --> evidence
     cosignCommit --> evidence
@@ -119,9 +119,9 @@ flowchart LR
 
     class commit,checkout source;
     class tests,coverage,sonar,sonarGate quality;
-    class package,image,sbom,dtrack artifact;
-    class grype,trivyImage,trivyFs,gitleaks,gates,owasp,sign,attest security;
-    class registry,reportCommit,attach,cosignCommit,evidence publish;
+    class package,image,sbom,dtrack,archive artifact;
+    class trivyImage,trivyFs,gitleaks,gates,owasp,sign,attest security;
+    class registry,reportCommit,attach,cosignCommit,deploy,evidence publish;
 ```
 
 This is the core chain: code enters, controls run one after another, evidence is produced, and only approved artifacts move forward.
@@ -164,17 +164,18 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 6b | [SAST and Code Quality](#6-sast-and-code-quality) | OWASP Dependency-Check | optional placeholder pre-image check | optional (default off) |
 | 7 | [Package Application](#7-package-application) | Maven | build JAR artifact | yes |
 | 8 | [Build Container Image](#8-build-container-image) | Docker | immutable runtime artifact | yes |
-| 9 | [Generate SBOM](#9-generate-sbom) | Syft | package inventory | reported |
-| 10 | [Scan SBOM](#10-scan-sbom) | Grype | dependency/package CVEs | severity gated |
-| 11 | [Apply Security Gates](#11-apply-security-gates) | Jenkins policy logic | promotion decision before Dependency-Track upload | yes |
+| 9 | [Generate CycloneDX SBOM](#9-generate-cyclonedx-sbom) | Trivy | CycloneDX package inventory for reuse | reported |
+| 10 | [Scan Container Image](#10-scan-container-image) | Trivy image | image layer dependency CVEs | severity gated |
+| 11 | [Evaluate Security Gates](#11-evaluate-security-gates) | Jenkins policy logic | policy enforcement before publication/push | yes |
 | 12 | [Publish SBOM to Dependency-Track](#12-publish-sbom-to-dependency-track) | OWASP Dependency-Track | SBOM publication after gates | best effort |
-| 13 | [Scan Container Image](#13-scan-container-image) | Trivy image | image layer CVEs and placeholder gate evaluation | placeholder (warn-only) |
+| 13 | [Archive Security Reports](#13-archive-security-reports) | Jenkins artifacts | audit and evidence retention | reported |
 | 14 | [Publish Report Evidence](#14-publish-report-evidence) | Jenkins + Git + HTML | public report publication after gating and post-gate uploads | reported |
 | 15 | [Push to Registry](#15-push-to-registry) | Docker | artifact promotion | yes |
-| 16 | [Sign Image](#16-sign-image) | Cosign | digest integrity proof | yes (default on) |
-| 17 | [Attest Image](#17-attest-image) | Cosign | SBOM and build evidence referrers | yes (default on) |
-| 18 | [Attach SBOM](#18-attach-sbom) | ORAS | OCI artifact attachment | best effort |
-| 19 | [Publish Cosign Evidence](#19-publish-cosign-evidence) | Jenkins + Git + HTML | public signing and attestation evidence | yes (default on) |
+| 16 | [Deploy with ArgoCD](#16-deploy-with-argocd) | Jenkins deployment handoff | deployment update after security controls | yes |
+| 17 | [Sign Image](#17-sign-image) | Cosign | digest integrity proof | yes (default on) |
+| 18 | [Attest Image](#18-attest-image) | Cosign | SBOM and build evidence referrers | yes (default on) |
+| 19 | [Attach SBOM](#19-attach-sbom) | ORAS | OCI artifact attachment | best effort |
+| 20 | [Publish Cosign Evidence](#20-publish-cosign-evidence) | Jenkins + Git + HTML | public signing and attestation evidence | yes (default on) |
 
 ## 1. Source and Checkout
 
@@ -350,17 +351,17 @@ The image is the deployable unit. It must be immutable, traceable, and tested be
 - container registry promotion
 - environment parity across dev, staging, and production
 
-## 9. Generate SBOM
+## 9. Generate CycloneDX SBOM
 
 **What happens**
 
-Syft scans the built image and generates a Software Bill of Materials.
+Trivy scans the built image and generates a CycloneDX SBOM.
 
-**Formats used**
+**Formats and outputs used**
 
-- CycloneDX JSON: primary SBOM format
-- SPDX JSON: alternate exchange format
-- Syft table: readable package inventory
+- CycloneDX JSON: primary reusable SBOM artifact (`security-reports/sbom.cyclonedx.json`)
+- Trivy SBOM log: generation diagnostics (`security-reports/sbom.trivy.log`)
+- HTML summary: quick review (`security-reports/sbom-report.html`)
 
 **Why this matters**
 
@@ -377,15 +378,15 @@ An SBOM answers: "What is inside this artifact?" It creates the package inventor
 
 - [SBOM Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/sbom-report.html)
 
-## 10. Scan SBOM
+## 10. Scan Container Image
 
 **What happens**
 
-Grype scans the CycloneDX SBOM and checks package inventory against known vulnerabilities.
+Trivy scans the built container image and generates JSON and HTML vulnerability reports.
 
 **Why this matters**
 
-SBOM scanning separates package inventory from vulnerability matching. This is useful because the same SBOM can be re-evaluated when vulnerability databases change.
+This validates the deployable image artifact against known CVEs across runtime package layers.
 
 **Where this is useful**
 
@@ -394,17 +395,11 @@ SBOM scanning separates package inventory from vulnerability matching. This is u
 - re-scanning historical artifacts
 - CVE response workflows
 
-**Current gate behavior**
-
-- fails on configured severity findings
-- currently configured for Critical findings
-- operational scan errors are reported but do not block by default
-
 **Evidence produced**
 
-- [Grype SBOM Vulnerability Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/grype-report.html)
+- [Trivy Image Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-report.html)
 
-## 11. Apply Security Gates
+## 11. Evaluate Security Gates
 
 **What happens**
 
@@ -419,18 +414,20 @@ Security reports are useful, but gates decide whether the artifact is allowed to
 | Control | Report/status checked | Fail condition | Warning condition | Pass condition |
 |---|---|---|---|---|
 | Gitleaks secrets gate | `security-reports/gitleaks-exit-code.txt` and `security-reports/gitleaks-report.json` | exit code `1` (findings) or `>1` (scan/runtime error) | none | exit code `0` |
-| Grype SBOM vulnerability gate | `security-reports/grype-exit-code.txt`, `security-reports/grype-critical-count.txt`, `security-reports/grype-high-count.txt` | blocking count `> 0` based on configured severity threshold | scan error with continue policy enabled | scan status `0` and blocking count `0` |
+| Trivy image vulnerability gate | `security-reports/trivy-scan-exit-code.txt`, `security-reports/trivy-critical-count.txt`, `security-reports/trivy-high-count.txt`, `security-reports/trivy-medium-count.txt` | Critical `> 0` always fails; High `> 0` fails only when `TRIVY_FAIL_ON_HIGH=true` | High findings when `TRIVY_FAIL_ON_HIGH=false`; Medium findings are report-only | scan status `0`, Critical `0`, and High policy satisfied |
 
 **Current threshold configuration set (Jenkins environment)**
 
-- `GRYPE_FAIL_ON_SEVERITY=critical`
-- `GRYPE_BLOCK_ON_SCAN_ERROR=false`
+- `TRIVY_FAIL_ON_HIGH=false`
+- `TRIVY_BLOCK_ON_SCAN_ERROR=true`
 
 With current settings:
 
 - any Gitleaks finding fails immediately in the secret scan stage
-- any Grype critical vulnerability fails in the security gate stage
-- Grype scan/tool errors generate warning and continue by default
+- any Trivy critical vulnerability fails in the security gate stage
+- Trivy high vulnerabilities warn and continue by default
+- Trivy medium vulnerabilities are report-only
+- Trivy scan/tool errors fail by default
 
 ## 12. Publish SBOM to Dependency-Track
 
@@ -453,40 +450,26 @@ This keeps Dependency-Track publication aligned with promoted artifacts while pr
 
 - [Dependency-Track SBOM Publish Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/dependency-track-report.html)
 
-## 13. Scan Container Image
+## 13. Archive Security Reports
 
 **What happens**
 
-Trivy scans the final image for vulnerabilities in operating system packages and application dependencies visible in the image layers.
+Jenkins archives all generated security JSON/HTML/TXT outputs as build artifacts.
 
 **Why this matters**
 
-Image scanning checks the actual deployable artifact, not only the source tree. This catches risks introduced by base images, package managers, and runtime layers.
-
-**Current gate behavior (placeholder)**
-
-- Trivy image findings are evaluated by a dedicated placeholder gate stage.
-- This placeholder gate is intentionally non-blocking and does not fail the pipeline.
-- It logs warnings when relaxed thresholds are exceeded.
-
-**Current placeholder threshold configuration**
-
-- `ENABLE_TRIVY_IMAGE_GATE_PLACEHOLDER=true`
-- `TRIVY_GATE_MAX_CRITICAL=10`
-- `TRIVY_GATE_MAX_HIGH=40`
-- `TRIVY_GATE_MAX_MEDIUM=200`
+This gives durable, build-bound security evidence for audits, automation, and release reviews.
 
 **Where this is useful**
 
-- base image reviews
-- container hardening
-- registry admission policies
-- runtime artifact validation
+- release evidence retention
+- compliance checks
+- post-build automation
+- incident response traceability
 
 **Evidence produced**
 
-- [Trivy Image Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-report.html)
-- [Trivy Gate Summary](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-gate-summary.txt)
+- Jenkins build artifacts under `security-reports/*`
 
 ## 14. Publish Report Evidence
 
@@ -528,7 +511,23 @@ After the image is pushed, the strongest next steps are to sign the immutable di
 
 - [Cosign Signing](./tools/cosign-signing.md)
 
-## 16. Sign Image
+## 16. Deploy with ArgoCD
+
+**What happens**
+
+After security gates pass and artifacts are pushed, deployment handoff runs through the ArgoCD deployment stage.
+
+**Why this matters**
+
+This keeps deployment strictly downstream from security evaluation and artifact publication.
+
+**Where this is useful**
+
+- GitOps delivery handoff
+- environment promotion workflows
+- separation of build security and deployment operations
+
+## 17. Sign Image
 
 **What happens**
 
@@ -548,7 +547,7 @@ Signing proves integrity and gives downstream consumers a way to verify that the
 
 - [Cosign Signing](./tools/cosign-signing.md)
 
-## 17. Attest Image
+## 18. Attest Image
 
 **What happens**
 
@@ -568,7 +567,7 @@ Attestations carry evidence about the artifact, not just a proof that the artifa
 
 - [Cosign Signing](./tools/cosign-signing.md)
 
-## 18. Attach SBOM
+## 19. Attach SBOM
 
 **What happens**
 
@@ -582,7 +581,7 @@ Attaching evidence to the artifact keeps inventory close to the image it describ
 
 This step is best effort. If ORAS or the registry attachment fails, the SBOM remains available as Jenkins artifacts and public dashboard evidence.
 
-## 19. Publish Cosign Evidence
+## 20. Publish Cosign Evidence
 
 **What happens**
 
