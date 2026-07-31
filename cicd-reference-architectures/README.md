@@ -39,12 +39,16 @@ What this implementation demonstrates with generated evidence:
 8. [4. Unit Tests](#4-unit-tests)
 9. [5. Code Coverage](#5-code-coverage)
 10. [6. Pre-Image Security Controls](#6-pre-image-security-controls)
+    - [6.1 Software Composition Analysis (SCA)](#61-software-composition-analysis-sca)
+    - [6.2 Dependency Security Gate (SCA)](#62-dependency-security-gate-sca)
+    - [6.3 Static Application Security Testing (SAST)](#63-static-application-security-testing-sast)
+    - [6.4 SonarQube Quality Gate (SAST)](#64-sonarqube-quality-gate-sast)
 11. [7. Package Application](#7-package-application)
 12. [8. Build Container Image](#8-build-container-image)
 13. [9. Generate CycloneDX SBOM](#9-generate-cyclonedx-sbom)
 14. [10. Scan Container Image](#10-scan-container-image)
 15. [11. Evaluate Security Gates](#11-evaluate-security-gates)
-16. [12. Publish SBOM to Dependency-Track](#12-publish-sbom-to-dependency-track)
+16. [12. Publish SCA SBOM to Dependency-Track](#12-publish-sca-sbom-to-dependency-track)
 17. [13. Archive Security Reports](#13-archive-security-reports)
 18. [14. Publish Report Evidence](#14-publish-report-evidence)
 19. [15. Push to Registry](#15-push-to-registry)
@@ -168,16 +172,16 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 6 | [Unit Tests](#4-unit-tests) | Jenkins gate logic | unit test result gate | yes |
 | 7 | [Code Coverage](#5-code-coverage) | JaCoCo | coverage evidence generation | reported to next gate |
 | 8 | [Code Coverage](#5-code-coverage) | Jenkins gate logic + JaCoCo XML | coverage threshold gate | yes |
-| 9 | [Software Composition Analysis](#6-pre-image-security-controls) | OWASP Dependency-Check | software composition analysis pre-image | reported to next gate |
-| 10 | [Dependency Security Gate](#6-pre-image-security-controls) | Jenkins gate logic + Dependency-Check JSON | dependency security gate (Critical/High) | yes |
-| 11 | [Static Application Security Testing](#6-pre-image-security-controls) | SonarQube | static application security testing analysis | reported to next gate |
-| 12 | [SonarQube Quality Gate](#6-pre-image-security-controls) | SonarQube `waitForQualityGate` | sonar quality gate enforcement | yes |
+| 9 | [Software Composition Analysis](#61-software-composition-analysis-sca) | OWASP Dependency-Check | software composition analysis pre-image | reported to next gate |
+| 10 | [Dependency Security Gate](#62-dependency-security-gate-sca) | Jenkins gate logic + Dependency-Check JSON | dependency security gate (Critical/High) | yes |
+| 11 | [Static Application Security Testing](#63-static-application-security-testing-sast) | SonarQube | static application security testing analysis | reported to next gate |
+| 12 | [SonarQube Quality Gate](#64-sonarqube-quality-gate-sast) | SonarQube `waitForQualityGate` | sonar quality gate enforcement | yes |
 | 13 | [Package Application](#7-package-application) | Maven | build JAR artifact | yes |
 | 14 | [Build Container Image](#8-build-container-image) | Docker | immutable runtime artifact | yes |
 | 15 | [Generate CycloneDX SBOM](#9-generate-cyclonedx-sbom) | Trivy | CycloneDX package inventory for reuse | reported |
 | 16 | [Scan Container Image](#10-scan-container-image) | Trivy image | container image vulnerability scan | severity gated |
 | 17 | [Evaluate Security Gates](#11-evaluate-security-gates) | Jenkins policy logic | container security policy gate before publication/push | yes |
-| 18 | [Publish SBOM to Dependency-Track](#12-publish-sbom-to-dependency-track) | OWASP Dependency-Track | SBOM publication after gates | best effort |
+| 18 | [Publish SCA SBOM to Dependency-Track](#12-publish-sca-sbom-to-dependency-track) | OWASP Dependency-Track | SCA SBOM publication after gates | best effort |
 | 19 | [Archive Security Reports](#13-archive-security-reports) | Jenkins artifacts | audit and evidence retention | reported |
 | 20 | [Publish Report Evidence](#14-publish-report-evidence) | Jenkins + Git + HTML | public report publication after gating and post-gate uploads | reported |
 | 21 | [Push to Registry](#15-push-to-registry) | Docker | artifact promotion | yes |
@@ -298,16 +302,31 @@ Coverage does not prove quality by itself, but it shows which code paths are exe
 
 **What happens**
 
-SonarQube analyzes source code, imports JaCoCo coverage, evaluates code quality and security rules, and can publish a quality gate decision back to Jenkins.
+This phase explicitly separates SCA (dependency risk) from SAST (source code risk) before image build.
 
-**Pre-image controls in this section**
+### 6.1 Software Composition Analysis (SCA)
 
-- **Step 9: Dependency Vulnerability Scan (OWASP Dependency-Check)** runs as mandatory SCA before image build.
-- **Step 10: SCA Policy Gate (Critical/High)** fails the pipeline when policy is violated.
+**Tool**: OWASP Dependency-Check
+
+- Runs mandatory SCA before image build.
+- Scans third-party dependencies for known vulnerabilities and produces JSON/HTML reports.
+
+### 6.2 Dependency Security Gate (SCA)
+
 - Critical CVEs fail when `DEPENDENCY_GATE_FAIL_ON_CRITICAL=true`.
 - High CVEs fail when `DEPENDENCY_GATE_FAIL_ON_HIGH=true`.
-- **Step 11: SAST Code Analysis (SonarQube)** runs mandatory code analysis.
-- **Step 12: SAST Quality Gate (SonarQube)** is enforced with `waitForQualityGate abortPipeline: true`.
+
+### 6.3 Static Application Security Testing (SAST)
+
+**Tool**: SonarQube
+
+- Runs mandatory source code analysis.
+- Imports JaCoCo coverage and evaluates source-level quality/security rules.
+
+### 6.4 SonarQube Quality Gate (SAST)
+
+- Enforced with `waitForQualityGate abortPipeline: true`.
+- Blocks pipeline progression when SonarQube quality gate conditions are not met.
 
 **Why this matters**
 
@@ -438,11 +457,11 @@ With current settings:
 - Trivy medium vulnerabilities are report-only
 - Trivy scan/tool errors fail by default
 
-## 12. Publish SBOM to Dependency-Track
+## 12. Publish SCA SBOM to Dependency-Track
 
 **What happens**
 
-After security gates pass, Jenkins uploads the generated CycloneDX SBOM to Dependency-Track.
+After security gates pass, Jenkins uploads the generated CycloneDX SBOM (SCA artifact) to Dependency-Track.
 
 **Why this matters**
 
@@ -659,6 +678,7 @@ Planned additions:
 - [Tools Reference](./tools/README.md)
 - [Cosign Signing Reference](./tools/cosign-signing.md)
 - [SonarQube SAST Reference](./tools/sonarqube-sast.md)
+- [Dependency-Track SCA Reference](./tools/dependency-track.md)
 - [Jenkins Reference](./supply-chain-security-jenkins/)
 - [Jenkins Runbook](./supply-chain-security-jenkins/jenkins-demo-runbook.md)
 - [Sample Application](./sample-application/)
