@@ -30,8 +30,10 @@ pipeline {
         DEPENDENCY_TRACK_API_KEY_CREDENTIALS_ID = 'owasp_dependency_track'
         DEPENDENCY_TRACK_PROJECT_NAME = 'platform-engineering-reference-architectures'
         ENABLE_SONARQUBE = 'true'
-        ENABLE_SONARQUBE_QUALITY_GATE = 'false'
-        ENABLE_OWASP_DEPENDENCY_CHECK = 'false'
+        ENABLE_SONARQUBE_QUALITY_GATE = 'true'
+        JACOCO_MIN_LINE_COVERAGE = '70'
+        DEPENDENCY_GATE_FAIL_ON_CRITICAL = 'true'
+        DEPENDENCY_GATE_FAIL_ON_HIGH = 'true'
         TRIVY_FAIL_ON_HIGH = 'false'
         TRIVY_BLOCK_ON_SCAN_ERROR = 'true'
     }
@@ -165,15 +167,28 @@ EOF
                             echo "${GITLEAKS_STATUS}" > ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt
                             echo "Gitleaks scan complete. Status=${GITLEAKS_STATUS}, findings=${FINDINGS_COUNT}"
                             wc -c ${SECURITY_REPORT_DIR}/gitleaks-report.json ${SECURITY_REPORT_DIR}/gitleaks-report.html ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt
+                        '''
+                    }
+                }
+            }
+        }
 
+        stage('Secret Validation Gate') {
+            steps {
+                container('maven') {
+                    script {
+                        // Purpose: Explicitly enforce secret detection policy before any further pipeline progress.
+                        sh '''
+                            GITLEAKS_STATUS="$(cat ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt 2>/dev/null || echo 2)"
                             if [ "${GITLEAKS_STATUS}" -eq 1 ]; then
-                                echo "Gitleaks detected potential secrets. Failing pipeline immediately."
+                                echo "Gitleaks detected potential secrets. Failing secret validation gate."
                                 exit 1
                             fi
                             if [ "${GITLEAKS_STATUS}" -gt 1 ]; then
-                                echo "Gitleaks scan errored. Failing pipeline immediately."
+                                echo "Gitleaks scan errored. Failing secret validation gate."
                                 exit 1
                             fi
+                            echo "Secret validation gate passed."
                         '''
                     }
                 }
@@ -248,23 +263,150 @@ EOF
             }
         }
 
-        stage('Unit Tests & Code Coverage') {
+        stage('Unit Testing (JUnit)') {
             steps {
                 container('maven') {
                     script {
-                        echo "Running unit tests and generating JaCoCo coverage..."
+                        // Purpose: Execute unit tests and persist test execution status for explicit gate evaluation.
+                        echo "Running unit tests (JUnit)..."
                         dir('cicd-reference-architectures/sample-application') {
-                            sh 'mvn -B clean verify'
+                            sh '''
+                                mkdir -p ../../${SECURITY_REPORT_DIR}
+                                set +e
+                                mvn -B clean test
+                                TEST_STATUS=$?
+                                set -e
+                                echo "${TEST_STATUS}" > ../../${SECURITY_REPORT_DIR}/test-exit-code.txt
+                            '''
                         }
                     }
                 }
             }
         }
 
-        stage('SonarQube Analysis') {
-            when {
-                expression { return env.ENABLE_SONARQUBE?.toBoolean() }
+        stage('Test Validation Gate') {
+            steps {
+                container('maven') {
+                    script {
+                        // Purpose: Fail fast if any unit test failed.
+                        sh '''
+                            TEST_STATUS="$(cat ${SECURITY_REPORT_DIR}/test-exit-code.txt 2>/dev/null || echo 2)"
+                            if [ "${TEST_STATUS}" -ne 0 ]; then
+                                echo "Unit tests failed. Blocking pipeline in test validation gate."
+                                exit 1
+                            fi
+                            echo "Test validation gate passed."
+                        '''
+                    }
+                }
             }
+        }
+
+        stage('Code Coverage Analysis (JaCoCo)') {
+            steps {
+                container('maven') {
+                    script {
+                        // Purpose: Generate JaCoCo coverage report after successful unit tests.
+                        dir('cicd-reference-architectures/sample-application') {
+                            sh '''
+                                mkdir -p ../../${SECURITY_REPORT_DIR}
+                                mvn -B jacoco:report
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Coverage Validation Gate') {
+            steps {
+                container('maven') {
+                    script {
+                        // Purpose: Enforce minimum line coverage threshold before security-heavy steps.
+                        dir('cicd-reference-architectures/sample-application') {
+                            sh '''
+                                JACOCO_XML="target/site/jacoco/jacoco.xml"
+                                if [ ! -s "${JACOCO_XML}" ]; then
+                                    echo "Coverage report missing: ${JACOCO_XML}. Failing coverage validation gate."
+                                    exit 1
+                                fi
+
+                                COVERAGE_PCT=$(awk -F'"' '/<counter type="LINE"/ {missed=$4; covered=$6} END {total=missed+covered; if (total > 0) printf "%.2f", (covered*100)/total; else print "0.00"}' "${JACOCO_XML}")
+                                echo "${COVERAGE_PCT}" > ../../${SECURITY_REPORT_DIR}/jacoco-line-coverage.txt
+                                echo "JaCoCo line coverage: ${COVERAGE_PCT}% (minimum required: ${JACOCO_MIN_LINE_COVERAGE}%)"
+
+                                awk -v actual="${COVERAGE_PCT}" -v min="${JACOCO_MIN_LINE_COVERAGE}" 'BEGIN { if (actual+0 < min+0) exit 1; else exit 0 }' || {
+                                    echo "Coverage validation gate failed: ${COVERAGE_PCT}% is below ${JACOCO_MIN_LINE_COVERAGE}%"
+                                    exit 1
+                                }
+
+                                echo "Coverage validation gate passed."
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Dependency Vulnerability Scan (OWASP Dependency-Check)') {
+            steps {
+                container('maven') {
+                    script {
+                        // Purpose: Perform SCA dependency vulnerability scanning before SAST and image build.
+                        dir('cicd-reference-architectures/sample-application') {
+                            sh '''
+                                mkdir -p ../../${SECURITY_REPORT_DIR}
+                                mvn -B org.owasp:dependency-check-maven:check \
+                                    -Dformat=JSON \
+                                    -Dformat=HTML \
+                                    -DfailBuildOnCVSS=11 \
+                                    -Dout=../../${SECURITY_REPORT_DIR}
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Dependency Security Gate') {
+            steps {
+                container('maven') {
+                    script {
+                        // Purpose: Enforce dependency CVE policy (Critical/High) before SAST and image build.
+                        sh '''
+                            DEP_REPORT="${SECURITY_REPORT_DIR}/dependency-check-report.json"
+                            if [ ! -s "${DEP_REPORT}" ]; then
+                                echo "Dependency-Check JSON report missing. Failing dependency security gate."
+                                exit 1
+                            fi
+
+                            DEP_CRITICAL_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"critical"' "${DEP_REPORT}" | wc -l | tr -d ' ')
+                            DEP_HIGH_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"high"' "${DEP_REPORT}" | wc -l | tr -d ' ')
+
+                            [ -n "${DEP_CRITICAL_COUNT}" ] || DEP_CRITICAL_COUNT=0
+                            [ -n "${DEP_HIGH_COUNT}" ] || DEP_HIGH_COUNT=0
+
+                            echo "${DEP_CRITICAL_COUNT}" > ${SECURITY_REPORT_DIR}/dependency-check-critical-count.txt
+                            echo "${DEP_HIGH_COUNT}" > ${SECURITY_REPORT_DIR}/dependency-check-high-count.txt
+
+                            if [ "${DEPENDENCY_GATE_FAIL_ON_CRITICAL}" = "true" ] && [ "${DEP_CRITICAL_COUNT}" -gt 0 ]; then
+                                echo "Dependency security gate failed: ${DEP_CRITICAL_COUNT} Critical CVEs found."
+                                exit 1
+                            fi
+
+                            if [ "${DEPENDENCY_GATE_FAIL_ON_HIGH}" = "true" ] && [ "${DEP_HIGH_COUNT}" -gt 0 ]; then
+                                echo "Dependency security gate failed: ${DEP_HIGH_COUNT} High CVEs found."
+                                exit 1
+                            fi
+
+                            echo "Dependency security gate passed. Critical=${DEP_CRITICAL_COUNT}, High=${DEP_HIGH_COUNT}"
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('SAST & Code Quality Analysis (SonarQube)') {
             steps {
                 container('maven') {
                     script {
@@ -384,39 +526,12 @@ EOF
             }
         }
 
-        stage('SonarQube Quality Gate (Placeholder Required Step)') {
-            when {
-                expression { return env.ENABLE_SONARQUBE?.toBoolean() }
-            }
+        stage('SonarQube Quality Gate') {
             steps {
                 script {
-                    if (env.ENABLE_SONARQUBE_QUALITY_GATE?.toBoolean()) {
-                        timeout(time: 10, unit: 'MINUTES') {
-                            waitForQualityGate abortPipeline: true
-                        }
-                    } else {
-                        echo 'PLACEHOLDER REQUIRED STEP: SonarQube quality gate enforcement is currently disabled. Enable with ENABLE_SONARQUBE_QUALITY_GATE=true to enforce waitForQualityGate abortPipeline: true.'
-                    }
-                }
-            }
-        }
-
-        stage('OWASP Dependency-Check (Optional Placeholder)') {
-            when {
-                expression { return env.ENABLE_OWASP_DEPENDENCY_CHECK?.toBoolean() }
-            }
-            steps {
-                container('maven') {
-                    script {
-                        echo "Running OWASP Dependency-Check placeholder stage (optional)..."
-                        dir('cicd-reference-architectures/sample-application') {
-                            sh '''
-                                mvn -B org.owasp:dependency-check-maven:check \
-                                    -Dformat=HTML \
-                                    -Dformat=JSON \
-                                    -DfailBuildOnCVSS=7
-                            '''
-                        }
+                    // Purpose: Block pipeline if SonarQube quality gate fails (vulnerabilities/bugs/coverage rules).
+                    timeout(time: 10, unit: 'MINUTES') {
+                        waitForQualityGate abortPipeline: true
                     }
                 }
             }

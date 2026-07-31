@@ -17,8 +17,8 @@ Executed and validated by **Arunasalam Govindasamy** against the sample Spring B
 What this implementation demonstrates with generated evidence:
 
 - unit test execution and code coverage outputs
-- SonarQube analysis with a required quality-gate placeholder step
-- optional OWASP Dependency-Check SCA placeholder stage (toggle-driven)
+- explicit pre-image validation gates for secrets, tests, coverage, and dependency vulnerabilities
+- SonarQube analysis with enforced `waitForQualityGate abortPipeline: true`
 - filesystem and container vulnerability scan results
 - Trivy-based CycloneDX SBOM generation
 - Trivy severity gating before promotion (Critical fail, High configurable, Medium report-only)
@@ -78,30 +78,38 @@ flowchart LR
     commit[01<br/>Developer Commit]
     checkout[02<br/>Checkout]
     gitleaks[03<br/>Secret Scan]
-    trivyFs[04<br/>Filesystem Scan]
-    tests[05<br/>Unit Tests]
-    coverage[06<br/>Coverage]
-    sonar[07<br/>SonarQube]
-    sonarGate[08<br/>SonarQube Quality Gate<br/>Placeholder Required Step]
-    owasp[09<br/>OWASP Dependency-Check<br/>Optional Placeholder]
-    package[10<br/>Package App]
-    image[11<br/>Build Image]
-    sbom[12<br/>Trivy CycloneDX SBOM]
-    trivyImage[13<br/>Trivy Image Scan]
-    gates[14<br/>Security Gates]
-    dtrack[15<br/>Dependency-Track Upload]
-    archive[16<br/>Archive Reports]
-    reportCommit[17<br/>Publish Report Evidence]
-    registry[18<br/>Registry Push]
-    sign["19<br/>Cosign Sign (Default On)"]
-    attest["20<br/>Cosign Attest (Default On)"]
-    attach[21<br/>Attach SBOM]
-    cosignCommit[22<br/>Publish Cosign Evidence]
-    evidence[23<br/>Evidence Dashboard]
+    secretGate[04<br/>Secret Validation Gate]
+    trivyFs[05<br/>Filesystem Scan]
+    tests[06<br/>Unit Tests]
+    testGate[07<br/>Test Validation Gate]
+    coverage[08<br/>Coverage Analysis]
+    coverageGate[09<br/>Coverage Validation Gate]
+    depScan[10<br/>Dependency Vulnerability Scan (SCA)]
+    depGate[11<br/>Dependency Security Gate]
+    sonar[12<br/>SonarQube Analysis]
+    sonarGate[13<br/>SonarQube Quality Gate]
+    package[14<br/>Package App]
+    image[15<br/>Build Image]
+    sbom[16<br/>Trivy CycloneDX SBOM]
+    trivyImage[17<br/>Trivy Image Scan]
+    gates[18<br/>Security Gates]
+    dtrack[19<br/>Dependency-Track Upload]
+    archive[20<br/>Archive Reports]
+    reportCommit[21<br/>Publish Report Evidence]
+    registry[22<br/>Registry Push]
+    sign["23<br/>Cosign Sign (Default On)"]
+    attest["24<br/>Cosign Attest (Default On)"]
+    attach[25<br/>Attach SBOM]
+    cosignCommit[26<br/>Publish Cosign Evidence]
+    evidence[27<br/>Evidence Dashboard]
 
-    commit --> checkout --> gitleaks --> trivyFs --> tests --> coverage --> sonar --> sonarGate --> owasp --> package --> image --> sbom --> trivyImage --> gates --> dtrack --> archive --> reportCommit --> registry --> sign --> attest --> attach --> cosignCommit --> evidence
+    commit --> checkout --> gitleaks --> secretGate --> trivyFs --> tests --> testGate --> coverage --> coverageGate --> depScan --> depGate --> sonar --> sonarGate --> package --> image --> sbom --> trivyImage --> gates --> dtrack --> archive --> reportCommit --> registry --> sign --> attest --> attach --> cosignCommit --> evidence
     gitleaks --> gates
+    secretGate --> gates
     trivyFs --> gates
+    testGate --> gates
+    coverageGate --> gates
+    depGate --> gates
     trivyImage --> gates
     gitleaks --> reportCommit
     trivyFs --> reportCommit
@@ -116,9 +124,9 @@ flowchart LR
     classDef publish fill:#f6f8fa,stroke:#57606a,color:#24292f,stroke-width:1px;
 
     class commit,checkout source;
-    class tests,coverage,sonar,sonarGate quality;
+    class tests,testGate,coverage,coverageGate,sonar,sonarGate quality;
     class package,image,sbom,dtrack,archive artifact;
-    class trivyImage,trivyFs,gitleaks,gates,owasp,sign,attest security;
+    class trivyImage,trivyFs,gitleaks,secretGate,depScan,depGate,gates,sign,attest security;
     class registry,reportCommit,attach,cosignCommit,evidence publish;
 ```
 
@@ -153,26 +161,30 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | Order | Stage | Tool | Used For | Gate |
 |---:|---|---|---|---|
 | 1 | [Source and Checkout](#1-source-and-checkout) | Git + Jenkins SCM | traceable source input | yes, if checkout fails |
-| 2 | [Scan Secrets](#2-scan-secrets) | Gitleaks | committed secret detection | yes |
-| 3 | [Scan Filesystem](#3-scan-filesystem) | Trivy fs | source/build context scan | reported |
-| 4 | [Unit Tests](#4-unit-tests) | Maven Surefire + JUnit | behavior validation | yes |
-| 5 | [Code Coverage](#5-code-coverage) | JaCoCo | coverage evidence | reported |
-| 6 | [SAST and Code Quality](#6-sast-and-code-quality) | SonarQube | source-level security and maintainability | yes |
-| 6a | [SAST and Code Quality](#6-sast-and-code-quality) | SonarQube `waitForQualityGate` | required quality gate placeholder step | placeholder |
-| 6b | [SAST and Code Quality](#6-sast-and-code-quality) | OWASP Dependency-Check (SCA) | optional SCA placeholder pre-image check | optional (default off) |
-| 7 | [Package Application](#7-package-application) | Maven | build JAR artifact | yes |
-| 8 | [Build Container Image](#8-build-container-image) | Docker | immutable runtime artifact | yes |
-| 9 | [Generate CycloneDX SBOM](#9-generate-cyclonedx-sbom) | Trivy | CycloneDX package inventory for reuse | reported |
-| 10 | [Scan Container Image](#10-scan-container-image) | Trivy image | image layer dependency CVEs | severity gated |
-| 11 | [Evaluate Security Gates](#11-evaluate-security-gates) | Jenkins policy logic | policy enforcement before publication/push | yes |
-| 12 | [Publish SBOM to Dependency-Track](#12-publish-sbom-to-dependency-track) | OWASP Dependency-Track | SBOM publication after gates | best effort |
-| 13 | [Archive Security Reports](#13-archive-security-reports) | Jenkins artifacts | audit and evidence retention | reported |
-| 14 | [Publish Report Evidence](#14-publish-report-evidence) | Jenkins + Git + HTML | public report publication after gating and post-gate uploads | reported |
-| 15 | [Push to Registry](#15-push-to-registry) | Docker | artifact promotion | yes |
-| 16 | [Sign Image](#16-sign-image) | Cosign | digest integrity proof | yes (default on) |
-| 17 | [Attest Image](#17-attest-image) | Cosign | SBOM and build evidence referrers | yes (default on) |
-| 18 | [Attach SBOM](#18-attach-sbom) | ORAS | OCI artifact attachment | best effort |
-| 19 | [Publish Cosign Evidence](#19-publish-cosign-evidence) | Jenkins + Git + HTML | public signing and attestation evidence | yes (default on) |
+| 2 | [Scan Secrets](#2-scan-secrets) | Gitleaks | committed secret detection | reported to next gate |
+| 3 | [Scan Secrets](#2-scan-secrets) | Jenkins gate logic | secret validation gate | yes |
+| 4 | [Scan Filesystem](#3-scan-filesystem) | Trivy fs | source/build context scan | reported |
+| 5 | [Unit Tests](#4-unit-tests) | Maven Surefire + JUnit | behavior validation | reported to next gate |
+| 6 | [Unit Tests](#4-unit-tests) | Jenkins gate logic | unit test validation gate | yes |
+| 7 | [Code Coverage](#5-code-coverage) | JaCoCo | coverage evidence generation | reported to next gate |
+| 8 | [Code Coverage](#5-code-coverage) | Jenkins gate logic + JaCoCo XML | coverage threshold validation | yes |
+| 9 | [SAST and Code Quality](#6-sast-and-code-quality) | OWASP Dependency-Check (SCA) | dependency vulnerability scan pre-image | reported to next gate |
+| 10 | [SAST and Code Quality](#6-sast-and-code-quality) | Jenkins gate logic + Dependency-Check JSON | dependency security gate (Critical/High) | yes |
+| 11 | [SAST and Code Quality](#6-sast-and-code-quality) | SonarQube | source-level security and maintainability analysis | reported to next gate |
+| 12 | [SAST and Code Quality](#6-sast-and-code-quality) | SonarQube `waitForQualityGate` | enforced SonarQube quality gate | yes |
+| 13 | [Package Application](#7-package-application) | Maven | build JAR artifact | yes |
+| 14 | [Build Container Image](#8-build-container-image) | Docker | immutable runtime artifact | yes |
+| 15 | [Generate CycloneDX SBOM](#9-generate-cyclonedx-sbom) | Trivy | CycloneDX package inventory for reuse | reported |
+| 16 | [Scan Container Image](#10-scan-container-image) | Trivy image | image layer dependency CVEs | severity gated |
+| 17 | [Evaluate Security Gates](#11-evaluate-security-gates) | Jenkins policy logic | policy enforcement before publication/push | yes |
+| 18 | [Publish SBOM to Dependency-Track](#12-publish-sbom-to-dependency-track) | OWASP Dependency-Track | SBOM publication after gates | best effort |
+| 19 | [Archive Security Reports](#13-archive-security-reports) | Jenkins artifacts | audit and evidence retention | reported |
+| 20 | [Publish Report Evidence](#14-publish-report-evidence) | Jenkins + Git + HTML | public report publication after gating and post-gate uploads | reported |
+| 21 | [Push to Registry](#15-push-to-registry) | Docker | artifact promotion | yes |
+| 22 | [Sign Image](#16-sign-image) | Cosign | digest integrity proof | yes (default on) |
+| 23 | [Attest Image](#17-attest-image) | Cosign | SBOM and build evidence referrers | yes (default on) |
+| 24 | [Attach SBOM](#18-attach-sbom) | ORAS | OCI artifact attachment | best effort |
+| 25 | [Publish Cosign Evidence](#19-publish-cosign-evidence) | Jenkins + Git + HTML | public signing and attestation evidence | yes (default on) |
 
 ## 1. Source and Checkout
 
@@ -205,7 +217,7 @@ Gitleaks scans the repository immediately after checkout for hardcoded credentia
 
 Secrets in source control are high-risk findings and should fail the build before the pipeline spends time compiling, packaging, or creating images.
 
-Current behavior in Jenkins: Gitleaks fails immediately in the secret scan stage when findings or scan errors are detected.
+Current behavior in Jenkins: this stage records findings first, then the dedicated **Secret Validation Gate** stage enforces failure when findings or scan errors are detected.
 
 **Where this is useful**
 
@@ -288,17 +300,14 @@ Coverage does not prove quality by itself, but it shows which code paths are exe
 
 SonarQube analyzes source code, imports JaCoCo coverage, evaluates code quality and security rules, and can publish a quality gate decision back to Jenkins.
 
-**Required placeholder step in this pipeline**
+**Pre-image controls in this section**
 
-- SonarQube quality gate stage is explicitly present as a required placeholder step.
-- The enforcement command is: `waitForQualityGate abortPipeline: true`.
-- Current default behavior is placeholder mode (`ENABLE_SONARQUBE_QUALITY_GATE=false`) until teams enable hard enforcement.
-
-**Optional placeholder before image build**
-
-- OWASP Dependency-Check is positioned before image build as an optional placeholder stage.
-- This control is **SCA** (dependency vulnerability analysis), not source-code SAST.
-- Toggle: `ENABLE_OWASP_DEPENDENCY_CHECK` (default `false`).
+- **Step 9: Dependency Vulnerability Scan (OWASP Dependency-Check)** runs as mandatory SCA before image build.
+- **Step 10: Dependency Security Gate** fails the pipeline when policy is violated:
+    - Critical CVEs fail when `DEPENDENCY_GATE_FAIL_ON_CRITICAL=true`.
+    - High CVEs fail when `DEPENDENCY_GATE_FAIL_ON_HIGH=true`.
+- **Step 11: SAST & Code Quality Analysis (SonarQube)** runs mandatory code analysis.
+- **Step 12: SonarQube Quality Gate** is enforced with `waitForQualityGate abortPipeline: true`.
 
 **Why this matters**
 
