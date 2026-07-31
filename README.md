@@ -21,9 +21,9 @@ The repository contains practical and reusable infrastructure implementations de
 | **Kubernetes Reference Architectures** | Multi-tenant Kubernetes platform patterns, namespace isolation, quotas, RBAC boundaries, network segmentation, and operational failure testing runbooks. | [Explore Kubernetes patterns](./kubernetes-reference-architectures/README.md) |
 | **Terraform Infrastructure** | Modular Terraform, multi-AZ AWS networking, secure S3 patterns, remote state, state locking, reusable modules, and architecture decisions. | [Explore Terraform patterns](./terraform/README.md) |
 
-## Kubernetes Pattern Showcase
+## Kubernetes Pattern Reference
 
-The Kubernetes portfolio patterns are highlighted here so reviewers can immediately understand the production problems addressed and the operational learning in each implementation.
+This section lists Kubernetes patterns that engineers can refer to when designing and operating production platforms.
 
 | Pattern | Why It Was Created | What It Teaches | Links |
 |---|---|---|---|
