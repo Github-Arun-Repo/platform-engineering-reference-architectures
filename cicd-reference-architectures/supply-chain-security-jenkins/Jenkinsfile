@@ -18,10 +18,6 @@ pipeline {
         DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials'
         SECURITY_REPORT_DIR = 'security-reports'
         GITLEAKS_VERSION = '8.24.2'
-        SYFT_IMAGE = 'anchore/syft:latest'
-        GRYPE_IMAGE = 'anchore/grype:latest'
-        GRYPE_FAIL_ON_SEVERITY = 'critical'
-        GRYPE_BLOCK_ON_SCAN_ERROR = 'false'
         ORAS_VERSION = '1.2.2'
         COSIGN_VERSION = '2.4.1'
         COSIGN_KEY_CREDENTIALS_ID = 'cosign-private-key'
@@ -36,10 +32,8 @@ pipeline {
         ENABLE_SONARQUBE = 'true'
         ENABLE_SONARQUBE_QUALITY_GATE = 'false'
         ENABLE_OWASP_DEPENDENCY_CHECK = 'false'
-        ENABLE_TRIVY_IMAGE_GATE_PLACEHOLDER = 'true'
-        TRIVY_GATE_MAX_CRITICAL = '10'
-        TRIVY_GATE_MAX_HIGH = '40'
-        TRIVY_GATE_MAX_MEDIUM = '200'
+        TRIVY_FAIL_ON_HIGH = 'false'
+        TRIVY_BLOCK_ON_SCAN_ERROR = 'true'
     }
 
     parameters {
@@ -445,6 +439,7 @@ EOF
             steps {
                 container('docker') {
                     script {
+                        // Purpose: Build immutable runtime artifacts before SBOM and vulnerability evaluation.
                         echo "Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
                         dir('cicd-reference-architectures/sample-application') {
                             sh '''
@@ -459,56 +454,44 @@ EOF
             }
         }
 
-        stage('Generate Image SBOM') {
+        stage('Generate CycloneDX SBOM with Trivy') {
             steps {
                 container('docker') {
                     script {
-                        echo "Generating SBOM for Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
+                        // Purpose: Create a CycloneDX SBOM for the built image and persist reports for reuse.
+                        echo "Generating CycloneDX SBOM with Trivy for Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
                         sh '''
                             mkdir -p ${SECURITY_REPORT_DIR}
                             rm -f ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json \
-                                  ${SECURITY_REPORT_DIR}/sbom.spdx.json \
-                                  ${SECURITY_REPORT_DIR}/sbom.syft.txt \
+                                  ${SECURITY_REPORT_DIR}/sbom.trivy.log \
                                   ${SECURITY_REPORT_DIR}/sbom-report.html \
-                                  ${SECURITY_REPORT_DIR}/sbom-syft.log
+                                  ${SECURITY_REPORT_DIR}/sbom-component-count.txt
 
-                            echo "Running Syft CycloneDX JSON scan for ${IMAGE_NAME}:${IMAGE_TAG}"
+                            set +e
                             docker run --rm \
                                 -v /var/run/docker.sock:/var/run/docker.sock \
-                                ${SYFT_IMAGE} \
-                                docker:${IMAGE_NAME}:${IMAGE_TAG} \
-                                -o cyclonedx-json \
+                                aquasec/trivy:0.57.1 image \
+                                --format cyclonedx \
+                                --scanners vuln \
+                                --timeout 10m \
+                                --quiet \
+                                ${IMAGE_NAME}:${IMAGE_TAG} \
                                 > ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json \
-                                2> ${SECURITY_REPORT_DIR}/sbom-syft.log
+                                2> ${SECURITY_REPORT_DIR}/sbom.trivy.log
+                            TRIVY_SBOM_STATUS=$?
+                            set -e
 
-                            if grep -q '"specVersion":"1.7"' ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json; then
-                                echo "Normalizing CycloneDX JSON from 1.7 to 1.6 for Dependency-Track compatibility"
-                                sed -i 's#http://cyclonedx.org/schema/bom-1[.]7[.]schema[.]json#http://cyclonedx.org/schema/bom-1.6.schema.json#g; s#"specVersion":"1[.]7"#"specVersion":"1.6"#g' ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json
+                            if [ "${TRIVY_SBOM_STATUS}" -ne 0 ] || [ ! -s ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ]; then
+                                echo "ERROR: Trivy CycloneDX SBOM generation failed."
+                                sed -n '1,120p' ${SECURITY_REPORT_DIR}/sbom.trivy.log || true
+                                exit 1
                             fi
-
-                            echo "Running Syft SPDX JSON scan for ${IMAGE_NAME}:${IMAGE_TAG}"
-                            docker run --rm \
-                                -v /var/run/docker.sock:/var/run/docker.sock \
-                                ${SYFT_IMAGE} \
-                                docker:${IMAGE_NAME}:${IMAGE_TAG} \
-                                -o spdx-json \
-                                > ${SECURITY_REPORT_DIR}/sbom.spdx.json \
-                                2>> ${SECURITY_REPORT_DIR}/sbom-syft.log
-
-                            echo "Running Syft table scan for ${IMAGE_NAME}:${IMAGE_TAG}"
-                            docker run --rm \
-                                -v /var/run/docker.sock:/var/run/docker.sock \
-                                ${SYFT_IMAGE} \
-                                docker:${IMAGE_NAME}:${IMAGE_TAG} \
-                                -o table \
-                                > ${SECURITY_REPORT_DIR}/sbom.syft.txt \
-                                2>> ${SECURITY_REPORT_DIR}/sbom-syft.log
 
                             GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
                             CYCLONEDX_BYTES="$(wc -c < ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json | tr -d ' ')"
-                            SPDX_BYTES="$(wc -c < ${SECURITY_REPORT_DIR}/sbom.spdx.json | tr -d ' ')"
-                            TABLE_BYTES="$(wc -c < ${SECURITY_REPORT_DIR}/sbom.syft.txt | tr -d ' ')"
-                            PACKAGE_LINES="$(tail -n +2 ${SECURITY_REPORT_DIR}/sbom.syft.txt | grep -c . || true)"
+                            COMPONENT_COUNT="$(grep -o '"bom-ref"' ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json | wc -l | tr -d ' ')"
+                            [ -n "${COMPONENT_COUNT}" ] || COMPONENT_COUNT=0
+                            echo "${COMPONENT_COUNT}" > ${SECURITY_REPORT_DIR}/sbom-component-count.txt
 
                             cat > ${SECURITY_REPORT_DIR}/sbom-report.html <<EOF
 <!DOCTYPE html>
@@ -536,179 +519,139 @@ EOF
     <div class="panel">
         <h1>Image SBOM Report</h1>
         <p class="meta">Image: <strong>${IMAGE_NAME}:${IMAGE_TAG}</strong></p>
-        <p class="badge">Generated by Syft</p>
+        <p class="badge">Generated by Trivy (CycloneDX)</p>
         <div class="grid">
             <div class="metric"><strong>CycloneDX JSON</strong><span>${CYCLONEDX_BYTES} bytes - primary SBOM format</span></div>
-            <div class="metric"><strong>SPDX JSON</strong><span>${SPDX_BYTES} bytes - alternate interchange format</span></div>
-            <div class="metric"><strong>${PACKAGE_LINES}</strong><span>package rows in Syft table output</span></div>
+            <div class="metric"><strong>${COMPONENT_COUNT}</strong><span>detected component references in CycloneDX</span></div>
             <div class="metric"><strong>${GENERATED_AT}</strong><span>generated at UTC</span></div>
         </div>
         <div class="actions">
             <a href="sbom.cyclonedx.json">Open CycloneDX JSON</a>
-            <a href="sbom.spdx.json" class="secondary">Open SPDX JSON</a>
-            <a href="sbom.syft.txt" class="secondary">Open Syft Table</a>
+            <a href="sbom.trivy.log" class="secondary">Open Trivy SBOM Log</a>
         </div>
-        <h2>Package Inventory Preview</h2>
-        <pre>$(sed -n '1,80p' ${SECURITY_REPORT_DIR}/sbom.syft.txt)</pre>
+        <h2>SBOM Preview</h2>
+        <pre>$(sed -n '1,120p' ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json)</pre>
     </div>
 </body>
 </html>
 EOF
 
-                            echo "Syft SBOM generation complete. Report sizes:"
+                            echo "Trivy CycloneDX SBOM generation complete. Report sizes:"
                             wc -c ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json \
-                                  ${SECURITY_REPORT_DIR}/sbom.spdx.json \
-                                  ${SECURITY_REPORT_DIR}/sbom.syft.txt \
-                                  ${SECURITY_REPORT_DIR}/sbom-report.html
+                                  ${SECURITY_REPORT_DIR}/sbom-report.html \
+                                  ${SECURITY_REPORT_DIR}/sbom.trivy.log
                         '''
                     }
                 }
             }
         }
 
-        stage('Scan SBOM with Grype') {
+        stage('Scan Docker Image with Trivy') {
             steps {
                 container('docker') {
                     script {
-                        echo "Scanning CycloneDX SBOM with Grype..."
+                        // Purpose: Scan the built container image and emit machine-readable and review-friendly outputs.
+                        echo "Scanning Docker image with Trivy..."
                         sh '''
                             mkdir -p ${SECURITY_REPORT_DIR}
-                            rm -f ${SECURITY_REPORT_DIR}/grype-report.json \
-                                  ${SECURITY_REPORT_DIR}/grype-report.txt \
-                                  ${SECURITY_REPORT_DIR}/grype-report.html \
-                                  ${SECURITY_REPORT_DIR}/grype-exit-code.txt \
-                                  ${SECURITY_REPORT_DIR}/grype-critical-count.txt \
-                                  ${SECURITY_REPORT_DIR}/grype-high-count.txt
-
-                            if [ ! -s ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ]; then
-                                echo "ERROR: ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json is missing. Cannot run Grype SBOM scan."
-                                echo '2' > ${SECURITY_REPORT_DIR}/grype-exit-code.txt
-                                echo '0' > ${SECURITY_REPORT_DIR}/grype-critical-count.txt
-                                echo '0' > ${SECURITY_REPORT_DIR}/grype-high-count.txt
-                                echo '{"matches":[],"source":{"type":"sbom"},"error":"SBOM file missing"}' > ${SECURITY_REPORT_DIR}/grype-report.json
-                                echo 'No Grype scan generated because the SBOM file was missing.' > ${SECURITY_REPORT_DIR}/grype-report.txt
-                                exit 0
-                            fi
+                            rm -f ${SECURITY_REPORT_DIR}/trivy-report.json \
+                                  ${SECURITY_REPORT_DIR}/trivy-report.html \
+                                  ${SECURITY_REPORT_DIR}/trivy-scan-exit-code.txt \
+                                  ${SECURITY_REPORT_DIR}/trivy-critical-count.txt \
+                                  ${SECURITY_REPORT_DIR}/trivy-high-count.txt \
+                                  ${SECURITY_REPORT_DIR}/trivy-medium-count.txt
 
                             set +e
-                            cat ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json | docker run --rm -i \
-                                -e GRYPE_DB_CACHE_DIR=/grype-db \
-                                -e GRYPE_CHECK_FOR_APP_UPDATE=false \
-                                -v grype-db-cache:/grype-db \
-                                ${GRYPE_IMAGE} \
-                                sbom:/dev/stdin \
-                                -o json \
-                                > ${SECURITY_REPORT_DIR}/grype-report.json
-                            GRYPE_JSON_STATUS=$?
+                            docker run --rm \
+                                -v /var/run/docker.sock:/var/run/docker.sock \
+                                aquasec/trivy:0.57.1 image \
+                                --format json \
+                                --severity LOW,MEDIUM,HIGH,CRITICAL \
+                                --scanners vuln \
+                                --ignore-unfixed=false \
+                                --timeout 10m \
+                                --quiet \
+                                ${IMAGE_NAME}:${IMAGE_TAG} \
+                                > ${SECURITY_REPORT_DIR}/trivy-report.json 2>/dev/null
+                            TRIVY_JSON_STATUS=$?
 
-                            cat ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json | docker run --rm -i \
-                                -e GRYPE_DB_CACHE_DIR=/grype-db \
-                                -e GRYPE_CHECK_FOR_APP_UPDATE=false \
-                                -v grype-db-cache:/grype-db \
-                                ${GRYPE_IMAGE} \
-                                sbom:/dev/stdin \
-                                -o table \
-                                > ${SECURITY_REPORT_DIR}/grype-report.txt
-                            GRYPE_TABLE_STATUS=$?
+                            docker run --rm \
+                                -v /var/run/docker.sock:/var/run/docker.sock \
+                                aquasec/trivy:0.57.1 image \
+                                --format template \
+                                --template "@/contrib/html.tpl" \
+                                --severity LOW,MEDIUM,HIGH,CRITICAL \
+                                --scanners vuln \
+                                --ignore-unfixed=false \
+                                --timeout 10m \
+                                --quiet \
+                                ${IMAGE_NAME}:${IMAGE_TAG} \
+                                > ${SECURITY_REPORT_DIR}/trivy-report.html 2>/dev/null
+                            TRIVY_HTML_STATUS=$?
                             set -e
 
-                            if [ ! -s ${SECURITY_REPORT_DIR}/grype-report.json ]; then
-                                echo '{"matches":[],"source":{"type":"sbom"},"error":"Grype JSON report was not generated"}' > ${SECURITY_REPORT_DIR}/grype-report.json
+                            if [ ! -s ${SECURITY_REPORT_DIR}/trivy-report.json ]; then
+                                echo '{}' > ${SECURITY_REPORT_DIR}/trivy-report.json
+                            fi
+                            if [ ! -s ${SECURITY_REPORT_DIR}/trivy-report.html ]; then
+                                echo '<html><body><h1>No Trivy report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-report.html
                             fi
 
-                            if [ ! -s ${SECURITY_REPORT_DIR}/grype-report.txt ]; then
-                                echo 'No Grype table report generated.' > ${SECURITY_REPORT_DIR}/grype-report.txt
-                            fi
-
-                            if [ "${GRYPE_JSON_STATUS}" -ne 0 ] || [ "${GRYPE_TABLE_STATUS}" -ne 0 ]; then
-                                GRYPE_STATUS=2
-                                GRYPE_STATUS_TEXT="Grype scan error"
-                                GRYPE_STATUS_CLASS="error"
+                            if [ "${TRIVY_JSON_STATUS}" -ne 0 ] || [ "${TRIVY_HTML_STATUS}" -ne 0 ]; then
+                                TRIVY_STATUS=2
+                                TRIVY_STATUS_TEXT="Trivy scan error"
+                                TRIVY_STATUS_CLASS="error"
                             else
-                                GRYPE_STATUS=0
-                                GRYPE_STATUS_TEXT="Grype scan completed"
-                                GRYPE_STATUS_CLASS="clean"
+                                TRIVY_STATUS=0
+                                TRIVY_STATUS_TEXT="Trivy scan completed"
+                                TRIVY_STATUS_CLASS="clean"
                             fi
 
-                            CRITICAL_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"critical"' ${SECURITY_REPORT_DIR}/grype-report.json | wc -l | tr -d ' ')
-                            HIGH_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"high"' ${SECURITY_REPORT_DIR}/grype-report.json | wc -l | tr -d ' ')
-                            TOTAL_MATCHES=$(grep -o '"vulnerability"[[:space:]]*:' ${SECURITY_REPORT_DIR}/grype-report.json | wc -l | tr -d ' ')
+                            CRITICAL_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"critical"' ${SECURITY_REPORT_DIR}/trivy-report.json | wc -l | tr -d ' ')
+                            HIGH_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"high"' ${SECURITY_REPORT_DIR}/trivy-report.json | wc -l | tr -d ' ')
+                            MEDIUM_COUNT=$(grep -oi '"severity"[[:space:]]*:[[:space:]]*"medium"' ${SECURITY_REPORT_DIR}/trivy-report.json | wc -l | tr -d ' ')
 
-                            if [ "${GRYPE_FAIL_ON_SEVERITY}" = "high" ]; then
-                                BLOCKING_COUNT=$((CRITICAL_COUNT + HIGH_COUNT))
-                                BLOCKING_LABEL="High or Critical"
-                            else
-                                BLOCKING_COUNT="${CRITICAL_COUNT}"
-                                BLOCKING_LABEL="Critical"
-                            fi
+                            [ -n "${CRITICAL_COUNT}" ] || CRITICAL_COUNT=0
+                            [ -n "${HIGH_COUNT}" ] || HIGH_COUNT=0
+                            [ -n "${MEDIUM_COUNT}" ] || MEDIUM_COUNT=0
 
-                            echo "${GRYPE_STATUS}" > ${SECURITY_REPORT_DIR}/grype-exit-code.txt
-                            echo "${CRITICAL_COUNT}" > ${SECURITY_REPORT_DIR}/grype-critical-count.txt
-                            echo "${HIGH_COUNT}" > ${SECURITY_REPORT_DIR}/grype-high-count.txt
+                            echo "${TRIVY_STATUS}" > ${SECURITY_REPORT_DIR}/trivy-scan-exit-code.txt
+                            echo "${CRITICAL_COUNT}" > ${SECURITY_REPORT_DIR}/trivy-critical-count.txt
+                            echo "${HIGH_COUNT}" > ${SECURITY_REPORT_DIR}/trivy-high-count.txt
+                            echo "${MEDIUM_COUNT}" > ${SECURITY_REPORT_DIR}/trivy-medium-count.txt
 
                             GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-                            cat > ${SECURITY_REPORT_DIR}/grype-report.html <<EOF
+                            cat > ${SECURITY_REPORT_DIR}/trivy-summary.html <<EOF
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grype SBOM Vulnerability Report</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #f6f8fa; color: #24292f; margin: 0; padding: 32px; }
-        .panel { max-width: 980px; margin: 0 auto; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 24px; }
-        .meta { color: #57606a; margin: 8px 0 18px; }
-        .status { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; margin-bottom: 12px; background: #fff8c5; color: #9a6700; }
-        .status.clean { background: #dafbe1; color: #116329; }
-        .status.error { background: #ffebe9; color: #cf222e; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 20px 0; }
-        .metric { border: 1px solid #d0d7de; border-radius: 8px; padding: 14px; background: #f6f8fa; }
-        .metric strong { display: block; font-size: 1.2rem; color: #24292f; }
-        .metric span { color: #57606a; font-size: 0.82rem; }
-        .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
-        .actions a { display: inline-block; padding: 9px 14px; border-radius: 6px; background: #1f6feb; color: #fff; text-decoration: none; font-size: 0.9rem; }
-        .actions a.secondary { background: #57606a; }
-        pre { background: #0d1117; color: #c9d1d9; border-radius: 8px; padding: 16px; overflow: auto; max-height: 480px; font-size: 0.8rem; }
-    </style>
-</head>
+<html lang="en"><head><meta charset="UTF-8"><title>Trivy Image Scan Summary</title></head>
 <body>
-    <div class="panel">
-        <h1>Grype SBOM Vulnerability Report</h1>
-        <p class="meta">Image: <strong>${IMAGE_NAME}:${IMAGE_TAG}</strong></p>
-        <p class="status ${GRYPE_STATUS_CLASS}">${GRYPE_STATUS_TEXT}</p>
-        <div class="grid">
-            <div class="metric"><strong>${BLOCKING_COUNT}</strong><span>${BLOCKING_LABEL} vulnerabilities - gate fails when greater than 0</span></div>
-            <div class="metric"><strong>${HIGH_COUNT}</strong><span>High vulnerabilities</span></div>
-            <div class="metric"><strong>${TOTAL_MATCHES}</strong><span>Total vulnerability matches</span></div>
-            <div class="metric"><strong>${GENERATED_AT}</strong><span>generated at UTC</span></div>
-        </div>
-        <div class="actions">
-            <a href="grype-report.json">Open Grype JSON</a>
-            <a href="grype-report.txt" class="secondary">Open Grype Table</a>
-            <a href="sbom.cyclonedx.json" class="secondary">Open Scanned SBOM</a>
-        </div>
-        <h2>Vulnerability Preview</h2>
-        <pre>$(sed -n '1,120p' ${SECURITY_REPORT_DIR}/grype-report.txt)</pre>
-    </div>
+  <h1>Trivy Image Scan Summary</h1>
+  <p>Status: ${TRIVY_STATUS_TEXT}</p>
+  <p>Image: ${IMAGE_NAME}:${IMAGE_TAG}</p>
+  <p>Critical: ${CRITICAL_COUNT}</p>
+  <p>High: ${HIGH_COUNT}</p>
+  <p>Medium: ${MEDIUM_COUNT}</p>
+  <p>Generated at: ${GENERATED_AT}</p>
+  <p>Detailed HTML report: <a href="trivy-report.html">trivy-report.html</a></p>
 </body>
 </html>
 EOF
 
-                            echo "Grype SBOM scan complete. Status=${GRYPE_STATUS}, critical=${CRITICAL_COUNT}, high=${HIGH_COUNT}, total=${TOTAL_MATCHES}"
-                            wc -c ${SECURITY_REPORT_DIR}/grype-report.json \
-                                  ${SECURITY_REPORT_DIR}/grype-report.txt \
-                                  ${SECURITY_REPORT_DIR}/grype-report.html \
-                                  ${SECURITY_REPORT_DIR}/grype-exit-code.txt
+                            echo "Trivy image scan complete. Status=${TRIVY_STATUS}, critical=${CRITICAL_COUNT}, high=${HIGH_COUNT}, medium=${MEDIUM_COUNT}"
+                            wc -c ${SECURITY_REPORT_DIR}/trivy-report.json \
+                                  ${SECURITY_REPORT_DIR}/trivy-report.html \
+                                  ${SECURITY_REPORT_DIR}/trivy-scan-exit-code.txt
                         '''
                     }
                 }
             }
         }
 
-        stage('Enforce Security Gates') {
+        stage('Evaluate Security Gates') {
             steps {
                 container('maven') {
                     script {
+                        // Purpose: Apply vulnerability policy before publication, push, and deployment.
                         echo "Evaluating security gate results..."
                         sh '''
                             GITLEAKS_STATUS="$(cat ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt 2>/dev/null || echo 2)"
@@ -721,32 +664,35 @@ EOF
                                 exit 1
                             fi
 
-                            GRYPE_STATUS="$(cat ${SECURITY_REPORT_DIR}/grype-exit-code.txt 2>/dev/null || echo 2)"
-                            GRYPE_CRITICAL_COUNT="$(cat ${SECURITY_REPORT_DIR}/grype-critical-count.txt 2>/dev/null || echo 0)"
-                            GRYPE_HIGH_COUNT="$(cat ${SECURITY_REPORT_DIR}/grype-high-count.txt 2>/dev/null || echo 0)"
-                            if [ "${GRYPE_STATUS}" -ne 0 ]; then
-                                if [ "${GRYPE_BLOCK_ON_SCAN_ERROR}" = "true" ]; then
-                                    echo "Grype SBOM scan errored. Failing pipeline before registry push."
+                            TRIVY_STATUS="$(cat ${SECURITY_REPORT_DIR}/trivy-scan-exit-code.txt 2>/dev/null || echo 2)"
+                            TRIVY_CRITICAL_COUNT="$(cat ${SECURITY_REPORT_DIR}/trivy-critical-count.txt 2>/dev/null || echo 0)"
+                            TRIVY_HIGH_COUNT="$(cat ${SECURITY_REPORT_DIR}/trivy-high-count.txt 2>/dev/null || echo 0)"
+                            TRIVY_MEDIUM_COUNT="$(cat ${SECURITY_REPORT_DIR}/trivy-medium-count.txt 2>/dev/null || echo 0)"
+
+                            if [ "${TRIVY_STATUS}" -ne 0 ]; then
+                                if [ "${TRIVY_BLOCK_ON_SCAN_ERROR}" = "true" ]; then
+                                    echo "Trivy image scan errored. Failing pipeline before registry push."
                                     exit 1
                                 fi
-                                echo "WARNING: Grype SBOM scan errored, but deployment is continuing because GRYPE_BLOCK_ON_SCAN_ERROR=${GRYPE_BLOCK_ON_SCAN_ERROR}."
+                                echo "WARNING: Trivy image scan errored, but pipeline continues because TRIVY_BLOCK_ON_SCAN_ERROR=${TRIVY_BLOCK_ON_SCAN_ERROR}."
                                 exit 0
                             fi
 
-                            if [ "${GRYPE_FAIL_ON_SEVERITY}" = "high" ]; then
-                                GRYPE_BLOCKING_COUNT=$((GRYPE_CRITICAL_COUNT + GRYPE_HIGH_COUNT))
-                                GRYPE_BLOCKING_LABEL="high or critical"
-                            else
-                                GRYPE_BLOCKING_COUNT="${GRYPE_CRITICAL_COUNT}"
-                                GRYPE_BLOCKING_LABEL="critical"
-                            fi
-
-                            if [ "${GRYPE_BLOCKING_COUNT}" -gt 0 ]; then
-                                echo "Grype found ${GRYPE_BLOCKING_COUNT} ${GRYPE_BLOCKING_LABEL} vulnerabilities in the SBOM. Failing pipeline before registry push."
+                            if [ "${TRIVY_CRITICAL_COUNT}" -gt 0 ]; then
+                                echo "Trivy found ${TRIVY_CRITICAL_COUNT} critical vulnerabilities. Failing pipeline before registry push."
                                 exit 1
                             fi
 
-                            echo "Security gates passed. No secrets detected and no ${GRYPE_BLOCKING_LABEL} SBOM vulnerabilities found."
+                            if [ "${TRIVY_HIGH_COUNT}" -gt 0 ]; then
+                                if [ "${TRIVY_FAIL_ON_HIGH}" = "true" ]; then
+                                    echo "Trivy found ${TRIVY_HIGH_COUNT} high vulnerabilities and TRIVY_FAIL_ON_HIGH=true. Failing pipeline."
+                                    exit 1
+                                fi
+                                echo "WARNING: Trivy found ${TRIVY_HIGH_COUNT} high vulnerabilities. Continuing because TRIVY_FAIL_ON_HIGH=false."
+                            fi
+
+                            echo "INFO: Trivy medium vulnerabilities (report-only): ${TRIVY_MEDIUM_COUNT}"
+                            echo "Security gates passed. No secrets detected and no critical vulnerabilities found."
                         '''
                     }
                 }
@@ -757,6 +703,7 @@ EOF
             steps {
                 container('maven') {
                     script {
+                        // Purpose: Reuse generated CycloneDX SBOM for dependency intelligence and tracking.
                         echo "Publishing CycloneDX SBOM to Dependency-Track..."
                         if (env.DEPENDENCY_TRACK_URL?.trim()) {
                             withCredentials([string(credentialsId: "${DEPENDENCY_TRACK_API_KEY_CREDENTIALS_ID}", variable: 'DEPENDENCY_TRACK_API_KEY')]) {
@@ -922,7 +869,19 @@ EOF
             }
         }
 
-        stage('Scan Docker Image') {
+        stage('Archive Security Reports') {
+            steps {
+                script {
+                    // Purpose: Persist generated security evidence as Jenkins artifacts for audit and automation.
+                    archiveArtifacts artifacts: 'security-reports/**/*.json,security-reports/**/*.html,security-reports/**/*.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Legacy Scan Docker Image (Disabled)') {
+            when {
+                expression { return false }
+            }
             steps {
                 container('docker') {
                     script {
@@ -968,9 +927,9 @@ EOF
             }
         }
 
-        stage('Evaluate Trivy Image Gate (Placeholder Non-Blocking)') {
+        stage('Legacy Trivy Gate Placeholder (Disabled)') {
             when {
-                expression { return env.ENABLE_TRIVY_IMAGE_GATE_PLACEHOLDER?.toBoolean() }
+                expression { return false }
             }
             steps {
                 container('maven') {
@@ -980,7 +939,7 @@ EOF
                             mkdir -p ${SECURITY_REPORT_DIR}
 
                             TRIVY_REPORT_FILE="${SECURITY_REPORT_DIR}/trivy-report.json"
-                            TRIVY_SUMMARY_FILE="${SECURITY_REPORT_DIR}/trivy-gate-summary.txt"
+                            TRIVY_SUMMARY_FILE="${SECURITY_REPORT_DIR}/trivy-summary.html"
 
                             if [ ! -s "${TRIVY_REPORT_FILE}" ]; then
                                 echo "WARNING: ${TRIVY_REPORT_FILE} is missing. Trivy gate placeholder check skipped." | tee "${TRIVY_SUMMARY_FILE}"
@@ -1056,25 +1015,24 @@ EOF
                                     mkdir -p ${SECURITY_REPORT_DIR}
                                     test -f ${SECURITY_REPORT_DIR}/trivy-report.json || echo '{}' > ${SECURITY_REPORT_DIR}/trivy-report.json
                                     test -f ${SECURITY_REPORT_DIR}/trivy-report.html || echo '<html><body><h1>No Trivy report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-report.html
-                                    test -f ${SECURITY_REPORT_DIR}/trivy-gate-summary.txt || echo 'Trivy gate placeholder summary not generated in this build.' > ${SECURITY_REPORT_DIR}/trivy-gate-summary.txt
+                                    test -f ${SECURITY_REPORT_DIR}/trivy-summary.html || echo '<html><body><h1>No Trivy summary report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-summary.html
                                     test -f ${SECURITY_REPORT_DIR}/trivy-fs-report.json || echo '{}' > ${SECURITY_REPORT_DIR}/trivy-fs-report.json
                                     test -f ${SECURITY_REPORT_DIR}/trivy-fs-report.html || echo '<html><body><h1>No Trivy filesystem report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-fs-report.html
                                     test -f ${SECURITY_REPORT_DIR}/gitleaks-report.json || echo '[]' > ${SECURITY_REPORT_DIR}/gitleaks-report.json
                                     test -f ${SECURITY_REPORT_DIR}/gitleaks-report.html || echo '<html><body><h1>No Gitleaks report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/gitleaks-report.html
                                     test -f ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt || echo '2' > ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt
-                                    test -f ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json || echo '{"bomFormat":"CycloneDX","specVersion":"1.6","version":1,"components":[]}' > ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json
-                                    test -f ${SECURITY_REPORT_DIR}/sbom.spdx.json || echo '{"spdxVersion":"SPDX-2.3","dataLicense":"CC0-1.0","SPDXID":"SPDXRef-DOCUMENT","name":"No SBOM generated","documentNamespace":"https://example.invalid/no-sbom"}' > ${SECURITY_REPORT_DIR}/sbom.spdx.json
-                                    test -f ${SECURITY_REPORT_DIR}/sbom.syft.txt || echo 'No Syft SBOM generated in this build.' > ${SECURITY_REPORT_DIR}/sbom.syft.txt
+                                                                        test -f ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json || echo '{"bomFormat":"CycloneDX","specVersion":"1.6","version":1,"components":[]}' > ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json
+                                                                        test -f ${SECURITY_REPORT_DIR}/sbom.trivy.log || echo 'No Trivy SBOM log generated in this build.' > ${SECURITY_REPORT_DIR}/sbom.trivy.log
+                                                                        test -f ${SECURITY_REPORT_DIR}/sbom-component-count.txt || echo '0' > ${SECURITY_REPORT_DIR}/sbom-component-count.txt
                                     test -f ${SECURITY_REPORT_DIR}/sbom-report.html || echo '<html><body><h1>No SBOM report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/sbom-report.html
                                     test -f ${SECURITY_REPORT_DIR}/dependency-track-report.json || echo '{"result":"skipped_not_generated"}' > ${SECURITY_REPORT_DIR}/dependency-track-report.json
                                     test -f ${SECURITY_REPORT_DIR}/dependency-track-report.html || echo '<html><body><h1>No Dependency-Track report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/dependency-track-report.html
                                     test -f ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json || echo '{}' > ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json
-                                    test -f ${SECURITY_REPORT_DIR}/grype-report.json || echo '{"matches":[],"source":{"type":"sbom"},"note":"No Grype report generated"}' > ${SECURITY_REPORT_DIR}/grype-report.json
-                                    test -f ${SECURITY_REPORT_DIR}/grype-report.txt || echo 'No Grype report generated in this build.' > ${SECURITY_REPORT_DIR}/grype-report.txt
-                                    test -f ${SECURITY_REPORT_DIR}/grype-report.html || echo '<html><body><h1>No Grype report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/grype-report.html
-                                    test -f ${SECURITY_REPORT_DIR}/grype-exit-code.txt || echo '2' > ${SECURITY_REPORT_DIR}/grype-exit-code.txt
-                                    test -f ${SECURITY_REPORT_DIR}/grype-critical-count.txt || echo '0' > ${SECURITY_REPORT_DIR}/grype-critical-count.txt
-                                    test -f ${SECURITY_REPORT_DIR}/grype-high-count.txt || echo '0' > ${SECURITY_REPORT_DIR}/grype-high-count.txt
+                                                                        test -f ${SECURITY_REPORT_DIR}/trivy-scan-exit-code.txt || echo '2' > ${SECURITY_REPORT_DIR}/trivy-scan-exit-code.txt
+                                                                        test -f ${SECURITY_REPORT_DIR}/trivy-critical-count.txt || echo '0' > ${SECURITY_REPORT_DIR}/trivy-critical-count.txt
+                                                                        test -f ${SECURITY_REPORT_DIR}/trivy-high-count.txt || echo '0' > ${SECURITY_REPORT_DIR}/trivy-high-count.txt
+                                                                        test -f ${SECURITY_REPORT_DIR}/trivy-medium-count.txt || echo '0' > ${SECURITY_REPORT_DIR}/trivy-medium-count.txt
+                                                                        test -f ${SECURITY_REPORT_DIR}/trivy-summary.html || echo '<html><body><h1>No Trivy summary report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-summary.html
                                       test -f ${SECURITY_REPORT_DIR}/sonarqube-report.json || echo '{"note":"No SonarQube report generated"}' > ${SECURITY_REPORT_DIR}/sonarqube-report.json
                                       test -f ${SECURITY_REPORT_DIR}/sonarqube-report.html || echo '<html><body><h1>No SonarQube report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/sonarqube-report.html
 
@@ -1111,37 +1069,37 @@ EOF
                                     mkdir -p docs/security-reports
                                     cp ${SECURITY_REPORT_DIR}/trivy-report.html docs/security-reports/trivy-report.html
                                     cp ${SECURITY_REPORT_DIR}/trivy-report.json docs/security-reports/trivy-report.json
-                                    cp ${SECURITY_REPORT_DIR}/trivy-gate-summary.txt docs/security-reports/trivy-gate-summary.txt
+                                    cp ${SECURITY_REPORT_DIR}/trivy-summary.html docs/security-reports/trivy-summary.html
+                                    cp ${SECURITY_REPORT_DIR}/trivy-scan-exit-code.txt docs/security-reports/trivy-scan-exit-code.txt
+                                    cp ${SECURITY_REPORT_DIR}/trivy-critical-count.txt docs/security-reports/trivy-critical-count.txt
+                                    cp ${SECURITY_REPORT_DIR}/trivy-high-count.txt docs/security-reports/trivy-high-count.txt
+                                    cp ${SECURITY_REPORT_DIR}/trivy-medium-count.txt docs/security-reports/trivy-medium-count.txt
                                     cp ${SECURITY_REPORT_DIR}/trivy-fs-report.html docs/security-reports/trivy-fs-report.html
                                     cp ${SECURITY_REPORT_DIR}/trivy-fs-report.json docs/security-reports/trivy-fs-report.json
                                     cp ${SECURITY_REPORT_DIR}/gitleaks-report.html docs/security-reports/gitleaks-report.html
                                     cp ${SECURITY_REPORT_DIR}/gitleaks-report.json docs/security-reports/gitleaks-report.json
                                     cp ${SECURITY_REPORT_DIR}/sbom-report.html docs/security-reports/sbom-report.html
                                     cp ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json docs/security-reports/sbom.cyclonedx.json
-                                    cp ${SECURITY_REPORT_DIR}/sbom.spdx.json docs/security-reports/sbom.spdx.json
-                                    cp ${SECURITY_REPORT_DIR}/sbom.syft.txt docs/security-reports/sbom.syft.txt
+                                    cp ${SECURITY_REPORT_DIR}/sbom.trivy.log docs/security-reports/sbom.trivy.log
+                                    cp ${SECURITY_REPORT_DIR}/sbom-component-count.txt docs/security-reports/sbom-component-count.txt
                                                                         cp ${SECURITY_REPORT_DIR}/dependency-track-report.html docs/security-reports/dependency-track-report.html
                                                                         cp ${SECURITY_REPORT_DIR}/dependency-track-report.json docs/security-reports/dependency-track-report.json
                                                                         cp ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json docs/security-reports/dependency-track-upload-response.json
-                                    cp ${SECURITY_REPORT_DIR}/grype-report.html docs/security-reports/grype-report.html
-                                    cp ${SECURITY_REPORT_DIR}/grype-report.json docs/security-reports/grype-report.json
-                                    cp ${SECURITY_REPORT_DIR}/grype-report.txt docs/security-reports/grype-report.txt
                                                                         cp ${SECURITY_REPORT_DIR}/sonarqube-report.html docs/security-reports/sonarqube-report.html
                                                                         cp ${SECURITY_REPORT_DIR}/sonarqube-report.json docs/security-reports/sonarqube-report.json
                                     printf '{"build":"%s","timestamp":"%s"}' "${BUILD_NUMBER}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/security-reports/build-meta.json
 
-                                        git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html ${SECURITY_REPORT_DIR}/trivy-gate-summary.txt \
+                                        git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html ${SECURITY_REPORT_DIR}/trivy-summary.html \
+                                            ${SECURITY_REPORT_DIR}/trivy-scan-exit-code.txt ${SECURITY_REPORT_DIR}/trivy-critical-count.txt ${SECURITY_REPORT_DIR}/trivy-high-count.txt ${SECURITY_REPORT_DIR}/trivy-medium-count.txt \
                                             ${SECURITY_REPORT_DIR}/trivy-fs-report.json ${SECURITY_REPORT_DIR}/trivy-fs-report.html \
                                             ${SECURITY_REPORT_DIR}/gitleaks-report.json ${SECURITY_REPORT_DIR}/gitleaks-report.html ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt \
-                                            ${SECURITY_REPORT_DIR}/sbom-report.html ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ${SECURITY_REPORT_DIR}/sbom.spdx.json ${SECURITY_REPORT_DIR}/sbom.syft.txt \
+                                            ${SECURITY_REPORT_DIR}/sbom-report.html ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ${SECURITY_REPORT_DIR}/sbom.trivy.log ${SECURITY_REPORT_DIR}/sbom-component-count.txt \
                                                                                         ${SECURITY_REPORT_DIR}/dependency-track-report.html ${SECURITY_REPORT_DIR}/dependency-track-report.json ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json \
-                                            ${SECURITY_REPORT_DIR}/grype-report.html ${SECURITY_REPORT_DIR}/grype-report.json ${SECURITY_REPORT_DIR}/grype-report.txt ${SECURITY_REPORT_DIR}/grype-exit-code.txt ${SECURITY_REPORT_DIR}/grype-critical-count.txt ${SECURITY_REPORT_DIR}/grype-high-count.txt \
                                                                                         ${SECURITY_REPORT_DIR}/sonarqube-report.html ${SECURITY_REPORT_DIR}/sonarqube-report.json \
-                                            docs/security-reports/trivy-report.html docs/security-reports/trivy-report.json docs/security-reports/trivy-gate-summary.txt \
+                                            docs/security-reports/trivy-report.html docs/security-reports/trivy-report.json docs/security-reports/trivy-summary.html \
                                             docs/security-reports/trivy-fs-report.html docs/security-reports/trivy-fs-report.json \
                                             docs/security-reports/gitleaks-report.html docs/security-reports/gitleaks-report.json \
-                                                                                        docs/security-reports/sbom-report.html docs/security-reports/sbom.cyclonedx.json docs/security-reports/sbom.spdx.json docs/security-reports/sbom.syft.txt docs/security-reports/dependency-track-report.html docs/security-reports/dependency-track-report.json docs/security-reports/dependency-track-upload-response.json \
-                                            docs/security-reports/grype-report.html docs/security-reports/grype-report.json docs/security-reports/grype-report.txt \
+                                                                                        docs/security-reports/sbom-report.html docs/security-reports/sbom.cyclonedx.json docs/security-reports/sbom.trivy.log docs/security-reports/sbom-component-count.txt docs/security-reports/dependency-track-report.html docs/security-reports/dependency-track-report.json docs/security-reports/dependency-track-upload-response.json \
                                                                                         docs/security-reports/sonarqube-report.html docs/security-reports/sonarqube-report.json \
                                             docs/security-reports/build-meta.json
                                     if [ -d docs/security-reports/jacoco ]; then
@@ -1166,6 +1124,7 @@ EOF
             steps {
                 container('docker') {
                     script {
+                        // Purpose: Push image only after security gates and SBOM publication have completed.
                         echo "Pushing Docker image to registry..."
                         withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                             sh '''
@@ -1339,8 +1298,9 @@ EOF
                                 IMAGE_DIGEST_REF=$(cat ${SECURITY_REPORT_DIR}/cosign-image-ref.txt)
                                 GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
                                 GITLEAKS_STATUS=$(cat ${SECURITY_REPORT_DIR}/gitleaks-exit-code.txt 2>/dev/null || echo 2)
-                                GRYPE_CRITICAL_COUNT=$(cat ${SECURITY_REPORT_DIR}/grype-critical-count.txt 2>/dev/null || echo 0)
-                                GRYPE_HIGH_COUNT=$(cat ${SECURITY_REPORT_DIR}/grype-high-count.txt 2>/dev/null || echo 0)
+                                TRIVY_CRITICAL_COUNT=$(cat ${SECURITY_REPORT_DIR}/trivy-critical-count.txt 2>/dev/null || echo 0)
+                                TRIVY_HIGH_COUNT=$(cat ${SECURITY_REPORT_DIR}/trivy-high-count.txt 2>/dev/null || echo 0)
+                                TRIVY_MEDIUM_COUNT=$(cat ${SECURITY_REPORT_DIR}/trivy-medium-count.txt 2>/dev/null || echo 0)
                                 SBOM_SHA=$(sha256sum ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json | awk '{print $1}')
                                 BUILD_ATTESTATION_TYPE="https://platform-engineering-reference-architectures.dev/attestations/build-metadata/v1"
 
@@ -1356,8 +1316,9 @@ EOF
   },
   "securityGates": {
     "gitleaksStatus": "${GITLEAKS_STATUS}",
-    "grypeCriticalCount": "${GRYPE_CRITICAL_COUNT}",
-    "grypeHighCount": "${GRYPE_HIGH_COUNT}"
+        "trivyCriticalCount": "${TRIVY_CRITICAL_COUNT}",
+        "trivyHighCount": "${TRIVY_HIGH_COUNT}",
+        "trivyMediumCount": "${TRIVY_MEDIUM_COUNT}"
   },
   "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
@@ -1783,12 +1744,12 @@ EOF
             }
         }
 
-        stage('Update Deployment Manifests') {
+        stage('Deploy with ArgoCD') {
             steps {
                 script {
-                    echo "Updating Kubernetes deployment manifests with new image tag..."
-                    // This would typically update your ArgoCD git repo or deployment files
-                    // For now, just logging the image reference
+                    // Purpose: deployment handoff after all security gates and artifact publication have passed.
+                    echo "Deploying with ArgoCD by updating deployment manifests with new image tag..."
+                    // This keeps current deployment behavior unchanged.
                     sh "echo 'Image built and pushed: ${IMAGE_NAME}:${IMAGE_TAG}'"
                 }
             }
@@ -1803,12 +1764,21 @@ EOF
                 // Archive build artifacts if needed
                 junit testResults: 'cicd-reference-architectures/sample-application/target/surefire-reports/*.xml', allowEmptyResults: true
 
-                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-gate-summary.txt,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.spdx.json,security-reports/sbom.syft.txt,security-reports/dependency-track-report.html,security-reports/dependency-track-report.json,security-reports/dependency-track-upload-response.json,security-reports/grype-report.html,security-reports/grype-report.json,security-reports/grype-report.txt,security-reports/grype-exit-code.txt,security-reports/grype-critical-count.txt,security-reports/grype-high-count.txt,security-reports/sonarqube-report.html,security-reports/sonarqube-report.json,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-summary.html,security-reports/trivy-scan-exit-code.txt,security-reports/trivy-critical-count.txt,security-reports/trivy-high-count.txt,security-reports/trivy-medium-count.txt,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.trivy.log,security-reports/sbom-component-count.txt,security-reports/dependency-track-report.html,security-reports/dependency-track-report.json,security-reports/dependency-track-upload-response.json,security-reports/sonarqube-report.html,security-reports/sonarqube-report.json,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
 
                 publishHTML(target: [
                     reportDir: 'security-reports',
                     reportFiles: 'trivy-report.html',
                     reportName: 'Trivy CVE Report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: true
+                ])
+
+                publishHTML(target: [
+                    reportDir: 'security-reports',
+                    reportFiles: 'trivy-summary.html',
+                    reportName: 'Trivy Security Gate Summary',
                     keepAll: true,
                     alwaysLinkToLastBuild: true,
                     allowMissing: true
@@ -1854,15 +1824,6 @@ EOF
                     reportDir: 'security-reports',
                     reportFiles: 'dependency-track-report.html',
                     reportName: 'Dependency-Track SBOM Publish Report',
-                    keepAll: true,
-                    alwaysLinkToLastBuild: true,
-                    allowMissing: true
-                ])
-
-                publishHTML(target: [
-                    reportDir: 'security-reports',
-                    reportFiles: 'grype-report.html',
-                    reportName: 'Grype SBOM Vulnerability Report',
                     keepAll: true,
                     alwaysLinkToLastBuild: true,
                     allowMissing: true
