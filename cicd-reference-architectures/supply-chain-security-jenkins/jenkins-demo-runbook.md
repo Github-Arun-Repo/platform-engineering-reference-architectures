@@ -18,9 +18,8 @@ cicd-reference-architectures/
 │   │   └── TodoRepository.java
 │   ├── Dockerfile                    # multi-stage build
 │   └── pom.xml                       # Spring Boot 3.2 / Java 21
-└── phase-1-image-build-jenkins/
+└── supply-chain-security-jenkins/
     ├── Jenkinsfile                   # 8-stage pipeline
-    ├── README.md
     ├── installation-jenkins.md
     └── jenkins-demo-runbook.md       # ← this file
 ```
@@ -93,7 +92,7 @@ docker info | grep "Server Version"
 Always read the pipeline before running it — the Jenkinsfile is code, not configuration.
 
 ```bash
-cat phase-1-image-build-jenkins/Jenkinsfile
+cat supply-chain-security-jenkins/Jenkinsfile
 ```
 
 Notice the structure:

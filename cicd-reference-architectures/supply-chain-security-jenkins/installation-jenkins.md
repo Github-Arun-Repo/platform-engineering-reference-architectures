@@ -303,7 +303,7 @@ Use one of the following patterns:
   - Repository URL: `https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git` (or SSH URL if using SSH credentials)
   - Credentials: select **`github-credentials`**
    - Branch: `*/main`
-   - Script Path: `cicd-reference-architectures/phase-1-image-build-jenkins/Jenkinsfile`
+  - Script Path: `cicd-reference-architectures/supply-chain-security-jenkins/Jenkinsfile`
 6. Click **Save**
 
 ---

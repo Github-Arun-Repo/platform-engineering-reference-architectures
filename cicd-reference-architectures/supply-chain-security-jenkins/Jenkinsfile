@@ -3,7 +3,7 @@ pipeline {
         kubernetes {
             label 'todo-app'
             defaultContainer 'maven'
-            yamlFile 'cicd-reference-architectures/phase-1-image-build-jenkins/pod-template.yaml'
+            yamlFile 'cicd-reference-architectures/supply-chain-security-jenkins/pod-template.yaml'
         }
     }
 
@@ -100,8 +100,8 @@ pipeline {
 
                             set +e
                             ./.tools/gitleaks dir . \
-                                --config cicd-reference-architectures/phase-1-image-build-jenkins/gitleaks.toml \
-                                --gitleaks-ignore-path cicd-reference-architectures/phase-1-image-build-jenkins/.gitleaksignore \
+                                --config cicd-reference-architectures/supply-chain-security-jenkins/gitleaks.toml \
+                                --gitleaks-ignore-path cicd-reference-architectures/supply-chain-security-jenkins/.gitleaksignore \
                                 --report-format json \
                                 --report-path ${SECURITY_REPORT_DIR}/gitleaks-report.json \
                                 --redact \

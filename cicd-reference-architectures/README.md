@@ -2,6 +2,8 @@
 
 This reference architecture shows how to design a secure container delivery pipeline from source code to registry publication, with security evidence generated at every important control point.
 
+This architecture is build-tool agnostic. You can implement the same control flow with tools such as Jenkins, GitHub Actions, GitLab CI, Tekton, or Azure DevOps. In this repository, the implemented reference uses Jenkins. GitHub Actions is also a modern and widely used approach for teams that prefer GitHub-native CI.
+
 [![Security Reports](https://img.shields.io/badge/Security%20Reports-View%20Dashboard-blue?logo=github)](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/index.html)
 
 ## Start Here: Verified Report Evidence
@@ -193,7 +195,7 @@ Every downstream artifact must be traceable to source code. Without a clean sour
 
 **Reference implementation**
 
-- [Jenkinsfile](./phase-1-image-build-jenkins/Jenkinsfile)
+- [Jenkinsfile](./supply-chain-security-jenkins/Jenkinsfile)
 
 ## 2. Scan Secrets
 
@@ -604,7 +606,7 @@ Signing only helps if others can inspect and verify it. Publishing the evidence 
 
 ## Reference Implementations
 
-### Jenkins
+### Jenkins (Chosen in this Repository)
 
 Use this reference when you need:
 
@@ -616,23 +618,10 @@ Use this reference when you need:
 
 Files:
 
-- [Jenkins reference](./phase-1-image-build-jenkins/)
-- [Jenkinsfile](./phase-1-image-build-jenkins/Jenkinsfile)
-- [Jenkins and SonarQube installation](./phase-1-image-build-jenkins/installation-jenkins.md)
-- [Jenkins runbook](./phase-1-image-build-jenkins/jenkins-demo-runbook.md)
-
-### GitHub Actions
-
-Use this reference when you need:
-
-- GitHub-native workflow execution
-- managed runners
-- simple source-control integrated CI
-- lower platform setup overhead
-
-Files:
-
-- [GitHub Actions reference](./phase-1-image-build-github-actions/)
+- [Jenkins reference](./supply-chain-security-jenkins/)
+- [Jenkinsfile](./supply-chain-security-jenkins/Jenkinsfile)
+- [Jenkins and SonarQube installation](./supply-chain-security-jenkins/installation-jenkins.md)
+- [Jenkins runbook](./supply-chain-security-jenkins/jenkins-demo-runbook.md)
 
 ## Runbooks vs Reference Guides
 
@@ -643,7 +632,6 @@ Use the runbook for job execution.
 | Document | Purpose |
 |---|---|
 | Main README | Architecture, control placement, diagrams, evidence model |
-| Jenkins README | Jenkins-specific implementation details |
 | Jenkins runbook | Installation checks, job execution, console inspection, troubleshooting |
 | Sample app README | Application-specific context |
 
@@ -653,12 +641,10 @@ Use the runbook for job execution.
 cicd-reference-architectures/
 ├── README.md
 ├── sample-application/
-├── phase-1-image-build-jenkins/
+├── supply-chain-security-jenkins/
 │   ├── Jenkinsfile
-│   ├── README.md
 │   ├── installation-jenkins.md
 │   └── jenkins-demo-runbook.md
-├── phase-1-image-build-github-actions/
 └── ../docs/security-reports/
 ```
 
@@ -681,8 +667,7 @@ Planned additions:
 - [Tools Reference](./tools/README.md)
 - [Cosign Signing Reference](./tools/cosign-signing.md)
 - [SonarQube SAST Reference](./tools/sonarqube-sast.md)
-- [Jenkins Reference](./phase-1-image-build-jenkins/)
-- [Jenkins Runbook](./phase-1-image-build-jenkins/jenkins-demo-runbook.md)
-- [GitHub Actions Reference](./phase-1-image-build-github-actions/)
+- [Jenkins Reference](./supply-chain-security-jenkins/)
+- [Jenkins Runbook](./supply-chain-security-jenkins/jenkins-demo-runbook.md)
 - [Sample Application](./sample-application/)
 - [Main Repository README](../README.md)
