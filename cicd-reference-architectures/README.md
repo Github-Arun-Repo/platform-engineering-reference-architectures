@@ -168,10 +168,10 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 6 | [Unit Tests](#4-unit-tests) | Jenkins gate logic | unit test result gate | yes |
 | 7 | [Code Coverage](#5-code-coverage) | JaCoCo | coverage evidence generation | reported to next gate |
 | 8 | [Code Coverage](#5-code-coverage) | Jenkins gate logic + JaCoCo XML | coverage threshold gate | yes |
-| 9 | [Pre-Image Security Controls](#6-pre-image-security-controls) | OWASP Dependency-Check (SCA) | SCA dependency scan pre-image | reported to next gate |
-| 10 | [Pre-Image Security Controls](#6-pre-image-security-controls) | Jenkins gate logic + Dependency-Check JSON | SCA policy gate (Critical/High) | yes |
-| 11 | [Pre-Image Security Controls](#6-pre-image-security-controls) | SonarQube | SAST code analysis | reported to next gate |
-| 12 | [Pre-Image Security Controls](#6-pre-image-security-controls) | SonarQube `waitForQualityGate` | SAST quality gate | yes |
+| 9 | [Software Composition Analysis](#6-pre-image-security-controls) | OWASP Dependency-Check | software composition analysis pre-image | reported to next gate |
+| 10 | [Dependency Security Gate](#6-pre-image-security-controls) | Jenkins gate logic + Dependency-Check JSON | dependency security gate (Critical/High) | yes |
+| 11 | [Static Application Security Testing](#6-pre-image-security-controls) | SonarQube | static application security testing analysis | reported to next gate |
+| 12 | [SonarQube Quality Gate](#6-pre-image-security-controls) | SonarQube `waitForQualityGate` | sonar quality gate enforcement | yes |
 | 13 | [Package Application](#7-package-application) | Maven | build JAR artifact | yes |
 | 14 | [Build Container Image](#8-build-container-image) | Docker | immutable runtime artifact | yes |
 | 15 | [Generate CycloneDX SBOM](#9-generate-cyclonedx-sbom) | Trivy | CycloneDX package inventory for reuse | reported |
