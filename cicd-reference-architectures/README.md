@@ -35,16 +35,16 @@ What this implementation demonstrates with generated evidence:
 4. [Stage Navigator](#stage-navigator)
 5. [1. Source and Checkout](#1-source-and-checkout)
 6. [2. Scan Secrets](#2-scan-secrets)
-7. [3. Scan Filesystem](#3-scan-filesystem)
-8. [4. Unit Tests](#4-unit-tests)
-9. [5. Code Coverage](#5-code-coverage)
-10. [6. Pre-Image Security Controls](#6-pre-image-security-controls)
+7. [3. Secret Exposure Gate](#3-secret-exposure-gate)
+8. [4. Scan Filesystem](#4-scan-filesystem)
+9. [5. Unit Tests](#5-unit-tests)
+10. [6. Unit Test Result Gate](#6-unit-test-result-gate)
     - [6.1 Software Composition Analysis (SCA)](#61-software-composition-analysis-sca)
     - [6.2 Dependency Security Gate (SCA)](#62-dependency-security-gate-sca)
     - [6.3 Static Application Security Testing (SAST)](#63-static-application-security-testing-sast)
     - [6.4 SonarQube Quality Gate (SAST)](#64-sonarqube-quality-gate-sast)
-11. [7. Package Application](#7-package-application)
-12. [8. Build Container Image](#8-build-container-image)
+11. [7. Code Coverage](#7-code-coverage)
+12. [8. Coverage Threshold Gate](#8-coverage-threshold-gate)
 13. [9. Generate CycloneDX SBOM](#9-generate-cyclonedx-sbom)
 14. [10. Scan Container Image](#10-scan-container-image)
 15. [11. Evaluate Security Gates](#11-evaluate-security-gates)
@@ -166,12 +166,12 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 |---:|---|---|---|---|
 | 1 | [Source and Checkout](#1-source-and-checkout) | Git + Jenkins SCM | traceable source input | yes, if checkout fails |
 | 2 | [Scan Secrets](#2-scan-secrets) | Gitleaks | repository secret scan | reported to next gate |
-| 3 | [Scan Secrets](#2-scan-secrets) | Jenkins gate logic | secret exposure gate | yes |
-| 4 | [Scan Filesystem](#3-scan-filesystem) | Trivy fs | filesystem vulnerability scan | reported |
-| 5 | [Unit Tests](#4-unit-tests) | Maven Surefire + JUnit | unit test execution | reported to next gate |
-| 6 | [Unit Tests](#4-unit-tests) | Jenkins gate logic | unit test result gate | yes |
-| 7 | [Code Coverage](#5-code-coverage) | JaCoCo | coverage evidence generation | reported to next gate |
-| 8 | [Code Coverage](#5-code-coverage) | Jenkins gate logic + JaCoCo XML | coverage threshold gate | yes |
+| 3 | [Secret Exposure Gate](#3-secret-exposure-gate) | Jenkins gate logic | secret exposure gate | yes |
+| 4 | [Scan Filesystem](#4-scan-filesystem) | Trivy fs | filesystem vulnerability scan | reported |
+| 5 | [Unit Tests](#5-unit-tests) | Maven Surefire + JUnit | unit test execution | reported to next gate |
+| 6 | [Unit Test Result Gate](#6-unit-test-result-gate) | Jenkins gate logic | unit test result gate | yes |
+| 7 | [Code Coverage](#7-code-coverage) | JaCoCo | coverage evidence generation | reported to next gate |
+| 8 | [Coverage Threshold Gate](#8-coverage-threshold-gate) | Jenkins gate logic + JaCoCo XML | coverage threshold gate | yes |
 | 9 | [Software Composition Analysis](#61-software-composition-analysis-sca) | OWASP Dependency-Check | software composition analysis pre-image | reported to next gate |
 | 10 | [Dependency Security Gate](#62-dependency-security-gate-sca) | Jenkins gate logic + Dependency-Check JSON | dependency security gate (Critical/High) | yes |
 | 11 | [Static Application Security Testing](#63-static-application-security-testing-sast) | SonarQube | static application security testing analysis | reported to next gate |
@@ -221,7 +221,7 @@ Gitleaks scans the repository immediately after checkout for hardcoded credentia
 
 Secrets in source control are high-risk findings and should fail the build before the pipeline spends time compiling, packaging, or creating images.
 
-Current behavior in Jenkins: this stage records findings first, then the dedicated **Secret Validation Gate** stage enforces failure when findings or scan errors are detected.
+Current behavior in Jenkins: this stage records findings first, then the dedicated **Secret Exposure Gate** stage enforces failure when findings or scan errors are detected.
 
 **Where this is useful**
 
@@ -234,7 +234,7 @@ Current behavior in Jenkins: this stage records findings first, then the dedicat
 
 - [Gitleaks Secret Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/gitleaks-report.html)
 
-## 3. Scan Filesystem
+## 3. Secret Exposure Gate
 
 **What happens**
 
@@ -255,7 +255,7 @@ This check is source-oriented, so it belongs early. Running it before image crea
 
 - [Trivy Filesystem Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/trivy-fs-report.html)
 
-## 4. Unit Tests
+## 4. Scan Filesystem
 
 **What happens**
 
@@ -277,7 +277,7 @@ Unit tests catch broken behavior before the pipeline spends time creating images
 - Surefire XML test reports
 - Jenkins JUnit test result view
 
-## 5. Code Coverage
+## 5. Unit Tests
 
 **What happens**
 
@@ -298,7 +298,7 @@ Coverage does not prove quality by itself, but it shows which code paths are exe
 
 - [JaCoCo Coverage Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/jacoco/index.html)
 
-## 6. Pre-Image Security Controls
+## 6. Unit Test Result Gate
 
 **What happens**
 
@@ -346,7 +346,8 @@ SCA also belongs in this phase so vulnerable third-party dependencies can be ide
 
 - [SonarQube SAST](./tools/sonarqube-sast.md)
 
-## 7. Package Application
+<a id="7-package-application"></a>
+## 7. Code Coverage
 
 **What happens**
 
@@ -362,7 +363,8 @@ The JAR is the application artifact copied into the container image. A packaging
 - release artifact creation
 - reproducible application packaging
 
-## 8. Build Container Image
+<a id="8-build-container-image"></a>
+## 8. Coverage Threshold Gate
 
 **What happens**
 
