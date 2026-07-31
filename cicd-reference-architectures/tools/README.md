@@ -23,7 +23,7 @@ If you are looking for proof that these controls were run, start here:
 | Vulnerability gate evaluation | Trivy severity policy | implemented | [CI/CD architecture](../README.md#11-evaluate-security-gates) |
 | SBOM intelligence platform | OWASP Dependency-Track | implemented | [Dependency-Track](./dependency-track.md) |
 | Image signing and attestations | Cosign | implemented | [Cosign signing](./cosign-signing.md) |
-| SBOM OCI attachment | ORAS | implemented | [CI/CD architecture](../README.md#19-attach-sbom) |
+| SBOM OCI attachment | ORAS | implemented | [CI/CD architecture](../README.md#18-attach-sbom) |
 
 ## Scope Of This Tools Folder
 

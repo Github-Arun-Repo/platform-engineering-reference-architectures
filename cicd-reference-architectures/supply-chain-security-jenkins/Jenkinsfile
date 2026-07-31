@@ -1744,17 +1744,6 @@ EOF
             }
         }
 
-        stage('Deploy with ArgoCD') {
-            steps {
-                script {
-                    // Purpose: deployment handoff after all security gates and artifact publication have passed.
-                    echo "Deploying with ArgoCD by updating deployment manifests with new image tag..."
-                    // This keeps current deployment behavior unchanged.
-                    sh "echo 'Image built and pushed: ${IMAGE_NAME}:${IMAGE_TAG}'"
-                }
-            }
-        }
-
     }
 
     post {

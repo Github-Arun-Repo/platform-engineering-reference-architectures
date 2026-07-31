@@ -48,14 +48,13 @@ What this implementation demonstrates with generated evidence:
 17. [13. Archive Security Reports](#13-archive-security-reports)
 18. [14. Publish Report Evidence](#14-publish-report-evidence)
 19. [15. Push to Registry](#15-push-to-registry)
-20. [16. Deploy with ArgoCD](#16-deploy-with-argocd)
-21. [17. Sign Image](#17-sign-image)
-22. [18. Attest Image](#18-attest-image)
-23. [19. Attach SBOM](#19-attach-sbom)
-24. [20. Publish Cosign Evidence](#20-publish-cosign-evidence)
-25. [Reference Implementations](#reference-implementations)
-26. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
-27. [Roadmap](#roadmap)
+20. [16. Sign Image](#16-sign-image)
+21. [17. Attest Image](#17-attest-image)
+22. [18. Attach SBOM](#18-attach-sbom)
+23. [19. Publish Cosign Evidence](#19-publish-cosign-evidence)
+24. [Reference Implementations](#reference-implementations)
+25. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
+26. [Roadmap](#roadmap)
 
 ## Architecture Intent
 
@@ -94,14 +93,13 @@ flowchart LR
     archive[16<br/>Archive Reports]
     reportCommit[17<br/>Publish Report Evidence]
     registry[18<br/>Registry Push]
-    deploy[19<br/>Deploy with ArgoCD]
-    sign["20<br/>Cosign Sign (Default On)"]
-    attest["21<br/>Cosign Attest (Default On)"]
-    attach[22<br/>Attach SBOM]
-    cosignCommit[23<br/>Publish Cosign Evidence]
-    evidence[24<br/>Evidence Dashboard]
+    sign["19<br/>Cosign Sign (Default On)"]
+    attest["20<br/>Cosign Attest (Default On)"]
+    attach[21<br/>Attach SBOM]
+    cosignCommit[22<br/>Publish Cosign Evidence]
+    evidence[23<br/>Evidence Dashboard]
 
-    commit --> checkout --> gitleaks --> trivyFs --> tests --> coverage --> sonar --> sonarGate --> owasp --> package --> image --> sbom --> trivyImage --> gates --> dtrack --> archive --> reportCommit --> registry --> sign --> attest --> attach --> cosignCommit --> deploy --> evidence
+    commit --> checkout --> gitleaks --> trivyFs --> tests --> coverage --> sonar --> sonarGate --> owasp --> package --> image --> sbom --> trivyImage --> gates --> dtrack --> archive --> reportCommit --> registry --> sign --> attest --> attach --> cosignCommit --> evidence
     gitleaks --> gates
     trivyFs --> gates
     trivyImage --> gates
@@ -121,7 +119,7 @@ flowchart LR
     class tests,coverage,sonar,sonarGate quality;
     class package,image,sbom,dtrack,archive artifact;
     class trivyImage,trivyFs,gitleaks,gates,owasp,sign,attest security;
-    class registry,reportCommit,attach,cosignCommit,deploy,evidence publish;
+    class registry,reportCommit,attach,cosignCommit,evidence publish;
 ```
 
 This is the core chain: code enters, controls run one after another, evidence is produced, and only approved artifacts move forward.
@@ -171,11 +169,10 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 13 | [Archive Security Reports](#13-archive-security-reports) | Jenkins artifacts | audit and evidence retention | reported |
 | 14 | [Publish Report Evidence](#14-publish-report-evidence) | Jenkins + Git + HTML | public report publication after gating and post-gate uploads | reported |
 | 15 | [Push to Registry](#15-push-to-registry) | Docker | artifact promotion | yes |
-| 16 | [Deploy with ArgoCD](#16-deploy-with-argocd) | Jenkins deployment handoff | deployment update after security controls | yes |
-| 17 | [Sign Image](#17-sign-image) | Cosign | digest integrity proof | yes (default on) |
-| 18 | [Attest Image](#18-attest-image) | Cosign | SBOM and build evidence referrers | yes (default on) |
-| 19 | [Attach SBOM](#19-attach-sbom) | ORAS | OCI artifact attachment | best effort |
-| 20 | [Publish Cosign Evidence](#20-publish-cosign-evidence) | Jenkins + Git + HTML | public signing and attestation evidence | yes (default on) |
+| 16 | [Sign Image](#16-sign-image) | Cosign | digest integrity proof | yes (default on) |
+| 17 | [Attest Image](#17-attest-image) | Cosign | SBOM and build evidence referrers | yes (default on) |
+| 18 | [Attach SBOM](#18-attach-sbom) | ORAS | OCI artifact attachment | best effort |
+| 19 | [Publish Cosign Evidence](#19-publish-cosign-evidence) | Jenkins + Git + HTML | public signing and attestation evidence | yes (default on) |
 
 ## 1. Source and Checkout
 
@@ -511,23 +508,7 @@ After the image is pushed, the strongest next steps are to sign the immutable di
 
 - [Cosign Signing](./tools/cosign-signing.md)
 
-## 16. Deploy with ArgoCD
-
-**What happens**
-
-After security gates pass and artifacts are pushed, deployment handoff runs through the ArgoCD deployment stage.
-
-**Why this matters**
-
-This keeps deployment strictly downstream from security evaluation and artifact publication.
-
-**Where this is useful**
-
-- GitOps delivery handoff
-- environment promotion workflows
-- separation of build security and deployment operations
-
-## 17. Sign Image
+## 16. Sign Image
 
 **What happens**
 
@@ -547,7 +528,7 @@ Signing proves integrity and gives downstream consumers a way to verify that the
 
 - [Cosign Signing](./tools/cosign-signing.md)
 
-## 18. Attest Image
+## 17. Attest Image
 
 **What happens**
 
@@ -567,7 +548,7 @@ Attestations carry evidence about the artifact, not just a proof that the artifa
 
 - [Cosign Signing](./tools/cosign-signing.md)
 
-## 19. Attach SBOM
+## 18. Attach SBOM
 
 **What happens**
 
@@ -581,7 +562,7 @@ Attaching evidence to the artifact keeps inventory close to the image it describ
 
 This step is best effort. If ORAS or the registry attachment fails, the SBOM remains available as Jenkins artifacts and public dashboard evidence.
 
-## 20. Publish Cosign Evidence
+## 19. Publish Cosign Evidence
 
 **What happens**
 
