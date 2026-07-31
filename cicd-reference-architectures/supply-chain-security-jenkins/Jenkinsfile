@@ -66,7 +66,7 @@ pipeline {
             }
         }
 
-        stage('Scan Repository Secrets') {
+        stage('Repository Secret Scan') {
             steps {
                 container('maven') {
                     script {
@@ -173,7 +173,7 @@ EOF
             }
         }
 
-        stage('Secret Validation Gate') {
+        stage('Secret Exposure Gate') {
             steps {
                 container('maven') {
                     script {
@@ -195,7 +195,7 @@ EOF
             }
         }
 
-        stage('Scan Filesystem with Trivy') {
+        stage('Filesystem Vulnerability Scan (Trivy)') {
             steps {
                 container('docker') {
                     script {
@@ -263,7 +263,7 @@ EOF
             }
         }
 
-        stage('Unit Testing (JUnit)') {
+        stage('Unit Test Execution (JUnit)') {
             steps {
                 container('maven') {
                     script {
@@ -284,7 +284,7 @@ EOF
             }
         }
 
-        stage('Test Validation Gate') {
+        stage('Unit Test Result Gate') {
             steps {
                 container('maven') {
                     script {
@@ -302,7 +302,7 @@ EOF
             }
         }
 
-        stage('Code Coverage Analysis (JaCoCo)') {
+        stage('Coverage Evidence Generation (JaCoCo)') {
             steps {
                 container('maven') {
                     script {
@@ -318,7 +318,7 @@ EOF
             }
         }
 
-        stage('Coverage Validation Gate') {
+        stage('Coverage Threshold Gate') {
             steps {
                 container('maven') {
                     script {
@@ -348,7 +348,7 @@ EOF
             }
         }
 
-        stage('Dependency Vulnerability Scan (OWASP Dependency-Check)') {
+        stage('SCA Dependency Scan (OWASP Dependency-Check)') {
             steps {
                 container('maven') {
                     script {
@@ -368,7 +368,7 @@ EOF
             }
         }
 
-        stage('Dependency Security Gate') {
+        stage('SCA Policy Gate (Critical/High)') {
             steps {
                 container('maven') {
                     script {
@@ -406,7 +406,7 @@ EOF
             }
         }
 
-        stage('SAST & Code Quality Analysis (SonarQube)') {
+        stage('SAST Code Analysis (SonarQube)') {
             steps {
                 container('maven') {
                     script {
@@ -526,7 +526,7 @@ EOF
             }
         }
 
-        stage('SonarQube Quality Gate') {
+        stage('SAST Quality Gate (SonarQube)') {
             steps {
                 script {
                     // Purpose: Block pipeline if SonarQube quality gate fails (vulnerabilities/bugs/coverage rules).
@@ -661,7 +661,7 @@ EOF
             }
         }
 
-        stage('Scan Docker Image with Trivy') {
+        stage('Container Image Vulnerability Scan (Trivy)') {
             steps {
                 container('docker') {
                     script {
@@ -762,7 +762,7 @@ EOF
             }
         }
 
-        stage('Evaluate Security Gates') {
+        stage('Container Security Policy Gate (Trivy)') {
             steps {
                 container('maven') {
                     script {

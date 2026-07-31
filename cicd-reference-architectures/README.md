@@ -38,7 +38,7 @@ What this implementation demonstrates with generated evidence:
 7. [3. Scan Filesystem](#3-scan-filesystem)
 8. [4. Unit Tests](#4-unit-tests)
 9. [5. Code Coverage](#5-code-coverage)
-10. [6. SAST and Code Quality](#6-sast-and-code-quality)
+10. [6. Pre-Image Security Controls](#6-pre-image-security-controls)
 11. [7. Package Application](#7-package-application)
 12. [8. Build Container Image](#8-build-container-image)
 13. [9. Generate CycloneDX SBOM](#9-generate-cyclonedx-sbom)
@@ -77,28 +77,28 @@ The architecture is designed as a chain of evidence. Each step either validates 
 flowchart LR
     commit[01<br/>Developer Commit]
     checkout[02<br/>Checkout]
-    gitleaks[03<br/>Secret Scan]
-    secretGate[04<br/>Secret Validation Gate]
-    trivyFs[05<br/>Filesystem Scan]
-    tests[06<br/>Unit Tests]
-    testGate[07<br/>Test Validation Gate]
-    coverage[08<br/>Coverage Analysis]
-    coverageGate[09<br/>Coverage Validation Gate]
-    depScan[10<br/>Dependency Vulnerability Scan (SCA)]
-    depGate[11<br/>Dependency Security Gate]
-    sonar[12<br/>SonarQube Analysis]
-    sonarGate[13<br/>SonarQube Quality Gate]
+    gitleaks[03<br/>Repository Secret Scan]
+    secretGate[04<br/>Secret Exposure Gate]
+    trivyFs[05<br/>Filesystem Vulnerability Scan]
+    tests[06<br/>Unit Test Execution]
+    testGate[07<br/>Unit Test Result Gate]
+    coverage[08<br/>Coverage Evidence Generation]
+    coverageGate[09<br/>Coverage Threshold Gate]
+    depScan[10<br/>SCA Dependency Scan]
+    depGate[11<br/>SCA Policy Gate]
+    sonar[12<br/>SAST Code Analysis]
+    sonarGate[13<br/>SAST Quality Gate]
     package[14<br/>Package App]
     image[15<br/>Build Image]
     sbom[16<br/>Trivy CycloneDX SBOM]
-    trivyImage[17<br/>Trivy Image Scan]
-    gates[18<br/>Security Gates]
+    trivyImage[17<br/>Container Image Vulnerability Scan]
+    gates[18<br/>Container Security Policy Gate]
     dtrack[19<br/>Dependency-Track Upload]
     archive[20<br/>Archive Reports]
     reportCommit[21<br/>Publish Report Evidence]
     registry[22<br/>Registry Push]
-    sign["23<br/>Cosign Sign (Default On)"]
-    attest["24<br/>Cosign Attest (Default On)"]
+    sign[23<br/>Cosign Sign Default On]
+    attest[24<br/>Cosign Attest Default On]
     attach[25<br/>Attach SBOM]
     cosignCommit[26<br/>Publish Cosign Evidence]
     evidence[27<br/>Evidence Dashboard]
@@ -161,22 +161,22 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | Order | Stage | Tool | Used For | Gate |
 |---:|---|---|---|---|
 | 1 | [Source and Checkout](#1-source-and-checkout) | Git + Jenkins SCM | traceable source input | yes, if checkout fails |
-| 2 | [Scan Secrets](#2-scan-secrets) | Gitleaks | committed secret detection | reported to next gate |
-| 3 | [Scan Secrets](#2-scan-secrets) | Jenkins gate logic | secret validation gate | yes |
-| 4 | [Scan Filesystem](#3-scan-filesystem) | Trivy fs | source/build context scan | reported |
-| 5 | [Unit Tests](#4-unit-tests) | Maven Surefire + JUnit | behavior validation | reported to next gate |
-| 6 | [Unit Tests](#4-unit-tests) | Jenkins gate logic | unit test validation gate | yes |
+| 2 | [Scan Secrets](#2-scan-secrets) | Gitleaks | repository secret scan | reported to next gate |
+| 3 | [Scan Secrets](#2-scan-secrets) | Jenkins gate logic | secret exposure gate | yes |
+| 4 | [Scan Filesystem](#3-scan-filesystem) | Trivy fs | filesystem vulnerability scan | reported |
+| 5 | [Unit Tests](#4-unit-tests) | Maven Surefire + JUnit | unit test execution | reported to next gate |
+| 6 | [Unit Tests](#4-unit-tests) | Jenkins gate logic | unit test result gate | yes |
 | 7 | [Code Coverage](#5-code-coverage) | JaCoCo | coverage evidence generation | reported to next gate |
-| 8 | [Code Coverage](#5-code-coverage) | Jenkins gate logic + JaCoCo XML | coverage threshold validation | yes |
-| 9 | [SAST and Code Quality](#6-sast-and-code-quality) | OWASP Dependency-Check (SCA) | dependency vulnerability scan pre-image | reported to next gate |
-| 10 | [SAST and Code Quality](#6-sast-and-code-quality) | Jenkins gate logic + Dependency-Check JSON | dependency security gate (Critical/High) | yes |
-| 11 | [SAST and Code Quality](#6-sast-and-code-quality) | SonarQube | source-level security and maintainability analysis | reported to next gate |
-| 12 | [SAST and Code Quality](#6-sast-and-code-quality) | SonarQube `waitForQualityGate` | enforced SonarQube quality gate | yes |
+| 8 | [Code Coverage](#5-code-coverage) | Jenkins gate logic + JaCoCo XML | coverage threshold gate | yes |
+| 9 | [Pre-Image Security Controls](#6-pre-image-security-controls) | OWASP Dependency-Check (SCA) | SCA dependency scan pre-image | reported to next gate |
+| 10 | [Pre-Image Security Controls](#6-pre-image-security-controls) | Jenkins gate logic + Dependency-Check JSON | SCA policy gate (Critical/High) | yes |
+| 11 | [Pre-Image Security Controls](#6-pre-image-security-controls) | SonarQube | SAST code analysis | reported to next gate |
+| 12 | [Pre-Image Security Controls](#6-pre-image-security-controls) | SonarQube `waitForQualityGate` | SAST quality gate | yes |
 | 13 | [Package Application](#7-package-application) | Maven | build JAR artifact | yes |
 | 14 | [Build Container Image](#8-build-container-image) | Docker | immutable runtime artifact | yes |
 | 15 | [Generate CycloneDX SBOM](#9-generate-cyclonedx-sbom) | Trivy | CycloneDX package inventory for reuse | reported |
-| 16 | [Scan Container Image](#10-scan-container-image) | Trivy image | image layer dependency CVEs | severity gated |
-| 17 | [Evaluate Security Gates](#11-evaluate-security-gates) | Jenkins policy logic | policy enforcement before publication/push | yes |
+| 16 | [Scan Container Image](#10-scan-container-image) | Trivy image | container image vulnerability scan | severity gated |
+| 17 | [Evaluate Security Gates](#11-evaluate-security-gates) | Jenkins policy logic | container security policy gate before publication/push | yes |
 | 18 | [Publish SBOM to Dependency-Track](#12-publish-sbom-to-dependency-track) | OWASP Dependency-Track | SBOM publication after gates | best effort |
 | 19 | [Archive Security Reports](#13-archive-security-reports) | Jenkins artifacts | audit and evidence retention | reported |
 | 20 | [Publish Report Evidence](#14-publish-report-evidence) | Jenkins + Git + HTML | public report publication after gating and post-gate uploads | reported |
@@ -294,7 +294,7 @@ Coverage does not prove quality by itself, but it shows which code paths are exe
 
 - [JaCoCo Coverage Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/docs/security-reports/jacoco/index.html)
 
-## 6. SAST and Code Quality
+## 6. Pre-Image Security Controls
 
 **What happens**
 
@@ -303,11 +303,11 @@ SonarQube analyzes source code, imports JaCoCo coverage, evaluates code quality 
 **Pre-image controls in this section**
 
 - **Step 9: Dependency Vulnerability Scan (OWASP Dependency-Check)** runs as mandatory SCA before image build.
-- **Step 10: Dependency Security Gate** fails the pipeline when policy is violated:
-    - Critical CVEs fail when `DEPENDENCY_GATE_FAIL_ON_CRITICAL=true`.
-    - High CVEs fail when `DEPENDENCY_GATE_FAIL_ON_HIGH=true`.
-- **Step 11: SAST & Code Quality Analysis (SonarQube)** runs mandatory code analysis.
-- **Step 12: SonarQube Quality Gate** is enforced with `waitForQualityGate abortPipeline: true`.
+- **Step 10: SCA Policy Gate (Critical/High)** fails the pipeline when policy is violated.
+- Critical CVEs fail when `DEPENDENCY_GATE_FAIL_ON_CRITICAL=true`.
+- High CVEs fail when `DEPENDENCY_GATE_FAIL_ON_HIGH=true`.
+- **Step 11: SAST Code Analysis (SonarQube)** runs mandatory code analysis.
+- **Step 12: SAST Quality Gate (SonarQube)** is enforced with `waitForQualityGate abortPipeline: true`.
 
 **Why this matters**
 
@@ -432,7 +432,7 @@ Security reports are useful, but gates decide whether the artifact is allowed to
 
 With current settings:
 
-- any Gitleaks finding fails immediately in the secret scan stage
+- any Gitleaks finding fails in the secret exposure gate stage
 - any Trivy critical vulnerability fails in the security gate stage
 - Trivy high vulnerabilities warn and continue by default
 - Trivy medium vulnerabilities are report-only
