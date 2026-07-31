@@ -1,91 +1,152 @@
-# OWASP Dependency-Track Reference
+# Software Composition Analysis Reference
 
-Dependency-Track is the SBOM intelligence platform in this reference architecture.
+OWASP Dependency-Check and OWASP Dependency-Track are the selected SCA controls for this reference architecture.
 
-It is used after the image SBOM is generated so Jenkins can publish the CycloneDX SBOM to a central service that tracks component risk, vulnerability history, and policy compliance over time.
+In this repository, SCA is split into two layers:
 
-## Why Dependency-Track Is Used
+- build-time SCA scan and gate with OWASP Dependency-Check
+- SBOM intelligence publication with OWASP Dependency-Track
 
-Dependency-Track is a good fit here because it:
+This pattern keeps immediate enforcement in CI while preserving longer-term component intelligence.
 
-- ingests CycloneDX SBOMs directly
-- keeps vulnerability findings tied to a project and version
-- exposes API-driven integrations for CI/CD systems
-- helps teams review component risk over time, not just at build time
-- complements local scan tools such as Grype by storing the SBOM in a system of record
-
-For this repository, that means Syft creates the SBOM, Jenkins uploads it to Dependency-Track, and the generated upload proof is committed into the security evidence folders.
-
-## Where Dependency-Track Fits
+## Where SCA Fits
 
 ```mermaid
 flowchart LR
-    image[Built Image]
-    sbom[Syft CycloneDX SBOM]
-    dtrack[Dependency-Track]
-    docs[Security Reports Dashboard]
+    commit[Developer Commit]
+    tests[Unit Tests]
+    coverage[Coverage]
+    depcheck[SCA Scan Dependency-Check]
+    scagate[SCA Policy Gate]
+    sast[SAST SonarQube]
+    package[Package App]
+    image[Build Image]
+    sbom[Trivy CycloneDX SBOM]
+    dtrack[Dependency-Track Upload]
+    dashboard[Evidence Dashboard]
 
-    image --> sbom --> dtrack --> docs
+    commit --> tests --> coverage --> depcheck --> scagate --> sast --> package --> image --> sbom --> dtrack --> dashboard
+
+    classDef source fill:#e7f0ff,stroke:#1f6feb,color:#0b1f44;
+    classDef quality fill:#ecfdf3,stroke:#1a7f37,color:#062b16;
+    classDef security fill:#ffebe9,stroke:#cf222e,color:#4d1113;
+    classDef artifact fill:#fff8c5,stroke:#9a6700,color:#3b2300;
+
+    class commit source;
+    class tests,coverage quality;
+    class depcheck,scagate,sast,dtrack security;
+    class package,image,sbom,dashboard artifact;
 ```
 
-The upload stage runs after SBOM generation and before downstream evidence publication, so the security dashboard can show that the SBOM was handed off to the vulnerability intelligence platform.
+SCA runs before artifact promotion and image publication. The SBOM upload runs after gates so only approved artifacts are published into the SCA system of record.
 
-## What We Use In This Reference
+## Why This SCA Stack Is Chosen
 
-The Jenkins pipeline uploads the generated `sbom.cyclonedx.json` file using the Dependency-Track BOM upload API.
+This repository uses OWASP Dependency-Check plus Dependency-Track because the combination gives:
 
-Pipeline inputs:
+- actionable dependency vulnerability scan results during the build
+- explicit gate controls for Critical and High findings
+- CycloneDX SBOM ingestion and historical tracking
+- API-driven CI/CD integration with evidence outputs
+- low licensing friction for education, labs, and platform reference patterns
+
+## What Is Implemented In This Repository
+
+### Build-Time SCA Scan
+
+Stage: SCA Dependency Scan OWASP Dependency-Check
+
+- Maven dependency-check goal runs during pre-image controls.
+- JSON and HTML reports are generated into security-reports.
+
+### Build-Time SCA Gate
+
+Stage: SCA Policy Gate Critical High
+
+- pipeline fails when Critical findings exist and DEPENDENCY_GATE_FAIL_ON_CRITICAL is true
+- pipeline fails when High findings exist and DEPENDENCY_GATE_FAIL_ON_HIGH is true
+
+### SCA Intelligence Publication
+
+Stage: Publish SCA SBOM to Dependency-Track
+
+- Trivy-generated CycloneDX SBOM is uploaded to Dependency-Track
+- upload response and status evidence are published into reports and dashboard
+
+## Jenkins Inputs Used
 
 | Item | Purpose |
 |---|---|
-| `DEPENDENCY_TRACK_URL` | Base URL of the Dependency-Track server |
-| `DEPENDENCY_TRACK_API_KEY_CREDENTIALS_ID` | Jenkins secret text credential that stores the API key |
-| `DEPENDENCY_TRACK_PROJECT_NAME` | Logical project name in Dependency-Track |
-| `IMAGE_TAG` | Project version used for the uploaded SBOM |
+| DEPENDENCY_GATE_FAIL_ON_CRITICAL | Fail gate when Critical vulnerabilities are detected |
+| DEPENDENCY_GATE_FAIL_ON_HIGH | Fail gate when High vulnerabilities are detected |
+| DEPENDENCY_TRACK_URL | Base URL of Dependency-Track server |
+| DEPENDENCY_TRACK_API_KEY_CREDENTIALS_ID | Jenkins secret text credential ID for API key |
+| DEPENDENCY_TRACK_PROJECT_NAME | Project name in Dependency-Track |
+| IMAGE_TAG | Version value used for SBOM upload |
 
-For this repository, the Jenkins values are:
+Current repository defaults for Dependency-Track integration:
 
 | Jenkins setting | Value |
 |---|---|
-| `DEPENDENCY_TRACK_URL` | `http://dtrack-dependency-track-api-server.dependency-track.svc.cluster.local:8080` |
-| `DEPENDENCY_TRACK_API_KEY_CREDENTIALS_ID` | `owasp_dependency_track` |
-| `DEPENDENCY_TRACK_PROJECT_NAME` | `platform-engineering-reference-architectures` |
+| DEPENDENCY_TRACK_URL | http://dtrack-dependency-track-api-server.dependency-track.svc.cluster.local:8080 |
+| DEPENDENCY_TRACK_API_KEY_CREDENTIALS_ID | owasp_dependency_track |
+| DEPENDENCY_TRACK_PROJECT_NAME | platform-engineering-reference-architectures |
 
-The pipeline writes evidence files to `security-reports/` and republishes them under `docs/security-reports/` so they are visible in the dashboard and in the Git history.
+## Demo Choice
 
-## How To Install And Integrate With Jenkins
+| Decision | Value |
+|---|---|
+| Build-time SCA tool | OWASP Dependency-Check |
+| SBOM intelligence platform | OWASP Dependency-Track |
+| License cost signal | Open source path available |
+| Deployment model | Self-hosted inside Kubernetes-compatible environments |
+| Why this stack | Good fit for reference architecture demos and reproducible DevSecOps patterns |
 
-1. Deploy Dependency-Track in your environment using the official OWASP project deployment guidance.
-2. Create or identify the project that will receive SBOM uploads.
-3. Generate an API key for a service account with permission to upload BOMs.
-4. Add that API key to Jenkins as a secret text credential named `owasp_dependency_track`.
-5. Set `DEPENDENCY_TRACK_URL` in the Jenkins pipeline environment to `http://dtrack-dependency-track-api-server.dependency-track.svc.cluster.local:8080`.
-6. Ensure the Jenkinsfile publishes the CycloneDX SBOM with `autoCreate=true`.
-7. Confirm that the generated `dependency-track-report.html` and `dependency-track-report.json` files appear in `docs/security-reports/` after the build.
+## Licensed and Enterprise Alternatives
 
-## What The Jenkins Stage Does
+Pricing and features evolve frequently, so treat this as a decision guide and verify current commercial terms directly with vendors.
 
-The pipeline stage:
+| Tool | Open source or free path | Licensed path | Strengths | Tradeoffs |
+|---|---|---|---|---|
+| OWASP Dependency-Check + Dependency-Track | Open source | N/A for core OSS | Strong educational and platform pattern fit, CycloneDX alignment, API integration | More self-managed operations and tuning effort |
+| Trivy | Open source scanner | Enterprise options via ecosystem vendors | Fast CI scan, broad artifact coverage, good SBOM support | Governance surface depends on surrounding platform |
+| Snyk Open Source | Free tier | Paid Snyk plans | Developer-friendly SaaS workflow, rich ecosystem | SaaS dependency and plan-based cost |
+| Mend | Limited evaluation options | Commercial | Enterprise policy workflows and reporting | Commercial onboarding and cost |
+| Sonatype Nexus Lifecycle IQ | Limited evaluation options | Commercial | Strong policy and package governance in enterprise pipelines | Commercial setup and operating model |
+| JFrog Xray | Platform dependent | Commercial | Deep integration when Artifactory is central | Best value when aligned to JFrog stack |
+| GitHub Dependabot plus advisory graph | Free for many scenarios | Enterprise value through broader GitHub programs | Native GitHub pull request remediation path | Less complete as a standalone SBOM intelligence platform |
 
-- checks for the presence of `sbom.cyclonedx.json`
-- uploads the SBOM to Dependency-Track using the BOM API
-- records the HTTP status and response payload as evidence
-- creates a simple HTML report for the security dashboard
+## Selection Guidance
+
+| Scenario | Recommended path |
+|---|---|
+| Platform reference architecture and internal demos | OWASP Dependency-Check plus Dependency-Track |
+| Fast build-time scan-first workflows | Trivy plus dependency policy gate |
+| GitHub-centric dependency remediation | Dependabot with policy guardrails |
+| Enterprise governance with commercial support and compliance workflows | Evaluate Snyk, Mend, Sonatype IQ, or JFrog Xray |
+
+## How To Integrate Dependency-Track With Jenkins
+
+1. Deploy Dependency-Track in your environment.
+2. Create a project or allow auto-create flow.
+3. Generate an API key with BOM upload permissions.
+4. Store API key in Jenkins credentials with ID owasp_dependency_track.
+5. Set DEPENDENCY_TRACK_URL and DEPENDENCY_TRACK_PROJECT_NAME in pipeline environment.
+6. Confirm build generates dependency-track-report.json and dependency-track-report.html.
+7. Confirm docs dashboard shows Dependency-Track upload evidence.
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
-| Upload is skipped | `DEPENDENCY_TRACK_URL` is not configured yet |
-| Upload fails with 401 or 403 | Jenkins credential is missing or the API key does not have BOM upload permissions |
-| Project is created repeatedly | The configured project name or version is changing on every build |
-| No report appears in the dashboard | The pipeline has not been run after the integration was added |
+| SCA gate fails unexpectedly | Dependency-Check found Critical or High issues under active thresholds |
+| SCA gate never fails | DEPENDENCY_GATE_FAIL_ON_CRITICAL and DEPENDENCY_GATE_FAIL_ON_HIGH are disabled |
+| Dependency-Track upload skipped | DEPENDENCY_TRACK_URL not configured |
+| Dependency-Track upload fails 401 or 403 | API key is missing or lacks BOM upload permission |
+| Evidence report missing in dashboard | Pipeline did not reach report publication stage |
 
-## Recommended Practice
+## Reference Links
 
-Use Dependency-Track as the SBOM system of record, then keep lightweight scan tools such as Grype and Trivy in the build itself for fast gates.
-
-That gives you both:
-
-- immediate build-time enforcement
-- longer-lived SBOM intelligence and historical reporting
+- OWASP Dependency-Check project: https://owasp.org/www-project-dependency-check/
+- OWASP Dependency-Track project: https://dependencytrack.org/
+- CycloneDX specification: https://cyclonedx.org/specification/

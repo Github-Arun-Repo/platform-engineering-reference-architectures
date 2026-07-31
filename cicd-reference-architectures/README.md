@@ -316,6 +316,10 @@ This phase explicitly separates SCA (dependency risk) from SAST (source code ris
 - Critical CVEs fail when `DEPENDENCY_GATE_FAIL_ON_CRITICAL=true`.
 - High CVEs fail when `DEPENDENCY_GATE_FAIL_ON_HIGH=true`.
 
+SCA reference:
+
+- [Software Composition Analysis Reference](./tools/dependency-track.md)
+
 ### 6.3 Static Application Security Testing (SAST)
 
 **Tool**: SonarQube
@@ -327,6 +331,10 @@ This phase explicitly separates SCA (dependency risk) from SAST (source code ris
 
 - Enforced with `waitForQualityGate abortPipeline: true`.
 - Blocks pipeline progression when SonarQube quality gate conditions are not met.
+
+SAST reference:
+
+- [SonarQube SAST](./tools/sonarqube-sast.md)
 
 **Why this matters**
 
@@ -342,8 +350,9 @@ SCA also belongs in this phase so vulnerable third-party dependencies can be ide
 - security hotspot review
 - future pull request checks
 
-**Tool reference**
+**Tool references**
 
+- [Software Composition Analysis Reference](./tools/dependency-track.md)
 - [SonarQube SAST](./tools/sonarqube-sast.md)
 
 <a id="7-package-application"></a>
