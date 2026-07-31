@@ -18,7 +18,7 @@ What this implementation demonstrates with generated evidence:
 
 - unit test execution and code coverage outputs
 - SonarQube analysis with a required quality-gate placeholder step
-- optional OWASP Dependency-Check placeholder stage (toggle-driven)
+- optional OWASP Dependency-Check SCA placeholder stage (toggle-driven)
 - filesystem and container vulnerability scan results
 - Trivy-based CycloneDX SBOM generation
 - Trivy severity gating before promotion (Critical fail, High configurable, Medium report-only)
@@ -159,7 +159,7 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 5 | [Code Coverage](#5-code-coverage) | JaCoCo | coverage evidence | reported |
 | 6 | [SAST and Code Quality](#6-sast-and-code-quality) | SonarQube | source-level security and maintainability | yes |
 | 6a | [SAST and Code Quality](#6-sast-and-code-quality) | SonarQube `waitForQualityGate` | required quality gate placeholder step | placeholder |
-| 6b | [SAST and Code Quality](#6-sast-and-code-quality) | OWASP Dependency-Check | optional placeholder pre-image check | optional (default off) |
+| 6b | [SAST and Code Quality](#6-sast-and-code-quality) | OWASP Dependency-Check (SCA) | optional SCA placeholder pre-image check | optional (default off) |
 | 7 | [Package Application](#7-package-application) | Maven | build JAR artifact | yes |
 | 8 | [Build Container Image](#8-build-container-image) | Docker | immutable runtime artifact | yes |
 | 9 | [Generate CycloneDX SBOM](#9-generate-cyclonedx-sbom) | Trivy | CycloneDX package inventory for reuse | reported |
@@ -297,16 +297,19 @@ SonarQube analyzes source code, imports JaCoCo coverage, evaluates code quality 
 **Optional placeholder before image build**
 
 - OWASP Dependency-Check is positioned before image build as an optional placeholder stage.
+- This control is **SCA** (dependency vulnerability analysis), not source-code SAST.
 - Toggle: `ENABLE_OWASP_DEPENDENCY_CHECK` (default `false`).
 
 **Why this matters**
 
 SAST belongs before package and image promotion because source-level vulnerabilities and maintainability issues should be reviewed before the pipeline creates deployable artifacts.
+SCA also belongs in this phase so vulnerable third-party dependencies can be identified before promotion.
 
 **Where this is useful**
 
 - Java service quality gates
 - SAST evidence before image promotion
+- SCA dependency risk checks before image promotion
 - code coverage governance
 - security hotspot review
 - future pull request checks
