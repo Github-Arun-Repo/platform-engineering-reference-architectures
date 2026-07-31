@@ -21,6 +21,21 @@ The repository contains practical and reusable infrastructure implementations de
 | **Kubernetes Reference Architectures** | Multi-tenant Kubernetes platform patterns, namespace isolation, quotas, RBAC boundaries, network segmentation, and operational failure testing runbooks. | [Explore Kubernetes patterns](./kubernetes-reference-architectures/README.md) |
 | **Terraform Infrastructure** | Modular Terraform, multi-AZ AWS networking, secure S3 patterns, remote state, state locking, reusable modules, and architecture decisions. | [Explore Terraform patterns](./terraform/README.md) |
 
+## Kubernetes Pattern Showcase
+
+The Kubernetes portfolio patterns are highlighted here so reviewers can immediately understand the production problems addressed and the operational learning in each implementation.
+
+| Pattern | Why It Was Created | What It Teaches | Links |
+|---|---|---|---|
+| **Pattern 1: Shared Cluster Multi-Tenancy** | Multiple teams sharing one cluster without isolation cause resource exhaustion, cross-team security gaps, and operational chaos | Namespace boundaries, ResourceQuotas, LimitRanges, RBAC, NetworkPolicy, and Secrets with failure-focused validation | [README](./kubernetes-reference-architectures/multi-cluster-strategy/README.md) · [Runbook](./kubernetes-reference-architectures/multi-cluster-strategy/multi-cluster-runbook.md) |
+| **Pattern 2: Autoscaling (HPA and VPA)** | Static resource allocation either over-provisions (wasted cost) or under-provisions (failures at peak) | HPA replica scaling and VPA right-sizing behavior, including conflict and boundary considerations | [README](./kubernetes-reference-architectures/autoscaling-reference-patterns/README.md) · [Runbook](./kubernetes-reference-architectures/autoscaling-reference-patterns/autoscaling-runbook.md) |
+| **Pattern 3: Zero-Downtime Deployment Strategies** | Every team eventually ships a bad release; recovery speed and blast radius are critical | Rolling Update, Blue/Green, Canary, PodDisruptionBudget usage, and rollback workflows | [README](./kubernetes-reference-architectures/zero-downtime-deployment-strategies/README.md) · [Runbook](./kubernetes-reference-architectures/zero-downtime-deployment-strategies/zero-downtime-runbook.md) |
+| **Pattern 4: Pod Health Probes** | Startup, liveness, and readiness probes look similar in YAML but trigger different runtime outcomes | Correct probe design, anti-patterns, and service-availability impact during failures | [README](./kubernetes-reference-architectures/pod-health-probes/README.md) · [Runbook](./kubernetes-reference-architectures/pod-health-probes/probes-runbook.md) |
+| **Pattern 5: Kyverno Cosign Image Verification** | CI signing alone does not stop untrusted images at runtime without admission controls | Kyverno verifyImages Audit and Enforce policy model using the same Cosign trust identity from CI | [README](./kubernetes-reference-architectures/kyverno-image-verification/README.md) · [Runbook](./kubernetes-reference-architectures/kyverno-image-verification/kyverno-runbook.md) |
+| **Pattern 6: Karpenter vs Cluster Autoscaler** | Platform teams need a clear decision framework for node autoscaling approaches | Theory-focused architecture comparison, trade-offs, scenario guidance, and manual command set for future validation | [README](./kubernetes-reference-architectures/karpenter-vs-cluster-autoscaler/README.md) · Runbook not available (theory-only) |
+
+For full Kubernetes navigation and prerequisites, use the dedicated index: [Kubernetes Reference Architectures](./kubernetes-reference-architectures/README.md).
+
 ## Supply Chain Security Tools
 
 The CI/CD reference architecture includes a tools section for engineers who want to compare security controls before choosing an implementation.
