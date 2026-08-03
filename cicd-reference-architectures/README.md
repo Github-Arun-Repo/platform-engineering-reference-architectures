@@ -170,7 +170,7 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 4 | [Scan Filesystem](#4-scan-filesystem) | Trivy fs | filesystem vulnerability scan | reported |
 | 5 | [Unit Tests](#5-unit-tests) | Maven Surefire + JUnit | unit test execution | reported to next gate |
 | 6 | [Unit Test Result Gate](#6-unit-test-result-gate) | Jenkins gate logic | unit test result gate | yes |
-| 7 | [Code Coverage](#7-code-coverage) | JaCoCo | coverage evidence generation | reported to next gate |
+| 7 | [Code Coverage](#7-code-coverage) | JaCoCo | coverage evidence generation - JaCoCo for Java only | reported to next gate |
 | 8 | [Coverage Threshold Gate](#8-coverage-threshold-gate) | Jenkins gate logic + JaCoCo XML | coverage threshold gate | yes |
 | 9 | [Software Composition Analysis](#61-software-composition-analysis-sca) | OWASP Dependency-Check | software composition analysis pre-image | reported to next gate |
 | 10 | [Dependency Security Gate](#62-dependency-security-gate-sca) | Jenkins gate logic + Dependency-Check JSON | dependency security gate (Critical/High) | yes |
