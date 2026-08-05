@@ -209,7 +209,7 @@ Every downstream artifact must be traceable to source code. Without a clean sour
 
 **Reference implementation**
 
-- [Jenkinsfile](./supply-chain-security-jenkins/Jenkinsfile)
+- [Jenkinsfile](./supply-chain-security-pipeline/Jenkinsfile)
 
 ## 2. Scan Secrets
 
@@ -640,10 +640,10 @@ Use this reference when you need:
 
 Files:
 
-- [Jenkins reference](./supply-chain-security-jenkins/)
-- [Jenkinsfile](./supply-chain-security-jenkins/Jenkinsfile)
-- [Jenkins and SonarQube installation](./supply-chain-security-jenkins/installation-jenkins.md)
-- [Jenkins runbook](./supply-chain-security-jenkins/jenkins-demo-runbook.md)
+- [Jenkins reference](./supply-chain-security-pipeline/)
+- [Jenkinsfile](./supply-chain-security-pipeline/Jenkinsfile)
+- [Jenkins and SonarQube installation](./supply-chain-security-pipeline/installation-jenkins.md)
+- [Jenkins runbook](./supply-chain-security-pipeline/jenkins-demo-runbook.md)
 
 ## Runbooks vs Reference Guides
 
@@ -660,10 +660,10 @@ Use the runbook for job execution.
 ## Repository Map
 
 ```text
-cicd-reference-architectures/
+supply-chain-security-ref/
 ├── README.md
 ├── sample-application/
-├── supply-chain-security-jenkins/
+├── supply-chain-security-pipeline/
 │   ├── Jenkinsfile
 │   ├── installation-jenkins.md
 │   └── jenkins-demo-runbook.md
@@ -690,7 +690,7 @@ Planned additions:
 - [Cosign Signing Reference](./tools/cosign-signing.md)
 - [SonarQube SAST Reference](./tools/sonarqube-sast.md)
 - [Dependency-Track SCA Reference](./tools/dependency-track.md)
-- [Jenkins Reference](./supply-chain-security-jenkins/)
-- [Jenkins Runbook](./supply-chain-security-jenkins/jenkins-demo-runbook.md)
+- [Jenkins Reference](./supply-chain-security-pipeline/)
+- [Jenkins Runbook](./supply-chain-security-pipeline/jenkins-demo-runbook.md)
 - [Sample Application](./sample-application/)
 - [Main Repository README](../README.md)

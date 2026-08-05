@@ -5,14 +5,14 @@ This page lists the **active tools used in this repository** for the CI/CD secur
 If you are looking for proof that these controls were run, start here:
 
 - Security evidence dashboard: [docs/security-reports/index.html](../../docs/security-reports/index.html)
-- CI/CD architecture overview: [cicd-reference-architectures/README.md](../README.md)
-- Pipeline implementation: [supply-chain-security-jenkins/Jenkinsfile](../supply-chain-security-jenkins/Jenkinsfile)
+- CI/CD architecture overview: [supply-chain-security-ref/README.md](../README.md)
+- Pipeline implementation: [supply-chain-security-pipeline/Jenkinsfile](../supply-chain-security-pipeline/Jenkinsfile)
 
 ## Active Tool Stack In This Repository
 
 | Control area | Tool used | Status in this repo | Reference |
 |---|---|---|---|
-| Source checkout and pipeline orchestration | Jenkins + Git SCM | implemented | [Jenkins pipeline](../supply-chain-security-jenkins/Jenkinsfile) |
+| Source checkout and pipeline orchestration | Jenkins + Git SCM | implemented | [Jenkins pipeline](../supply-chain-security-pipeline/Jenkinsfile) |
 | Unit testing | Maven Surefire + JUnit | implemented | [Sample app](../sample-application/README.md) |
 | Code coverage | JaCoCo | implemented | [CI/CD architecture](../README.md#5-code-coverage) |
 | SAST and code quality | SonarQube | implemented | [SonarQube SAST](./sonarqube-sast.md) |

@@ -3,7 +3,7 @@ pipeline {
         kubernetes {
             label 'todo-app'
             defaultContainer 'maven'
-            yamlFile 'cicd-reference-architectures/supply-chain-security-jenkins/pod-template.yaml'
+            yamlFile 'supply-chain-security-ref/supply-chain-security-pipeline/pod-template.yaml'
         }
     }
 
@@ -96,8 +96,8 @@ pipeline {
 
                             set +e
                             ./.tools/gitleaks dir . \
-                                --config cicd-reference-architectures/supply-chain-security-jenkins/gitleaks.toml \
-                                --gitleaks-ignore-path cicd-reference-architectures/supply-chain-security-jenkins/.gitleaksignore \
+                                --config supply-chain-security-ref/supply-chain-security-pipeline/gitleaks.toml \
+                                --gitleaks-ignore-path supply-chain-security-ref/supply-chain-security-pipeline/.gitleaksignore \
                                 --report-format json \
                                 --report-path ${SECURITY_REPORT_DIR}/gitleaks-report.json \
                                 --redact \
@@ -214,7 +214,7 @@ EOF
                                 aquasec/trivy:0.57.1 \
                                 -c 'sleep 300'
 
-                            docker cp cicd-reference-architectures/sample-application/. "${SCAN_CONTAINER}:/scan"
+                            docker cp supply-chain-security-ref/sample-application/. "${SCAN_CONTAINER}:/scan"
                             docker start "${SCAN_CONTAINER}" >/dev/null
 
                             set +e
@@ -269,7 +269,7 @@ EOF
                     script {
                         // Purpose: Execute unit tests and persist test execution status for explicit gate evaluation.
                         echo "Running unit tests (JUnit)..."
-                        dir('cicd-reference-architectures/sample-application') {
+                        dir('supply-chain-security-ref/sample-application') {
                             sh '''
                                 mkdir -p ../../${SECURITY_REPORT_DIR}
                                 set +e
@@ -307,7 +307,7 @@ EOF
                 container('maven') {
                     script {
                         // Purpose: Generate JaCoCo coverage report after successful unit tests.
-                        dir('cicd-reference-architectures/sample-application') {
+                        dir('supply-chain-security-ref/sample-application') {
                             sh '''
                                 mkdir -p ../../${SECURITY_REPORT_DIR}
                                 mvn -B jacoco:report
@@ -323,7 +323,7 @@ EOF
                 container('maven') {
                     script {
                         // Purpose: Enforce minimum line coverage threshold before security-heavy steps.
-                        dir('cicd-reference-architectures/sample-application') {
+                        dir('supply-chain-security-ref/sample-application') {
                             sh '''
                                 JACOCO_XML="target/site/jacoco/jacoco.xml"
                                 if [ ! -s "${JACOCO_XML}" ]; then
@@ -353,7 +353,7 @@ EOF
                 container('maven') {
                     script {
                         // Purpose: Perform SCA dependency vulnerability scanning before SAST and image build.
-                        dir('cicd-reference-architectures/sample-application') {
+                        dir('supply-chain-security-ref/sample-application') {
                             sh '''
                                 mkdir -p ../../${SECURITY_REPORT_DIR}
                                 mvn -B org.owasp:dependency-check-maven:check \
@@ -411,7 +411,7 @@ EOF
                 container('maven') {
                     script {
                         echo "Running SonarQube analysis..."
-                        dir('cicd-reference-architectures/sample-application') {
+                        dir('supply-chain-security-ref/sample-application') {
                             withCredentials([string(credentialsId: "${SONARQUBE_TOKEN_CREDENTIALS_ID}", variable: 'SONAR_TOKEN')]) {
                                                                 def runSonarScan = {
                                                                         sh '''
@@ -542,7 +542,7 @@ EOF
                 container('maven') {
                     script {
                         echo "Packaging Spring Boot application..."
-                        dir('cicd-reference-architectures/sample-application') {
+                        dir('supply-chain-security-ref/sample-application') {
                             sh 'mvn -B package -DskipTests'
                         }
                     }
@@ -556,7 +556,7 @@ EOF
                     script {
                         // Purpose: Build immutable runtime artifacts before SBOM and vulnerability evaluation.
                         echo "Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
-                        dir('cicd-reference-architectures/sample-application') {
+                        dir('supply-chain-security-ref/sample-application') {
                             sh '''
                                 docker build \
                                     -t ${IMAGE_NAME}:${IMAGE_TAG} \
@@ -1153,9 +1153,9 @@ EOF
 
                                     REPORT_STAGING_DIR="$(mktemp -d)"
                                     cp -R ${SECURITY_REPORT_DIR} "${REPORT_STAGING_DIR}/security-reports"
-                                    if [ -d cicd-reference-architectures/sample-application/target/site/jacoco ]; then
+                                    if [ -d supply-chain-security-ref/sample-application/target/site/jacoco ]; then
                                         mkdir -p "${REPORT_STAGING_DIR}/jacoco"
-                                        cp -R cicd-reference-architectures/sample-application/target/site/jacoco/. "${REPORT_STAGING_DIR}/jacoco/"
+                                        cp -R supply-chain-security-ref/sample-application/target/site/jacoco/. "${REPORT_STAGING_DIR}/jacoco/"
                                     fi
 
                                     git rev-parse --is-inside-work-tree
@@ -1866,9 +1866,9 @@ EOF
             script {
                 echo "Pipeline execution completed"
                 // Archive build artifacts if needed
-                junit testResults: 'cicd-reference-architectures/sample-application/target/surefire-reports/*.xml', allowEmptyResults: true
+                junit testResults: 'supply-chain-security-ref/sample-application/target/surefire-reports/*.xml', allowEmptyResults: true
 
-                archiveArtifacts artifacts: 'cicd-reference-architectures/sample-application/target/**/*.jar,cicd-reference-architectures/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-summary.html,security-reports/trivy-scan-exit-code.txt,security-reports/trivy-critical-count.txt,security-reports/trivy-high-count.txt,security-reports/trivy-medium-count.txt,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.trivy.log,security-reports/sbom-component-count.txt,security-reports/dependency-track-report.html,security-reports/dependency-track-report.json,security-reports/dependency-track-upload-response.json,security-reports/sonarqube-report.html,security-reports/sonarqube-report.json,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'supply-chain-security-ref/sample-application/target/**/*.jar,supply-chain-security-ref/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-summary.html,security-reports/trivy-scan-exit-code.txt,security-reports/trivy-critical-count.txt,security-reports/trivy-high-count.txt,security-reports/trivy-medium-count.txt,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.trivy.log,security-reports/sbom-component-count.txt,security-reports/dependency-track-report.html,security-reports/dependency-track-report.json,security-reports/dependency-track-upload-response.json,security-reports/sonarqube-report.html,security-reports/sonarqube-report.json,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
 
                 publishHTML(target: [
                     reportDir: 'security-reports',
@@ -1898,7 +1898,7 @@ EOF
                 ])
 
                 publishHTML(target: [
-                    reportDir: 'cicd-reference-architectures/sample-application/target/site/jacoco',
+                    reportDir: 'supply-chain-security-ref/sample-application/target/site/jacoco',
                     reportFiles: 'index.html',
                     reportName: 'JaCoCo Code Coverage Report',
                     keepAll: true,

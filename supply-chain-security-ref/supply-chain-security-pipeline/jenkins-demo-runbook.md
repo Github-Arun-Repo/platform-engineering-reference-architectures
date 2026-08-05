@@ -1,7 +1,7 @@
 # Jenkins Image Build Pipeline — Runbook
 
 **Repo:** `https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git`
-**Base folder:** `cicd-reference-architectures/` (run commands from this folder)
+**Base folder:** `supply-chain-security-ref/` (run commands from this folder)
 **Cluster:** Standalone K8s on EC2 · **Jenkins UI:** `http://<EC2-IP>:30080`
 
 ---
@@ -9,7 +9,7 @@
 ## Repo Layout (all paths below match this)
 
 ```
-cicd-reference-architectures/
+supply-chain-security-ref/
 ├── sample-application/
 │   ├── src/main/java/com/example/app/
 │   │   ├── TodoApplication.java
@@ -18,7 +18,7 @@ cicd-reference-architectures/
 │   │   └── TodoRepository.java
 │   ├── Dockerfile                    # multi-stage build
 │   └── pom.xml                       # Spring Boot 3.2 / Java 21
-└── supply-chain-security-jenkins/
+└── supply-chain-security-pipeline/
     ├── Jenkinsfile                   # 8-stage pipeline
     ├── installation-jenkins.md
     └── jenkins-demo-runbook.md       # ← this file
@@ -53,7 +53,7 @@ Credential prerequisites (mandatory):
 ```bash
 # Local clone current? Pull from repo root, then move into the working directory
 cd ~/platform-engineering-reference-architectures && git pull
-cd cicd-reference-architectures    # all commands below run from here
+cd supply-chain-security-ref    # all commands below run from here
 
 # Jenkins pod running?
 kubectl get pods -n jenkins        # expect Running 1/1
@@ -92,7 +92,7 @@ docker info | grep "Server Version"
 Always read the pipeline before running it — the Jenkinsfile is code, not configuration.
 
 ```bash
-cat supply-chain-security-jenkins/Jenkinsfile
+cat supply-chain-security-pipeline/Jenkinsfile
 ```
 
 Notice the structure:
@@ -228,7 +228,7 @@ The most common pipeline failure is a developer pushing broken code. Let's see e
 # Break a test — edit the controller to return null
 cd ~/platform-engineering-reference-architectures
 sed -i 's/return ResponseEntity.ok(todos);/return ResponseEntity.ok(null);/' \
-  cicd-reference-architectures/sample-application/src/main/java/com/example/app/TodoController.java
+  supply-chain-security-ref/sample-application/src/main/java/com/example/app/TodoController.java
 
 git add -A && git commit -m "break: return null from controller (demo)" && git push
 ```
@@ -328,7 +328,7 @@ Every commit produces a new, independently versioned image artifact.
 ```bash
 # Bump the application version
 sed -i 's/version>0.0.1-SNAPSHOT/version>0.0.2-SNAPSHOT/' \
-  cicd-reference-architectures/sample-application/pom.xml
+  supply-chain-security-ref/sample-application/pom.xml
 
 git add -A && git commit -m "bump version to 0.0.2-SNAPSHOT" && git push
 ```
@@ -370,7 +370,7 @@ In GitHub:
 
 ```bash
 # Test the webhook — make a small change and push
-echo "# webhook test" >> cicd-reference-architectures/sample-application/README.md
+echo "# webhook test" >> supply-chain-security-ref/sample-application/README.md
 git add -A && git commit -m "test webhook trigger" && git push
 ```
 
@@ -387,8 +387,8 @@ docker rmi arunrepo/todo-app:1 arunrepo/todo-app:2 arunrepo/todo-app:latest 2>/d
 
 # Revert any code changes made during the runbook
 cd ~/platform-engineering-reference-architectures
-git checkout cicd-reference-architectures/sample-application/pom.xml
-git checkout cicd-reference-architectures/sample-application/src/
+git checkout supply-chain-security-ref/sample-application/pom.xml
+git checkout supply-chain-security-ref/sample-application/src/
 
 # Optionally clear Jenkins build history:
 # Jenkins UI → todo-app-image-build → Delete Build History

@@ -8,7 +8,7 @@ description = "Generated reports and build outputs"
 paths = [
   '''(^|.*/)security-reports/''',
   '''(^|.*/)docs/security-reports/''',
-  '''(^|.*/)cicd-reference-architectures/sample-application/target/'''
+  '''(^|.*/)supply-chain-security-ref/sample-application/target/'''
 ]
 
 [[allowlists]]

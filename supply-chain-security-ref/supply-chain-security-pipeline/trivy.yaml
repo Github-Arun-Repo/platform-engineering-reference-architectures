@@ -10,4 +10,4 @@ ignore-unfixed: false
 timeout: 10m
 quiet: true
 skip-db-update: false
-ignorefile: /work/cicd-reference-architectures/supply-chain-security-jenkins/.trivyignore
+ignorefile: /work/supply-chain-security-ref/supply-chain-security-pipeline/.trivyignore

@@ -103,4 +103,4 @@ kyverno-image-verification/
 
 - [Back to Kubernetes Reference Architectures](../README.md)
 - [Kubernetes runbook](../kubernetes-runbook.md)
-- [CI/CD reference architecture](../../cicd-reference-architectures/README.md)
+- [CI/CD reference architecture](../../supply-chain-security-ref/README.md)
