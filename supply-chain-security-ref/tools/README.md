@@ -4,7 +4,7 @@ This page lists the **active tools used in this repository** for the CI/CD secur
 
 If you are looking for proof that these controls were run, start here:
 
-- Security evidence dashboard: [docs/security-reports/index.html](../../docs/security-reports/index.html)
+- Security evidence dashboard: [docs/security-reports/index.html](../docs/security-reports/index.html)
 - CI/CD architecture overview: [supply-chain-security-ref/README.md](../README.md)
 - Pipeline implementation: [supply-chain-security-pipeline/Jenkinsfile](../supply-chain-security-pipeline/Jenkinsfile)
 

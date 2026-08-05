@@ -3,9 +3,9 @@
 # github-commit:src/main/resources/application.yml:generic-api-key:123
 
 # Generated Dependency-Track report tokens (non-secret processing tokens) in build artifacts.
-docs/security-reports/dependency-track-report.html:generic-api-key:27
-docs/security-reports/dependency-track-upload-response.json:generic-api-key:1
-docs/security-reports/dependency-track-report.json:generic-api-key:8
-security-reports/dependency-track-report.json:generic-api-key:8
-security-reports/dependency-track-report.html:generic-api-key:27
-security-reports/dependency-track-upload-response.json:generic-api-key:1
+supply-chain-security-ref/docs/security-reports/dependency-track-report.html:generic-api-key:27
+supply-chain-security-ref/docs/security-reports/dependency-track-upload-response.json:generic-api-key:1
+supply-chain-security-ref/docs/security-reports/dependency-track-report.json:generic-api-key:8
+supply-chain-security-ref/security-reports/dependency-track-report.json:generic-api-key:8
+supply-chain-security-ref/security-reports/dependency-track-report.html:generic-api-key:27
+supply-chain-security-ref/security-reports/dependency-track-upload-response.json:generic-api-key:1

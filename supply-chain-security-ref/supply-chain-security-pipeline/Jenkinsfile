@@ -16,7 +16,7 @@ pipeline {
         GIT_REPO = 'https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures.git'
         GITHUB_CREDENTIALS_ID = 'github-arun-repository'
         DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials'
-        SECURITY_REPORT_DIR = 'security-reports'
+        SECURITY_REPORT_DIR = 'supply-chain-security-ref/security-reports'
         GITLEAKS_VERSION = '8.24.2'
         ORAS_VERSION = '1.2.2'
         COSIGN_VERSION = '2.4.1'
@@ -988,7 +988,7 @@ EOF
             steps {
                 script {
                     // Purpose: Persist generated security evidence as Jenkins artifacts for audit and automation.
-                    archiveArtifacts artifacts: 'security-reports/**/*.json,security-reports/**/*.html,security-reports/**/*.txt', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'supply-chain-security-ref/security-reports/**/*.json,supply-chain-security-ref/security-reports/**/*.html,supply-chain-security-ref/security-reports/**/*.txt', allowEmptyArchive: true
                 }
             }
         }
@@ -1174,35 +1174,35 @@ EOF
                                     rm -rf ${SECURITY_REPORT_DIR}
                                     cp -R "${REPORT_STAGING_DIR}/security-reports" ${SECURITY_REPORT_DIR}
                                     if [ -d "${REPORT_STAGING_DIR}/jacoco" ]; then
-                                        rm -rf docs/security-reports/jacoco
-                                        mkdir -p docs/security-reports/jacoco
-                                        cp -R "${REPORT_STAGING_DIR}/jacoco/." docs/security-reports/jacoco/
+                                        rm -rf supply-chain-security-ref/docs/security-reports/jacoco
+                                        mkdir -p supply-chain-security-ref/docs/security-reports/jacoco
+                                        cp -R "${REPORT_STAGING_DIR}/jacoco/." supply-chain-security-ref/docs/security-reports/jacoco/
                                     fi
                                     rm -rf "${REPORT_STAGING_DIR}"
 
                                     # Publish latest reports to the web dashboard folder.
-                                    mkdir -p docs/security-reports
-                                    cp ${SECURITY_REPORT_DIR}/trivy-report.html docs/security-reports/trivy-report.html
-                                    cp ${SECURITY_REPORT_DIR}/trivy-report.json docs/security-reports/trivy-report.json
-                                    cp ${SECURITY_REPORT_DIR}/trivy-summary.html docs/security-reports/trivy-summary.html
-                                    cp ${SECURITY_REPORT_DIR}/trivy-scan-exit-code.txt docs/security-reports/trivy-scan-exit-code.txt
-                                    cp ${SECURITY_REPORT_DIR}/trivy-critical-count.txt docs/security-reports/trivy-critical-count.txt
-                                    cp ${SECURITY_REPORT_DIR}/trivy-high-count.txt docs/security-reports/trivy-high-count.txt
-                                    cp ${SECURITY_REPORT_DIR}/trivy-medium-count.txt docs/security-reports/trivy-medium-count.txt
-                                    cp ${SECURITY_REPORT_DIR}/trivy-fs-report.html docs/security-reports/trivy-fs-report.html
-                                    cp ${SECURITY_REPORT_DIR}/trivy-fs-report.json docs/security-reports/trivy-fs-report.json
-                                    cp ${SECURITY_REPORT_DIR}/gitleaks-report.html docs/security-reports/gitleaks-report.html
-                                    cp ${SECURITY_REPORT_DIR}/gitleaks-report.json docs/security-reports/gitleaks-report.json
-                                    cp ${SECURITY_REPORT_DIR}/sbom-report.html docs/security-reports/sbom-report.html
-                                    cp ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json docs/security-reports/sbom.cyclonedx.json
-                                    cp ${SECURITY_REPORT_DIR}/sbom.trivy.log docs/security-reports/sbom.trivy.log
-                                    cp ${SECURITY_REPORT_DIR}/sbom-component-count.txt docs/security-reports/sbom-component-count.txt
-                                                                        cp ${SECURITY_REPORT_DIR}/dependency-track-report.html docs/security-reports/dependency-track-report.html
-                                                                        cp ${SECURITY_REPORT_DIR}/dependency-track-report.json docs/security-reports/dependency-track-report.json
-                                                                        cp ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json docs/security-reports/dependency-track-upload-response.json
-                                                                        cp ${SECURITY_REPORT_DIR}/sonarqube-report.html docs/security-reports/sonarqube-report.html
-                                                                        cp ${SECURITY_REPORT_DIR}/sonarqube-report.json docs/security-reports/sonarqube-report.json
-                                    printf '{"build":"%s","timestamp":"%s"}' "${BUILD_NUMBER}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/security-reports/build-meta.json
+                                    mkdir -p supply-chain-security-ref/docs/security-reports
+                                    cp ${SECURITY_REPORT_DIR}/trivy-report.html supply-chain-security-ref/docs/security-reports/trivy-report.html
+                                    cp ${SECURITY_REPORT_DIR}/trivy-report.json supply-chain-security-ref/docs/security-reports/trivy-report.json
+                                    cp ${SECURITY_REPORT_DIR}/trivy-summary.html supply-chain-security-ref/docs/security-reports/trivy-summary.html
+                                    cp ${SECURITY_REPORT_DIR}/trivy-scan-exit-code.txt supply-chain-security-ref/docs/security-reports/trivy-scan-exit-code.txt
+                                    cp ${SECURITY_REPORT_DIR}/trivy-critical-count.txt supply-chain-security-ref/docs/security-reports/trivy-critical-count.txt
+                                    cp ${SECURITY_REPORT_DIR}/trivy-high-count.txt supply-chain-security-ref/docs/security-reports/trivy-high-count.txt
+                                    cp ${SECURITY_REPORT_DIR}/trivy-medium-count.txt supply-chain-security-ref/docs/security-reports/trivy-medium-count.txt
+                                    cp ${SECURITY_REPORT_DIR}/trivy-fs-report.html supply-chain-security-ref/docs/security-reports/trivy-fs-report.html
+                                    cp ${SECURITY_REPORT_DIR}/trivy-fs-report.json supply-chain-security-ref/docs/security-reports/trivy-fs-report.json
+                                    cp ${SECURITY_REPORT_DIR}/gitleaks-report.html supply-chain-security-ref/docs/security-reports/gitleaks-report.html
+                                    cp ${SECURITY_REPORT_DIR}/gitleaks-report.json supply-chain-security-ref/docs/security-reports/gitleaks-report.json
+                                    cp ${SECURITY_REPORT_DIR}/sbom-report.html supply-chain-security-ref/docs/security-reports/sbom-report.html
+                                    cp ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json supply-chain-security-ref/docs/security-reports/sbom.cyclonedx.json
+                                    cp ${SECURITY_REPORT_DIR}/sbom.trivy.log supply-chain-security-ref/docs/security-reports/sbom.trivy.log
+                                    cp ${SECURITY_REPORT_DIR}/sbom-component-count.txt supply-chain-security-ref/docs/security-reports/sbom-component-count.txt
+                                                                        cp ${SECURITY_REPORT_DIR}/dependency-track-report.html supply-chain-security-ref/docs/security-reports/dependency-track-report.html
+                                                                        cp ${SECURITY_REPORT_DIR}/dependency-track-report.json supply-chain-security-ref/docs/security-reports/dependency-track-report.json
+                                                                        cp ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json supply-chain-security-ref/docs/security-reports/dependency-track-upload-response.json
+                                                                        cp ${SECURITY_REPORT_DIR}/sonarqube-report.html supply-chain-security-ref/docs/security-reports/sonarqube-report.html
+                                                                        cp ${SECURITY_REPORT_DIR}/sonarqube-report.json supply-chain-security-ref/docs/security-reports/sonarqube-report.json
+                                    printf '{"build":"%s","timestamp":"%s"}' "${BUILD_NUMBER}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > supply-chain-security-ref/docs/security-reports/build-meta.json
 
                                         git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html ${SECURITY_REPORT_DIR}/trivy-summary.html \
                                             ${SECURITY_REPORT_DIR}/trivy-scan-exit-code.txt ${SECURITY_REPORT_DIR}/trivy-critical-count.txt ${SECURITY_REPORT_DIR}/trivy-high-count.txt ${SECURITY_REPORT_DIR}/trivy-medium-count.txt \
@@ -1211,14 +1211,14 @@ EOF
                                             ${SECURITY_REPORT_DIR}/sbom-report.html ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ${SECURITY_REPORT_DIR}/sbom.trivy.log ${SECURITY_REPORT_DIR}/sbom-component-count.txt \
                                                                                         ${SECURITY_REPORT_DIR}/dependency-track-report.html ${SECURITY_REPORT_DIR}/dependency-track-report.json ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json \
                                                                                         ${SECURITY_REPORT_DIR}/sonarqube-report.html ${SECURITY_REPORT_DIR}/sonarqube-report.json \
-                                            docs/security-reports/trivy-report.html docs/security-reports/trivy-report.json docs/security-reports/trivy-summary.html \
-                                            docs/security-reports/trivy-fs-report.html docs/security-reports/trivy-fs-report.json \
-                                            docs/security-reports/gitleaks-report.html docs/security-reports/gitleaks-report.json \
-                                                                                        docs/security-reports/sbom-report.html docs/security-reports/sbom.cyclonedx.json docs/security-reports/sbom.trivy.log docs/security-reports/sbom-component-count.txt docs/security-reports/dependency-track-report.html docs/security-reports/dependency-track-report.json docs/security-reports/dependency-track-upload-response.json \
-                                                                                        docs/security-reports/sonarqube-report.html docs/security-reports/sonarqube-report.json \
-                                            docs/security-reports/build-meta.json
-                                    if [ -d docs/security-reports/jacoco ]; then
-                                        git add docs/security-reports/jacoco
+                                            supply-chain-security-ref/docs/security-reports/trivy-report.html supply-chain-security-ref/docs/security-reports/trivy-report.json supply-chain-security-ref/docs/security-reports/trivy-summary.html \
+                                            supply-chain-security-ref/docs/security-reports/trivy-fs-report.html supply-chain-security-ref/docs/security-reports/trivy-fs-report.json \
+                                            supply-chain-security-ref/docs/security-reports/gitleaks-report.html supply-chain-security-ref/docs/security-reports/gitleaks-report.json \
+                                                                                        supply-chain-security-ref/docs/security-reports/sbom-report.html supply-chain-security-ref/docs/security-reports/sbom.cyclonedx.json supply-chain-security-ref/docs/security-reports/sbom.trivy.log supply-chain-security-ref/docs/security-reports/sbom-component-count.txt supply-chain-security-ref/docs/security-reports/dependency-track-report.html supply-chain-security-ref/docs/security-reports/dependency-track-report.json supply-chain-security-ref/docs/security-reports/dependency-track-upload-response.json \
+                                                                                        supply-chain-security-ref/docs/security-reports/sonarqube-report.html supply-chain-security-ref/docs/security-reports/sonarqube-report.json \
+                                            supply-chain-security-ref/docs/security-reports/build-meta.json
+                                    if [ -d supply-chain-security-ref/docs/security-reports/jacoco ]; then
+                                        git add supply-chain-security-ref/docs/security-reports/jacoco
                                     fi
 
                                     if git diff --staged --quiet; then
@@ -1783,7 +1783,7 @@ EOF
                                     git checkout -B main origin/main
 
                                     mkdir -p ${SECURITY_REPORT_DIR}
-                                    mkdir -p docs/security-reports
+                                    mkdir -p supply-chain-security-ref/docs/security-reports
 
                                     cp "${COSIGN_STAGING_DIR}/cosign-report.html" ${SECURITY_REPORT_DIR}/cosign-report.html
                                     cp "${COSIGN_STAGING_DIR}/cosign-image-ref.txt" ${SECURITY_REPORT_DIR}/cosign-image-ref.txt
@@ -1800,20 +1800,20 @@ EOF
                                     cp "${COSIGN_STAGING_DIR}/cosign-tags.json" ${SECURITY_REPORT_DIR}/cosign-tags.json
                                     cp "${COSIGN_STAGING_DIR}/cosign-registry-check.txt" ${SECURITY_REPORT_DIR}/cosign-registry-check.txt
 
-                                    cp "${COSIGN_STAGING_DIR}/cosign-report.html" docs/security-reports/cosign-report.html
-                                    cp "${COSIGN_STAGING_DIR}/cosign-image-ref.txt" docs/security-reports/cosign-image-ref.txt
-                                    cp "${COSIGN_STAGING_DIR}/cosign.pub" docs/security-reports/cosign.pub
-                                    cp "${COSIGN_STAGING_DIR}/cosign-build-attestation.json" docs/security-reports/cosign-build-attestation.json
-                                    cp "${COSIGN_STAGING_DIR}/cosign-sign.txt" docs/security-reports/cosign-sign.txt
-                                    cp "${COSIGN_STAGING_DIR}/cosign-verify.txt" docs/security-reports/cosign-verify.txt
-                                    cp "${COSIGN_STAGING_DIR}/cosign-sbom-attest.txt" docs/security-reports/cosign-sbom-attest.txt
-                                    cp "${COSIGN_STAGING_DIR}/cosign-build-attest.txt" docs/security-reports/cosign-build-attest.txt
-                                    cp "${COSIGN_STAGING_DIR}/cosign-verify-attestation-sbom.txt" docs/security-reports/cosign-verify-attestation-sbom.txt
-                                    cp "${COSIGN_STAGING_DIR}/cosign-verify-attestation-build.txt" docs/security-reports/cosign-verify-attestation-build.txt
-                                    cp "${COSIGN_STAGING_DIR}/cosign-tree.txt" docs/security-reports/cosign-tree.txt
-                                    cp "${COSIGN_STAGING_DIR}/cosign-tree-verify.txt" docs/security-reports/cosign-tree-verify.txt
-                                    cp "${COSIGN_STAGING_DIR}/cosign-tags.json" docs/security-reports/cosign-tags.json
-                                    cp "${COSIGN_STAGING_DIR}/cosign-registry-check.txt" docs/security-reports/cosign-registry-check.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-report.html" supply-chain-security-ref/docs/security-reports/cosign-report.html
+                                    cp "${COSIGN_STAGING_DIR}/cosign-image-ref.txt" supply-chain-security-ref/docs/security-reports/cosign-image-ref.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign.pub" supply-chain-security-ref/docs/security-reports/cosign.pub
+                                    cp "${COSIGN_STAGING_DIR}/cosign-build-attestation.json" supply-chain-security-ref/docs/security-reports/cosign-build-attestation.json
+                                    cp "${COSIGN_STAGING_DIR}/cosign-sign.txt" supply-chain-security-ref/docs/security-reports/cosign-sign.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-verify.txt" supply-chain-security-ref/docs/security-reports/cosign-verify.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-sbom-attest.txt" supply-chain-security-ref/docs/security-reports/cosign-sbom-attest.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-build-attest.txt" supply-chain-security-ref/docs/security-reports/cosign-build-attest.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-verify-attestation-sbom.txt" supply-chain-security-ref/docs/security-reports/cosign-verify-attestation-sbom.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-verify-attestation-build.txt" supply-chain-security-ref/docs/security-reports/cosign-verify-attestation-build.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-tree.txt" supply-chain-security-ref/docs/security-reports/cosign-tree.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-tree-verify.txt" supply-chain-security-ref/docs/security-reports/cosign-tree-verify.txt
+                                    cp "${COSIGN_STAGING_DIR}/cosign-tags.json" supply-chain-security-ref/docs/security-reports/cosign-tags.json
+                                    cp "${COSIGN_STAGING_DIR}/cosign-registry-check.txt" supply-chain-security-ref/docs/security-reports/cosign-registry-check.txt
                                     rm -rf "${COSIGN_STAGING_DIR}"
 
                                         git add ${SECURITY_REPORT_DIR}/cosign-report.html \
@@ -1830,20 +1830,20 @@ EOF
                                             ${SECURITY_REPORT_DIR}/cosign-tree-verify.txt \
                                             ${SECURITY_REPORT_DIR}/cosign-tags.json \
                                             ${SECURITY_REPORT_DIR}/cosign-registry-check.txt \
-                                            docs/security-reports/cosign-report.html \
-                                            docs/security-reports/cosign-image-ref.txt \
-                                            docs/security-reports/cosign.pub \
-                                            docs/security-reports/cosign-build-attestation.json \
-                                            docs/security-reports/cosign-sign.txt \
-                                            docs/security-reports/cosign-verify.txt \
-                                            docs/security-reports/cosign-sbom-attest.txt \
-                                            docs/security-reports/cosign-build-attest.txt \
-                                            docs/security-reports/cosign-verify-attestation-sbom.txt \
-                                            docs/security-reports/cosign-verify-attestation-build.txt \
-                                            docs/security-reports/cosign-tree.txt \
-                                            docs/security-reports/cosign-tree-verify.txt \
-                                            docs/security-reports/cosign-tags.json \
-                                            docs/security-reports/cosign-registry-check.txt
+                                            supply-chain-security-ref/docs/security-reports/cosign-report.html \
+                                            supply-chain-security-ref/docs/security-reports/cosign-image-ref.txt \
+                                            supply-chain-security-ref/docs/security-reports/cosign.pub \
+                                            supply-chain-security-ref/docs/security-reports/cosign-build-attestation.json \
+                                            supply-chain-security-ref/docs/security-reports/cosign-sign.txt \
+                                            supply-chain-security-ref/docs/security-reports/cosign-verify.txt \
+                                            supply-chain-security-ref/docs/security-reports/cosign-sbom-attest.txt \
+                                            supply-chain-security-ref/docs/security-reports/cosign-build-attest.txt \
+                                            supply-chain-security-ref/docs/security-reports/cosign-verify-attestation-sbom.txt \
+                                            supply-chain-security-ref/docs/security-reports/cosign-verify-attestation-build.txt \
+                                            supply-chain-security-ref/docs/security-reports/cosign-tree.txt \
+                                            supply-chain-security-ref/docs/security-reports/cosign-tree-verify.txt \
+                                            supply-chain-security-ref/docs/security-reports/cosign-tags.json \
+                                            supply-chain-security-ref/docs/security-reports/cosign-registry-check.txt
 
                                     if git diff --staged --quiet; then
                                         echo "No Cosign evidence changes to commit"
@@ -1868,10 +1868,10 @@ EOF
                 // Archive build artifacts if needed
                 junit testResults: 'supply-chain-security-ref/sample-application/target/surefire-reports/*.xml', allowEmptyResults: true
 
-                archiveArtifacts artifacts: 'supply-chain-security-ref/sample-application/target/**/*.jar,supply-chain-security-ref/sample-application/target/site/jacoco/**/*,security-reports/trivy-report.json,security-reports/trivy-report.html,security-reports/trivy-summary.html,security-reports/trivy-scan-exit-code.txt,security-reports/trivy-critical-count.txt,security-reports/trivy-high-count.txt,security-reports/trivy-medium-count.txt,security-reports/trivy-fs-report.json,security-reports/trivy-fs-report.html,security-reports/gitleaks-report.json,security-reports/gitleaks-report.html,security-reports/gitleaks-exit-code.txt,security-reports/sbom-report.html,security-reports/sbom.cyclonedx.json,security-reports/sbom.trivy.log,security-reports/sbom-component-count.txt,security-reports/dependency-track-report.html,security-reports/dependency-track-report.json,security-reports/dependency-track-upload-response.json,security-reports/sonarqube-report.html,security-reports/sonarqube-report.json,security-reports/cosign-report.html,security-reports/cosign-image-ref.txt,security-reports/cosign.pub,security-reports/cosign-build-attestation.json,security-reports/cosign-sign.txt,security-reports/cosign-verify.txt,security-reports/cosign-sbom-attest.txt,security-reports/cosign-build-attest.txt,security-reports/cosign-verify-attestation-sbom.txt,security-reports/cosign-verify-attestation-build.txt,security-reports/cosign-tree.txt,security-reports/cosign-tree-verify.txt,security-reports/cosign-tags.json,security-reports/cosign-registry-check.txt', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'supply-chain-security-ref/sample-application/target/**/*.jar,supply-chain-security-ref/sample-application/target/site/jacoco/**/*,supply-chain-security-ref/security-reports/trivy-report.json,supply-chain-security-ref/security-reports/trivy-report.html,supply-chain-security-ref/security-reports/trivy-summary.html,supply-chain-security-ref/security-reports/trivy-scan-exit-code.txt,supply-chain-security-ref/security-reports/trivy-critical-count.txt,supply-chain-security-ref/security-reports/trivy-high-count.txt,supply-chain-security-ref/security-reports/trivy-medium-count.txt,supply-chain-security-ref/security-reports/trivy-fs-report.json,supply-chain-security-ref/security-reports/trivy-fs-report.html,supply-chain-security-ref/security-reports/gitleaks-report.json,supply-chain-security-ref/security-reports/gitleaks-report.html,supply-chain-security-ref/security-reports/gitleaks-exit-code.txt,supply-chain-security-ref/security-reports/sbom-report.html,supply-chain-security-ref/security-reports/sbom.cyclonedx.json,supply-chain-security-ref/security-reports/sbom.trivy.log,supply-chain-security-ref/security-reports/sbom-component-count.txt,supply-chain-security-ref/security-reports/dependency-track-report.html,supply-chain-security-ref/security-reports/dependency-track-report.json,supply-chain-security-ref/security-reports/dependency-track-upload-response.json,supply-chain-security-ref/security-reports/sonarqube-report.html,supply-chain-security-ref/security-reports/sonarqube-report.json,supply-chain-security-ref/security-reports/cosign-report.html,supply-chain-security-ref/security-reports/cosign-image-ref.txt,supply-chain-security-ref/security-reports/cosign.pub,supply-chain-security-ref/security-reports/cosign-build-attestation.json,supply-chain-security-ref/security-reports/cosign-sign.txt,supply-chain-security-ref/security-reports/cosign-verify.txt,supply-chain-security-ref/security-reports/cosign-sbom-attest.txt,supply-chain-security-ref/security-reports/cosign-build-attest.txt,supply-chain-security-ref/security-reports/cosign-verify-attestation-sbom.txt,supply-chain-security-ref/security-reports/cosign-verify-attestation-build.txt,supply-chain-security-ref/security-reports/cosign-tree.txt,supply-chain-security-ref/security-reports/cosign-tree-verify.txt,supply-chain-security-ref/security-reports/cosign-tags.json,supply-chain-security-ref/security-reports/cosign-registry-check.txt', allowEmptyArchive: true
 
                 publishHTML(target: [
-                    reportDir: 'security-reports',
+                    reportDir: 'supply-chain-security-ref/security-reports',
                     reportFiles: 'trivy-report.html',
                     reportName: 'Trivy CVE Report',
                     keepAll: true,
@@ -1880,7 +1880,7 @@ EOF
                 ])
 
                 publishHTML(target: [
-                    reportDir: 'security-reports',
+                    reportDir: 'supply-chain-security-ref/security-reports',
                     reportFiles: 'trivy-summary.html',
                     reportName: 'Trivy Security Gate Summary',
                     keepAll: true,
@@ -1889,7 +1889,7 @@ EOF
                 ])
 
                 publishHTML(target: [
-                    reportDir: 'security-reports',
+                    reportDir: 'supply-chain-security-ref/security-reports',
                     reportFiles: 'trivy-fs-report.html',
                     reportName: 'Trivy Filesystem Report',
                     keepAll: true,
@@ -1907,7 +1907,7 @@ EOF
                 ])
 
                 publishHTML(target: [
-                    reportDir: 'security-reports',
+                    reportDir: 'supply-chain-security-ref/security-reports',
                     reportFiles: 'gitleaks-report.html',
                     reportName: 'Gitleaks Secret Report',
                     keepAll: true,
@@ -1916,7 +1916,7 @@ EOF
                 ])
 
                 publishHTML(target: [
-                    reportDir: 'security-reports',
+                    reportDir: 'supply-chain-security-ref/security-reports',
                     reportFiles: 'sbom-report.html',
                     reportName: 'Image SBOM Report',
                     keepAll: true,
@@ -1925,7 +1925,7 @@ EOF
                 ])
 
                 publishHTML(target: [
-                    reportDir: 'security-reports',
+                    reportDir: 'supply-chain-security-ref/security-reports',
                     reportFiles: 'dependency-track-report.html',
                     reportName: 'Dependency-Track SBOM Publish Report',
                     keepAll: true,
@@ -1934,7 +1934,7 @@ EOF
                 ])
 
                 publishHTML(target: [
-                    reportDir: 'security-reports',
+                    reportDir: 'supply-chain-security-ref/security-reports',
                     reportFiles: 'sonarqube-report.html',
                     reportName: 'SonarQube Summary Report',
                     keepAll: true,
@@ -1943,7 +1943,7 @@ EOF
                 ])
 
                 publishHTML(target: [
-                    reportDir: 'security-reports',
+                    reportDir: 'supply-chain-security-ref/security-reports',
                     reportFiles: 'cosign-report.html',
                     reportName: 'Cosign Signature and Attestation Report',
                     keepAll: true,

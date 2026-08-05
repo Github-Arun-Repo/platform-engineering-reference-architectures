@@ -6,8 +6,8 @@ useDefault = true
 [[allowlists]]
 description = "Generated reports and build outputs"
 paths = [
-  '''(^|.*/)security-reports/''',
-  '''(^|.*/)docs/security-reports/''',
+  '''(^|.*/)supply-chain-security-ref/security-reports/''',
+  '''(^|.*/)supply-chain-security-ref/docs/security-reports/''',
   '''(^|.*/)supply-chain-security-ref/sample-application/target/'''
 ]
 
