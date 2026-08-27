@@ -310,14 +310,27 @@ EOF
 
                                     # Persist the CVE data in the mounted cache so updates are incremental
                                     # across builds and the pipeline is resilient to NVD rate limits.
-                                    mvn -B org.owasp:dependency-check-maven:check \
-                                        -Dformat=JSON \
-                                        -Dformat=HTML \
-                                        -DfailBuildOnCVSS=11 \
-                                        -DnvdApiKey=${NVD_API_KEY} \
-                                        -DnvdApiDelay=6000 \
-                                        -DdataDirectory=${DEPENDENCY_CHECK_DATA_DIR} \
-                                        -Dout=../../${SECURITY_REPORT_DIR}
+                                    run_check() {
+                                        mvn -B org.owasp:dependency-check-maven:check \
+                                            -Dformat=JSON \
+                                            -Dformat=HTML \
+                                            -DfailBuildOnCVSS=11 \
+                                            -DnvdApiKey=${NVD_API_KEY} \
+                                            -DnvdApiDelay=6000 \
+                                            -DdataDirectory=${DEPENDENCY_CHECK_DATA_DIR} \
+                                            -Dout=../../${SECURITY_REPORT_DIR}
+                                    }
+
+                                    # Self-heal an incompatible/corrupt cached CVE database (e.g. left by a
+                                    # different Dependency-Check version): purge and rebuild once, then retry.
+                                    if ! run_check; then
+                                        echo "Dependency-Check failed; purging cached CVE database and retrying once..."
+                                        mvn -B org.owasp:dependency-check-maven:purge \
+                                            -DdataDirectory=${DEPENDENCY_CHECK_DATA_DIR} || \
+                                            rm -rf "${DEPENDENCY_CHECK_DATA_DIR}"/*
+                                        mkdir -p "${DEPENDENCY_CHECK_DATA_DIR}"
+                                        run_check
+                                    fi
                                 '''
                             }
                         }
