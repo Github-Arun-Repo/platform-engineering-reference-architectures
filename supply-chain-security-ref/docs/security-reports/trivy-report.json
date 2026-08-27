@@ -1,14 +1,14 @@
 {
   "SchemaVersion": 2,
-  "CreatedAt": "2026-08-27T17:54:29.365566239Z",
-  "ArtifactName": "agovindasamy/arun:82",
+  "CreatedAt": "2026-08-27T18:13:55.92603026Z",
+  "ArtifactName": "agovindasamy/arun:83",
   "ArtifactType": "container_image",
   "Metadata": {
     "OS": {
       "Family": "alpine",
       "Name": "3.24.1"
     },
-    "ImageID": "sha256:84fb5d726d78cb465d27fd0bfbec07b856294cf14343c854c092aed086e241bf",
+    "ImageID": "sha256:3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d",
     "DiffIDs": [
       "sha256:34884abbe92863fce933ed7c39c0e045631af0ed86d5cc0dfbdf9fdca426ce3c",
       "sha256:feb44b720e4357b0ce4112fe335bd1ff29b5f07af9cb06a3dff65f8d8c4297a4",
@@ -22,11 +22,11 @@
       "sha256:e1e846dc1700b62939e3d89124559632e30a9e5d96fd6e60bc85ab3e97e8fa29"
     ],
     "RepoTags": [
-      "agovindasamy/arun:82",
+      "agovindasamy/arun:83",
       "agovindasamy/arun:latest"
     ],
     "RepoDigests": [
-      "agovindasamy/arun@sha256:84fb5d726d78cb465d27fd0bfbec07b856294cf14343c854c092aed086e241bf"
+      "agovindasamy/arun@sha256:3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d"
     ],
     "ImageConfig": {
       "architecture": "amd64",
@@ -191,7 +191,7 @@
   },
   "Results": [
     {
-      "Target": "agovindasamy/arun:82 (alpine 3.24.1)",
+      "Target": "agovindasamy/arun:83 (alpine 3.24.1)",
       "Class": "os-pkgs",
       "Type": "alpine",
       "Vulnerabilities": [
@@ -2312,7 +2312,6 @@
           },
           "References": [
             "https://access.redhat.com/errata/RHSA-2026:40895",
-            "https://access.redhat.com/errata/RHSA-2026:43400",
             "https://access.redhat.com/security/cve/CVE-2026-54512",
             "https://bugzilla.redhat.com/2492010",
             "https://bugzilla.redhat.com/2492015",
@@ -2322,7 +2321,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-54512",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-54513",
             "https://errata.almalinux.org/9/ALSA-2026-40895.html",
-            "https://errata.rockylinux.org/RLSA-2026:43400",
+            "https://errata.rockylinux.org/RLSA-2026:40895",
             "https://github.com/FasterXML/jackson-databind",
             "https://github.com/FasterXML/jackson-databind/commit/434d6c511de7fdd9872f29157aafb6162d12d8d5",
             "https://github.com/FasterXML/jackson-databind/issues/5988",
@@ -2411,7 +2410,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-54512",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-54513",
             "https://errata.almalinux.org/9/ALSA-2026-40895.html",
-            "https://errata.rockylinux.org/RLSA-2026:43400",
+            "https://errata.rockylinux.org/RLSA-2026:40895",
             "https://github.com/FasterXML/jackson-databind",
             "https://github.com/FasterXML/jackson-databind/commit/01d1692c8d0ed03e51a0e3c4f8a9e6908e4931e5",
             "https://github.com/FasterXML/jackson-databind/commit/24529da29fdf46ff94ca38de9ebf31cd188f5e8e",

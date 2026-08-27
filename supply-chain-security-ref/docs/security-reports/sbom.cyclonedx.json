@@ -2,10 +2,10 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:7567d0b4-5138-4ddd-990b-290423836e9d",
+  "serialNumber": "urn:uuid:34a32255-91d8-4ba5-9784-3225078b0d5d",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-08-27T17:53:39+00:00",
+    "timestamp": "2026-08-27T18:13:08+00:00",
     "tools": {
       "components": [
         {
@@ -17,10 +17,10 @@
       ]
     },
     "component": {
-      "bom-ref": "pkg:oci/arun@sha256%3A84fb5d726d78cb465d27fd0bfbec07b856294cf14343c854c092aed086e241bf?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
+      "bom-ref": "pkg:oci/arun@sha256%3A3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
       "type": "container",
-      "name": "agovindasamy/arun:82",
-      "purl": "pkg:oci/arun@sha256%3A84fb5d726d78cb465d27fd0bfbec07b856294cf14343c854c092aed086e241bf?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
+      "name": "agovindasamy/arun:83",
+      "purl": "pkg:oci/arun@sha256%3A3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
       "properties": [
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -64,15 +64,15 @@
         },
         {
           "name": "aquasecurity:trivy:ImageID",
-          "value": "sha256:84fb5d726d78cb465d27fd0bfbec07b856294cf14343c854c092aed086e241bf"
+          "value": "sha256:3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d"
         },
         {
           "name": "aquasecurity:trivy:RepoDigest",
-          "value": "agovindasamy/arun@sha256:84fb5d726d78cb465d27fd0bfbec07b856294cf14343c854c092aed086e241bf"
+          "value": "agovindasamy/arun@sha256:3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d"
         },
         {
           "name": "aquasecurity:trivy:RepoTag",
-          "value": "agovindasamy/arun:82"
+          "value": "agovindasamy/arun:83"
         },
         {
           "name": "aquasecurity:trivy:RepoTag",
@@ -87,7 +87,7 @@
   },
   "components": [
     {
-      "bom-ref": "de7a340d-91d5-4cac-93c0-5a35766e1933",
+      "bom-ref": "bc2818fa-f062-4389-b3bc-5b32842e4b24",
       "type": "operating-system",
       "name": "alpine",
       "version": "3.24.1",
@@ -5340,7 +5340,7 @@
   ],
   "dependencies": [
     {
-      "ref": "de7a340d-91d5-4cac-93c0-5a35766e1933",
+      "ref": "bc2818fa-f062-4389-b3bc-5b32842e4b24",
       "dependsOn": [
         "pkg:apk/alpine/acl-libs@2.3.2-r1?arch=x86_64&distro=3.24.1",
         "pkg:apk/alpine/alpine-baselayout-data@3.7.2-r1?arch=x86_64&distro=3.24.1",
@@ -6201,9 +6201,9 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:oci/arun@sha256%3A84fb5d726d78cb465d27fd0bfbec07b856294cf14343c854c092aed086e241bf?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
+      "ref": "pkg:oci/arun@sha256%3A3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
       "dependsOn": [
-        "de7a340d-91d5-4cac-93c0-5a35766e1933",
+        "bc2818fa-f062-4389-b3bc-5b32842e4b24",
         "pkg:maven/ch.qos.logback/logback-classic@1.4.11",
         "pkg:maven/ch.qos.logback/logback-core@1.4.11",
         "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.15.3",
@@ -9271,9 +9271,6 @@
           "url": "https://access.redhat.com/errata/RHSA-2026:40895"
         },
         {
-          "url": "https://access.redhat.com/errata/RHSA-2026:43400"
-        },
-        {
           "url": "https://access.redhat.com/security/cve/CVE-2026-54512"
         },
         {
@@ -9301,7 +9298,7 @@
           "url": "https://errata.almalinux.org/9/ALSA-2026-40895.html"
         },
         {
-          "url": "https://errata.rockylinux.org/RLSA-2026:43400"
+          "url": "https://errata.rockylinux.org/RLSA-2026:40895"
         },
         {
           "url": "https://github.com/FasterXML/jackson-databind"
@@ -9489,7 +9486,7 @@
           "url": "https://errata.almalinux.org/9/ALSA-2026-40895.html"
         },
         {
-          "url": "https://errata.rockylinux.org/RLSA-2026:43400"
+          "url": "https://errata.rockylinux.org/RLSA-2026:40895"
         },
         {
           "url": "https://github.com/FasterXML/jackson-databind"
