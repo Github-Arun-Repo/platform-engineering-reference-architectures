@@ -13,13 +13,13 @@ If you are looking for proof that these controls were run, start here:
 | Control area | Tool used | Status in this repo | Reference |
 |---|---|---|---|
 | Source checkout and pipeline orchestration | Jenkins + Git SCM | implemented | [Jenkins pipeline](../supply-chain-security-pipeline/Jenkinsfile) |
-| Unit testing | Maven Surefire + JUnit | implemented | [Sample app](../sample-application/README.md) |
-| Code coverage | JaCoCo | implemented | [CI/CD architecture](../README.md#5-code-coverage) |
+| Unit testing | Maven Surefire + JUnit | implemented | [Unit test execution](../README.md#4-unit-test-execution-junit) |
+| Code coverage | JaCoCo | implemented | [Coverage evidence](../README.md#6-coverage-evidence-generation-jacoco) |
 | SAST and code quality | SonarQube | implemented | [SonarQube SAST](./sonarqube-sast.md) |
-| Secret scanning | Gitleaks | implemented | [CI/CD architecture](../README.md#2-scan-secrets) |
-| Container image scanning | Trivy image | implemented | [CI/CD architecture](../README.md#12-scan-container-image) |
-| SBOM generation | Trivy CycloneDX | implemented | [CI/CD architecture](../README.md#9-generate-cyclonedx-sbom) |
-| Vulnerability gate evaluation | Trivy severity policy | implemented | [CI/CD architecture](../README.md#11-evaluate-security-gates) |
+| Secret scanning | Gitleaks | implemented | [Repository secret scan](../README.md#2-repository-secret-scan) |
+| Container image scanning | Trivy image | implemented | [Container image scan](../README.md#15-container-image-vulnerability-scan-trivy) |
+| SBOM generation | Trivy CycloneDX | implemented | [CycloneDX SBOM](../README.md#14-generate-cyclonedx-sbom-with-trivy) |
+| Vulnerability gate evaluation | Trivy severity policy | implemented | [Container security gate](../README.md#16-container-security-policy-gate-trivy) |
 | SBOM intelligence platform | OWASP Dependency-Track | implemented | [Dependency-Track](./dependency-track.md) |
 | Image signing and attestations | Cosign | implemented | [Cosign signing](./cosign-signing.md) |
 
