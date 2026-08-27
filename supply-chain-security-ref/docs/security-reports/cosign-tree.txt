@@ -1,6 +1,6 @@
-📦 Supply Chain Security Related artifacts for an image: agovindasamy/arun@sha256:3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d
-└── 💾 Attestations for an image tag: index.docker.io/agovindasamy/arun:sha256-3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d.att
-   ├── 🍒 sha256:fc83af75030fc9e3e92a6b2a39f0303e880987ac48ed2da1b80090a512fdc29e
-   └── 🍒 sha256:ef07e24a74e741baf301eb0e3861fcbc3684ad9b0b2d4dd685b5a34c51e91932
-└── 🔐 Signatures for an image tag: index.docker.io/agovindasamy/arun:sha256-3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d.sig
-   └── 🍒 sha256:9a6dfdacdf56f3899994c9983ab7873601235278e053c83783bb25346529c536
+📦 Supply Chain Security Related artifacts for an image: agovindasamy/arun@sha256:a5fc12b558c9413553e3f496ae5e237fa59de4531a2da078c0821830d2fafe20
+└── 💾 Attestations for an image tag: index.docker.io/agovindasamy/arun:sha256-a5fc12b558c9413553e3f496ae5e237fa59de4531a2da078c0821830d2fafe20.att
+   ├── 🍒 sha256:801b2a23834bae3385558e75337459240067c76df93754232f861fd032c8e535
+   └── 🍒 sha256:9095b4e519492b98c7c8f2501fe3203530e37f9b894075c14b2fde392f2bc5ad
+└── 🔐 Signatures for an image tag: index.docker.io/agovindasamy/arun:sha256-a5fc12b558c9413553e3f496ae5e237fa59de4531a2da078c0821830d2fafe20.sig
+   └── 🍒 sha256:5b273ec65db519b1ab96ec5e32de62d774eb246c8e5ce06f85b64213cf826ca2
