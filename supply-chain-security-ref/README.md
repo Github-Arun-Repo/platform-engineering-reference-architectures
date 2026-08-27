@@ -4,6 +4,8 @@ This reference architecture demonstrates how to design and operate a Jenkins pip
 
 The sample workload is a Spring Boot TODO application. The main focus is the Jenkins system around the application: stage separation, explicit gates, credential handling, evidence retention, artifact promotion, signing, and verification.
 
+Jenkins is the implementation used here, but the control pattern is platform-neutral. The same sequence can be implemented with GitHub Actions, GitLab CI, Tekton, Azure DevOps, or another CI/CD orchestrator that supports equivalent gates and evidence handling.
+
 [![Security Reports](https://img.shields.io/badge/Security%20Reports-View%20Dashboard-blue?logo=github)](https://github-arun-repo.github.io/platform-engineering-reference-architectures/)
 
 ## What This Design Demonstrates
@@ -28,6 +30,29 @@ The sample workload is a Spring Boot TODO application. The main focus is the Jen
 4. **Keep evidence reviewable.** Reports are retained in Jenkins and published to the repository dashboard.
 5. **Use least-privilege credentials.** Git, Docker Hub, SonarQube, Dependency-Track, and Cosign credentials are supplied by Jenkins only to stages that need them.
 6. **Make optional behavior explicit.** Cosign stages run when `ENABLE_COSIGN=true`, which is the default.
+
+## Architecture Overview
+
+The pipeline turns a developer commit into a deployable, trusted container artifact. Deployment is outside the current pipeline scope; the final output is a registry image whose quality checks, security decisions, signature, attestations, and supporting evidence can be reviewed independently.
+
+```mermaid
+flowchart LR
+    developer[Developer Commit]
+    ci[CI Pipeline]
+    early[Early Security Checks]
+    quality[Build and Test]
+    analysis[SCA and SAST]
+    container[Container Build]
+    sbom[SBOM]
+    assessment[Vulnerability Assessment]
+    gates[Security and Quality Gates]
+    registry[Artifact Registry]
+    provenance[Signing and Attestation]
+    trusted[Deployable Trusted Artifact]
+
+    developer --> ci --> early --> quality --> analysis --> container --> sbom
+    sbom --> assessment --> gates --> registry --> provenance --> trusted
+```
 
 ## Pipeline Phases
 
@@ -107,22 +132,22 @@ This table is a one-to-one map of the active stages in the Jenkinsfile.
 | 5 | [Unit Test Result Gate](#5-unit-test-result-gate) | Build quality | Shell policy | Gate decision | Blocks when tests fail |
 | 6 | [Coverage Evidence Generation (JaCoCo)](#6-coverage-evidence-generation-jacoco) | Build quality | JaCoCo | HTML and XML coverage | Records result for stage 7 |
 | 7 | [Coverage Threshold Gate](#7-coverage-threshold-gate) | Build quality | AWK and shell policy | Coverage percentage | Blocks below configured minimum |
-| 8 | [SCA Dependency Scan](#8-sca-dependency-scan-owasp-dependency-check) | Application security | OWASP Dependency-Check | JSON and HTML SCA reports | Records result for stage 9 |
-| 9 | [SCA Policy Gate](#9-sca-policy-gate-criticalhigh) | Application security | Shell policy | Critical and High counts | Blocks according to SCA policy |
-| 10 | [SAST Code Analysis](#10-sast-code-analysis-sonarqube) | Application security | SonarQube | Analysis and summary reports | Blocks on analysis failure |
-| 11 | [SAST Quality Gate](#11-sast-quality-gate-sonarqube) | Application security | `waitForQualityGate` | SonarQube gate result | Blocks on failed quality gate |
+| 8 | [SCA Dependency Scan (OWASP Dependency-Check)](#8-sca-dependency-scan-owasp-dependency-check) | Application security | OWASP Dependency-Check | JSON and HTML SCA reports | Records result for stage 9 |
+| 9 | [SCA Policy Gate (Critical/High)](#9-sca-policy-gate-criticalhigh) | Application security | Shell policy | Critical and High counts | Blocks according to SCA policy |
+| 10 | [SAST Code Analysis (SonarQube)](#10-sast-code-analysis-sonarqube) | Application security | SonarQube | Analysis and summary reports | Blocks on analysis failure |
+| 11 | [SAST Quality Gate (SonarQube)](#11-sast-quality-gate-sonarqube) | Application security | `waitForQualityGate` | SonarQube gate result | Blocks on failed quality gate |
 | 12 | [Build Application](#12-build-application) | Artifact creation | Maven | Executable JAR | Blocks on packaging failure |
 | 13 | [Build Docker Image](#13-build-docker-image) | Artifact creation | Docker | Build-number and latest tags | Blocks on image build failure |
-| 14 | [Generate CycloneDX SBOM](#14-generate-cyclonedx-sbom-with-trivy) | Artifact security | Trivy | CycloneDX SBOM and summary | Blocks if SBOM generation fails |
-| 15 | [Container Image Vulnerability Scan](#15-container-image-vulnerability-scan-trivy) | Artifact security | Trivy | JSON, HTML, status, severity counts | Records result for stage 16 |
-| 16 | [Container Security Policy Gate](#16-container-security-policy-gate-trivy) | Artifact security | Shell policy | Gate decision | Blocks according to Trivy policy |
+| 14 | [Generate CycloneDX SBOM with Trivy](#14-generate-cyclonedx-sbom-with-trivy) | Artifact security | Trivy | CycloneDX SBOM and summary | Blocks if SBOM generation fails |
+| 15 | [Container Image Vulnerability Scan (Trivy)](#15-container-image-vulnerability-scan-trivy) | Artifact security | Trivy | JSON, HTML, status, severity counts | Records result for stage 16 |
+| 16 | [Container Security Policy Gate (Trivy)](#16-container-security-policy-gate-trivy) | Artifact security | Shell policy | Gate decision | Blocks according to Trivy policy |
 | 17 | [Publish SBOM to Dependency-Track](#17-publish-sbom-to-dependency-track) | Artifact security | Dependency-Track API | Upload status and response | Blocks if configured upload fails |
 | 18 | [Archive Security Reports](#18-archive-security-reports) | Evidence publication | Jenkins artifacts | Build-linked report archive | Non-blocking for empty optional files |
 | 19 | [Commit Security Reports](#19-commit-security-reports) | Evidence publication | Git and SSH | Reports published to Git and dashboard | Blocks on publication failure |
 | 20 | [Push to Registry](#20-push-to-registry) | Promotion | Docker Hub | Pushed image and immutable digest | Blocks on push or digest failure |
 | 21 | [Sign Image with Cosign](#21-sign-image-with-cosign) | Provenance | Cosign | Signature, public key, verification output | Conditional; blocks on verification failure |
 | 22 | [Attest Image with Cosign](#22-attest-image-with-cosign) | Provenance | Cosign | SBOM and build attestations | Conditional; blocks on failure |
-| 23 | [Validate Cosign Artifacts](#23-validate-cosign-artifacts-in-registry) | Provenance | Cosign and registry API | Referrer and registry evidence | Conditional; blocks when evidence is missing |
+| 23 | [Validate Cosign Artifacts in Registry](#23-validate-cosign-artifacts-in-registry) | Provenance | Cosign and registry API | Referrer and registry evidence | Conditional; blocks when evidence is missing |
 | 24 | [Commit Cosign Evidence](#24-commit-cosign-evidence) | Evidence publication | Git and SSH | Provenance evidence on dashboard | Conditional; blocks on publication failure |
 
 ## Stage-by-Stage Design
@@ -235,9 +260,9 @@ Each control has its own analysis stage and policy gate.
 
 ### 10. SAST Code Analysis (SonarQube)
 
-**Purpose:** The SonarQube Maven scanner analyzes source code and imports test coverage.
+**Purpose:** The SonarQube Maven scanner analyzes source code for bugs, vulnerabilities, code smells, duplication, and maintainability concerns. The stage validates its Jenkins-managed token before analysis and then queries the SonarQube API for summary metrics.
 
-**Evidence:** A repository summary containing bugs, vulnerabilities, code smells, coverage, duplication, lines of code, and the quality-gate status.
+**Evidence:** A repository summary records bugs, vulnerabilities, code smells, the coverage value reported by SonarQube, duplication, lines of code, and quality-gate status. The Jenkinsfile does not explicitly configure a JaCoCo XML import path, so SonarQube coverage depends on project or server-side scanner configuration.
 
 **Dependencies:** SonarQube server configuration and a Jenkins-managed token.
 
@@ -429,13 +454,20 @@ This design keeps build dependencies predictable and makes individual execution 
 
 | Credential | Used for |
 |---|---|
-| Git SSH credential | Checkout and evidence commits |
+| Jenkins Git credential | Source checkout |
+| Git SSH private key | Security and Cosign evidence commits |
 | Docker Hub username/password | Image push and registry validation |
 | SonarQube token | Analysis and metric retrieval |
 | Dependency-Track API key | CycloneDX upload |
 | Cosign private key and password | Image signing and attestations |
 
 Credentials are injected with Jenkins credential bindings. They are not stored in the Jenkinsfile or application repository.
+
+### SBOM and OCI Evidence Handling
+
+The implemented pipeline generates a CycloneDX SBOM, publishes it to Dependency-Track, and uses it as a Cosign attestation predicate. Cosign stores the signed attestation as registry referrer evidence associated with the immutable image digest, and the registry validation stage confirms that signature and attestation references are discoverable.
+
+There is no separate ORAS-based SBOM attachment stage in the current Jenkinsfile. A standalone OCI SBOM attachment and a pre-build Trivy filesystem scan are architectural extensions, not implemented stages, and are therefore excluded from the active navigator and detailed stage sequence.
 
 ### Evidence Publication Model
 
@@ -480,6 +512,10 @@ Two legacy stages remain hard-disabled in the Jenkinsfile:
 - `Legacy Trivy Gate Placeholder (Disabled)`
 
 They are excluded from the active stage table and Mermaid diagram because the implemented Trivy scan and policy-gate stages replace them.
+
+## Implementation Boundaries
+
+The current Jenkins implementation intentionally ends with a verified registry artifact. Kubernetes deployment, GitOps manifest updates, admission-controller enforcement, a separate Trivy filesystem scan, and standalone ORAS SBOM attachment are not active stages. They are suitable follow-on controls, but the README does not present them as implemented behavior.
 
 ## Nested Documentation
 
