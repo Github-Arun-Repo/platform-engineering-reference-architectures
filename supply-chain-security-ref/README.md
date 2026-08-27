@@ -8,19 +8,15 @@ Jenkins is the implementation used here, but the control pattern is platform-neu
 
 [![Security Reports](https://img.shields.io/badge/Security%20Reports-View%20Dashboard-blue?logo=github)](https://github-arun-repo.github.io/platform-engineering-reference-architectures/)
 
-## What This Design Demonstrates
+## Live Pipeline Evidence
 
-- Kubernetes-based Jenkins agents with dedicated Maven and Docker containers
-- fail-fast controls for exposed secrets and failed tests
-- a minimum code coverage gate
-- separate SCA and SAST analysis with separate policy gates
-- application and container image creation only after pre-build controls pass
-- CycloneDX SBOM generation from the built image
-- container vulnerability scanning with configurable severity policy
-- Dependency-Track publication for centralized SBOM intelligence
-- Jenkins artifact retention and Git-based evidence publication
-- image promotion only after required controls pass
-- Cosign signing, attestation, registry validation, and evidence publication
+The pipeline has been executed against the sample application and the generated security reports are available for review.
+
+**Security Dashboard:**
+[https://github-arun-repo.github.io/platform-engineering-reference-architectures/](https://github-arun-repo.github.io/platform-engineering-reference-architectures/)
+
+**Generated Reports:**
+[Browse the security report files](https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/tree/main/supply-chain-security-ref/security-reports)
 
 ## Architecture Principles
 
@@ -156,17 +152,13 @@ This table is a one-to-one map of the active stages in the Jenkinsfile.
 
 ### 1. Checkout
 
-**Purpose:** Jenkins checks out the `main` branch with GitSCM and pins the build to a source revision.
+**Purpose:** Jenkins checks out the `main` branch using GitSCM and pins the build to a specific source revision. This stage runs first so that every later stage works against the same known copy of the code. It uses a Jenkins Git credential to access the repository, and the checked-out revision becomes the identity that ties together every report, image, signature, and attestation produced later.
 
-**Why it is separate:** Every report, image, signature, and attestation must be traceable to the source used by the build.
-
-**Dependencies:** Repository URL and Jenkins Git credentials.
-
-**Failure behavior:** SCM or credential errors stop the pipeline.
+**Failure behavior:** If the repository cannot be reached or the credential is invalid, the checkout fails and the pipeline stops before any build work begins.
 
 ### 2. Repository Secret Scan
 
-**Purpose:** Gitleaks scans the repository for committed credentials, API keys, tokens, and private keys.
+**Purpose:** Gitleaks scans the checked-out repository for credentials, API keys, tokens, private keys, and other secrets that may have been committed by accident. The scan runs near the start of the pipeline so that exposed secrets are found before the application is built or a container image is created. Instead of failing inside the tool, the stage records the Gitleaks exit status so that the next stage can make a clear pass or fail decision.
 
 **Evidence:**
 
@@ -174,41 +166,37 @@ This table is a one-to-one map of the active stages in the Jenkinsfile.
 - `gitleaks-report.html`
 - `gitleaks-exit-code.txt`
 
-**Design decision:** The scan records its result instead of hiding policy inside the tool command. This allows the next stage to provide a clear gate decision.
-
 ### 3. Secret Exposure Gate
 
-**Purpose:** Jenkins evaluates the Gitleaks exit status.
+**Purpose:** Jenkins reads the Gitleaks exit status from the previous stage and turns it into a promotion decision. Keeping the decision in a separate gate stage makes the result easy to see in the Jenkins pipeline view and keeps the policy out of the scanning command.
 
 **Policy:**
 
-- exit code `0`: pass
+- exit code `0`: no secrets found; pass
 - exit code `1`: secrets found; fail
 - exit code greater than `1`: scan or runtime error; fail
 
-**Why it matters:** The pipeline stops before tests, builds, or images consume compromised source.
+**Why it matters:** The pipeline stops here if secrets are detected, so no test run, build, or image can use compromised source code.
 
 ### Phase 2 — Build Quality
 
 ### 4. Unit Test Execution (JUnit)
 
-**Purpose:** Maven Surefire runs the Spring Boot unit tests.
+**Purpose:** Maven Surefire runs the Spring Boot unit tests and records the result. This stage focuses only on running the tests and collecting evidence; the pass or fail decision is made by the next stage. Separating execution from enforcement means the full set of test results is always captured, even when some tests fail.
 
 **Evidence:** Surefire XML reports and `test-exit-code.txt`.
 
-**Design decision:** Test execution and test enforcement are separate. The execution stage captures complete test evidence; the next stage makes the release decision.
-
 ### 5. Unit Test Result Gate
 
-**Purpose:** Jenkins evaluates the test exit status.
+**Purpose:** Jenkins reads the test exit status captured in the previous stage and decides whether the pipeline can continue. This gate exists so that failing tests stop the build early, before any packaging or scanning work is done.
 
 **Policy:** Any non-zero test status blocks the pipeline.
 
-**Why it matters:** A functionally broken application is not packaged, scanned, or promoted.
+**Why it matters:** A functionally broken application is never packaged, scanned, or promoted.
 
 ### 6. Coverage Evidence Generation (JaCoCo)
 
-**Purpose:** JaCoCo creates line and branch coverage evidence from the completed test run.
+**Purpose:** JaCoCo turns the results of the completed test run into line and branch coverage evidence. It runs after the tests pass so that the coverage numbers reflect a working build. The XML report it produces is also the input that the next stage uses to enforce the coverage threshold.
 
 **Evidence:** HTML report, XML report, CSV report, and session information under the JaCoCo report directory.
 
@@ -216,13 +204,13 @@ This table is a one-to-one map of the active stages in the Jenkinsfile.
 
 ### 7. Coverage Threshold Gate
 
-**Purpose:** Jenkins reads the JaCoCo XML report and calculates line coverage.
+**Purpose:** Jenkins reads the JaCoCo XML report, calculates the line coverage percentage, and compares it against the configured minimum. This turns coverage from a chart that is only looked at into a rule that the build must meet.
 
 **Policy:** Coverage below `JACOCO_MIN_LINE_COVERAGE` blocks the pipeline. The current configured minimum is `70%`.
 
 **Evidence:** `jacoco-line-coverage.txt`.
 
-**Why it matters:** The threshold turns coverage from an informational chart into an enforceable engineering standard.
+**Why it matters:** If coverage drops below the agreed level, the pipeline stops so that undertested code is not promoted.
 
 ### Phase 3 — Application Security
 
@@ -235,34 +223,32 @@ Each control has its own analysis stage and policy gate.
 
 ### 8. SCA Dependency Scan (OWASP Dependency-Check)
 
-**Purpose:** OWASP Dependency-Check analyzes Maven dependencies for known CVEs before the application is packaged.
+**Purpose:** OWASP Dependency-Check performs software composition analysis (SCA) on the project's Maven dependencies and matches them against known CVEs. It runs after the quality checks but before the application is packaged, so vulnerable third-party libraries are found while it is still cheap to stop the build. This stage produces the findings; the following gate applies the policy.
 
 **Evidence:**
 
 - `dependency-check-report.json`
 - `dependency-check-report.html`
 
-**Design decision:** The scan is positioned after quality validation but before artifact creation, so vulnerable dependencies can block promotion early.
-
 **Nested reference:** [Dependency and SBOM intelligence design](./tools/dependency-track.md)
 
 ### 9. SCA Policy Gate (Critical/High)
 
-**Purpose:** Jenkins parses the Dependency-Check JSON report and counts Critical and High findings.
+**Purpose:** Jenkins reads the Dependency-Check JSON report, counts the Critical and High findings, and decides whether the pipeline can continue. Keeping the counting and the decision in a dedicated gate makes the reason for a block easy to see.
 
 **Policy:**
 
 - Critical findings block when `DEPENDENCY_GATE_FAIL_ON_CRITICAL=true`.
 - High findings block when `DEPENDENCY_GATE_FAIL_ON_HIGH=true`.
-- A missing JSON report blocks the pipeline.
+- A missing JSON report blocks the pipeline, because a missing report means the scan cannot be trusted.
 
 **Evidence:** Critical and High count files.
 
 ### 10. SAST Code Analysis (SonarQube)
 
-**Purpose:** The SonarQube Maven scanner analyzes source code for bugs, vulnerabilities, code smells, duplication, and maintainability concerns. The stage validates its Jenkins-managed token before analysis and then queries the SonarQube API for summary metrics.
+**Purpose:** This stage performs static application security testing (SAST). The SonarQube Maven scanner analyzes the source code for bugs, security vulnerabilities, code smells, duplication, and maintainability problems. Jenkins first validates its SonarQube token, runs the scan, and then queries the SonarQube API to collect a summary of the results. Running SAST before the image is built means source-level problems are found before they are packaged into an artifact.
 
-**Evidence:** A repository summary records bugs, vulnerabilities, code smells, the coverage value reported by SonarQube, duplication, lines of code, and quality-gate status. The Jenkinsfile does not explicitly configure a JaCoCo XML import path, so SonarQube coverage depends on project or server-side scanner configuration.
+**Evidence:** A repository summary records bugs, vulnerabilities, code smells, the coverage value reported by SonarQube, duplication, lines of code, and the quality-gate status. The Jenkinsfile does not explicitly configure a JaCoCo XML import path, so SonarQube coverage depends on project or server-side scanner configuration.
 
 **Dependencies:** SonarQube server configuration and a Jenkins-managed token.
 
@@ -270,35 +256,33 @@ Each control has its own analysis stage and policy gate.
 
 ### 11. SAST Quality Gate (SonarQube)
 
-**Purpose:** Jenkins waits for SonarQube to finish server-side processing.
+**Purpose:** SonarQube processes the analysis on the server side, so Jenkins waits for that result in a dedicated stage. Keeping the wait separate makes the time spent waiting and the reason for any failure clearly visible in the pipeline.
 
-**Policy:** `waitForQualityGate abortPipeline: true` stops the pipeline when the configured SonarQube quality gate fails.
-
-**Design decision:** The asynchronous quality gate is a dedicated stage, which makes wait time and failure ownership visible in Jenkins.
+**Policy:** `waitForQualityGate abortPipeline: true` stops the pipeline when the configured SonarQube quality gate fails, for example when too many new vulnerabilities or bugs are introduced.
 
 ### Phase 4 — Artifact Creation
 
 ### 12. Build Application
 
-**Purpose:** Maven packages the Spring Boot application into an executable JAR.
+**Purpose:** Maven compiles and packages the Spring Boot application into an executable JAR. This stage runs only after the source, test, coverage, SCA, and SAST checks have passed, so the artifact is built from code that has already cleared every earlier gate.
 
 **Output:** The versioned application JAR under the Maven target directory.
 
-**Failure behavior:** Compilation or packaging failure stops the pipeline.
+**Failure behavior:** A compilation or packaging failure stops the pipeline.
 
 ### 13. Build Docker Image
 
-**Purpose:** Docker builds the deployable runtime image from the tested JAR.
+**Purpose:** Docker builds the deployable runtime image from the tested JAR. The image is tagged with the Jenkins build number and `latest` so it can be traced back to a specific build. This is the exact image that will be scanned, pushed, and signed later, so building it here creates a single artifact that all later stages act on.
 
 **Tags:** Jenkins build number and `latest`.
 
-**Design decision:** The image is built only after source, test, coverage, SCA, and SAST gates pass.
+**Failure behavior:** A failed image build stops the pipeline before any scanning or promotion.
 
 ### Phase 5 — Artifact Security
 
 ### 14. Generate CycloneDX SBOM with Trivy
 
-**Purpose:** Trivy inspects the built image and produces a CycloneDX software bill of materials.
+**Purpose:** Trivy inspects the container image that was just built and produces a software bill of materials (SBOM) in CycloneDX format. The SBOM is a complete list of the operating-system and application components inside the image. It is generated from the real image, not from the source tree, so it reflects exactly what will be shipped. This SBOM is later published to Dependency-Track and used as the predicate for the Cosign attestation, so the pipeline depends on it being produced correctly.
 
 **Evidence:**
 
@@ -307,36 +291,32 @@ Each control has its own analysis stage and policy gate.
 - `sbom.trivy.log`
 - `sbom-component-count.txt`
 
-**Failure behavior:** A missing or failed SBOM blocks the pipeline because later publication and attestation depend on it.
+**Failure behavior:** A missing or failed SBOM stops the pipeline, because the later publication and attestation stages cannot run without it.
 
 ### 15. Container Image Vulnerability Scan (Trivy)
 
-**Purpose:** Trivy scans the final container image for known vulnerabilities in operating-system and application packages.
+**Purpose:** Trivy scans the final container image for known vulnerabilities in both operating-system packages and application dependencies. Because it scans the same image that will be promoted, the results reflect the actual artifact rather than just the source code. The stage records all findings and severity counts first, and the following gate applies the policy.
 
 **Evidence:** JSON and HTML reports, scan status, a readable summary, and Critical, High, and Medium counts.
 
-**Design decision:** The scanner records findings first; policy is applied by the following stage.
-
 ### 16. Container Security Policy Gate (Trivy)
 
-**Purpose:** Jenkins evaluates image vulnerability counts and scan health before publication and push.
+**Purpose:** Jenkins reads the vulnerability counts and scan health from the previous stage and decides whether the image is allowed to be published and pushed. This is the last security check before the image leaves the pipeline, so it also rechecks the earlier Gitleaks status as a defense-in-depth measure.
 
 **Current policy:**
 
-- any Critical vulnerability blocks promotion
-- High vulnerabilities warn when `TRIVY_FAIL_ON_HIGH=false`; set it to `true` to block
+- any Critical vulnerability stops promotion
+- High vulnerabilities only warn when `TRIVY_FAIL_ON_HIGH=false`; set it to `true` to stop the pipeline instead
 - Medium vulnerabilities are report-only
-- scan errors block when `TRIVY_BLOCK_ON_SCAN_ERROR=true`
-
-**Defense in depth:** The stage also rechecks the Gitleaks status before promotion.
+- scan errors stop the pipeline when `TRIVY_BLOCK_ON_SCAN_ERROR=true`, so a broken scan is never treated as a pass
 
 ### 17. Publish SBOM to Dependency-Track
 
-**Purpose:** Jenkins uploads the generated CycloneDX SBOM to Dependency-Track for centralized component inventory and vulnerability intelligence.
+**Purpose:** Jenkins uploads the CycloneDX SBOM to Dependency-Track using a Jenkins-managed API key. Dependency-Track keeps a central inventory of components and continuously matches them against new vulnerability data, so a component that is safe today but flagged tomorrow can still be tracked. This gives the team ongoing visibility that a one-time scan cannot provide.
 
 **Evidence:** Upload summary, HTTP status, processing token, and API response.
 
-**Failure behavior:** If a Dependency-Track URL is configured, an unsuccessful upload blocks the pipeline. If no URL is configured, the stage records that publication was skipped.
+**Failure behavior:** If a Dependency-Track URL is configured, a failed upload stops the pipeline. If no URL is configured, the stage records that publication was skipped instead of failing.
 
 **Nested reference:** [Dependency-Track implementation and operational guidance](./tools/dependency-track.md)
 
@@ -344,19 +324,15 @@ Each control has its own analysis stage and policy gate.
 
 ### 18. Archive Security Reports
 
-**Purpose:** Jenkins archives generated JSON, HTML, and text reports against the build number.
-
-**Why it matters:** Jenkins artifacts preserve evidence even if a later publication or registry stage fails.
+**Purpose:** Jenkins archives the generated JSON, HTML, and text reports and links them to the build number. This keeps a copy of the evidence inside Jenkins even if a later publication or registry stage fails, which is important for audits and troubleshooting. Optional report files that are empty do not fail this stage.
 
 **Review surfaces:** Jenkins build artifacts and HTML Publisher reports.
 
 ### 19. Commit Security Reports
 
-**Purpose:** Jenkins copies the latest reports and JaCoCo output into the documentation directory and commits the evidence to `main`.
+**Purpose:** Jenkins copies the latest reports and JaCoCo output into the documentation directory and commits the evidence to `main` using a Git SSH credential. Publishing the evidence before the image is pushed means a reviewer can see why a build passed without needing access to Jenkins. To avoid triggering endless rebuilds, the generated commits are marked with `[skip ci]`, and the branch is refreshed before publishing so concurrent builds do not overwrite each other.
 
 **Published evidence:** Gitleaks, dependency, SonarQube, SBOM, Trivy, coverage, and build metadata.
-
-**Design decision:** Security evidence is published before registry promotion. Reviewers can inspect why a build passed without requiring Jenkins access.
 
 **Dashboard:** [Open the live security evidence dashboard](https://github-arun-repo.github.io/platform-engineering-reference-architectures/)
 
@@ -364,53 +340,49 @@ Each control has its own analysis stage and policy gate.
 
 ### 20. Push to Registry
 
-**Purpose:** Docker pushes the approved image tags to Docker Hub.
+**Purpose:** Docker pushes the approved image tags to Docker Hub using Jenkins-managed registry credentials. When the push completes, the registry returns an immutable digest, and Jenkins saves this digest for the signing and attestation stages. Using the digest rather than the mutable `latest` tag means every later provenance step points at one exact image that cannot be swapped out.
 
-**Evidence:** `cosign-image-ref.txt` stores the immutable digest reference returned after push.
+**Evidence:** `cosign-image-ref.txt` stores the immutable digest reference returned after the push.
 
-**Failure behavior:** Push failure or failure to capture the digest stops the pipeline.
-
-**Design decision:** All signing and attestation operations use the digest, not the mutable tag.
+**Failure behavior:** A failed push, or a failure to capture the digest, stops the pipeline.
 
 ### 21. Sign Image with Cosign
 
-**Purpose:** Cosign signs the immutable image digest and immediately verifies the signature.
+**Purpose:** Cosign signs the immutable image digest and then immediately verifies the signature to confirm it was created correctly. A signature proves that this specific image was approved by this pipeline. The Cosign private key and its password stay in Jenkins credentials and are only made available to this stage, so the signing material is never exposed to earlier build steps.
 
-**Condition:** Runs when `ENABLE_COSIGN=true`.
+**Condition:** Runs when `ENABLE_COSIGN=true`, which is the default.
 
 **Evidence:** Signature output, verification output, and public key.
 
-**Credential design:** The private key and password remain in Jenkins credentials and are exposed only to this stage.
+**Failure behavior:** If the signature cannot be verified, the stage fails.
 
 **Nested reference:** [Cosign signing and attestation design](./tools/cosign-signing.md)
 
 ### 22. Attest Image with Cosign
 
-**Purpose:** Cosign creates attestations for the CycloneDX SBOM and build metadata predicate.
+**Purpose:** Cosign creates signed attestations for the image digest: one for the CycloneDX SBOM and one for a build-metadata predicate. Where a signature only proves who approved the image, an attestation makes verifiable statements about what is inside the image and how it was built. Cosign stores these attestations as registry referrers linked to the digest, so they travel with the image. The stage also verifies the attestations it creates.
 
 **Condition:** Runs when `ENABLE_COSIGN=true`.
 
 **Evidence:** Attestation commands, verification results, build predicate, referrer tree, and an HTML summary.
 
-**Why it matters:** A signature proves who approved a digest. An attestation provides verifiable statements about what is inside the image and how it was built.
-
 ### 23. Validate Cosign Artifacts in Registry
 
-**Purpose:** Jenkins verifies that signature and attestation referrers are discoverable in the registry.
+**Purpose:** Jenkins checks that the signature and attestation referrers are actually present and discoverable in the registry, not just created locally. This confirms that a consumer of the image, such as a cluster or another pipeline, would be able to find and verify the provenance evidence.
 
 **Condition:** Runs when `ENABLE_COSIGN=true`.
 
-**Evidence:** Cosign tree verification, registry tag data, and registry validation summary.
+**Evidence:** Cosign tree verification, registry tag data, and a registry validation summary.
 
-**Failure behavior:** Missing signature or attestation evidence blocks successful completion.
+**Failure behavior:** If the expected signature or attestation evidence is missing from the registry, the stage fails.
 
 ### 24. Commit Cosign Evidence
 
-**Purpose:** Jenkins publishes the final signature, verification, attestation, and registry evidence to Git and the dashboard.
+**Purpose:** Jenkins publishes the final signature, verification, attestation, and registry evidence to Git and the dashboard using the Git SSH credential. This makes the provenance results visible alongside the rest of the security evidence, so a reviewer can confirm the image was signed and attested without opening Jenkins.
 
 **Condition:** Runs when `ENABLE_COSIGN=true`.
 
-**Failure behavior:** Required evidence files are checked before publication; missing files or Git push failures stop the stage.
+**Failure behavior:** The required evidence files are checked before publication; missing files or a Git push failure stops the stage.
 
 ## Security Gate Summary
 
@@ -438,69 +410,6 @@ Each control has its own analysis stage and policy gate.
 | Trivy | Final image vulnerabilities | [Container vulnerability report](https://github-arun-repo.github.io/platform-engineering-reference-architectures/trivy-report.html) |
 | Dependency-Track | SBOM publication result | [Dependency-Track report](https://github-arun-repo.github.io/platform-engineering-reference-architectures/dependency-track-report.html) |
 | Cosign | Signature, attestation, and verification evidence | [Cosign report](https://github-arun-repo.github.io/platform-engineering-reference-architectures/cosign-report.html) |
-
-## Jenkins System Design
-
-### Kubernetes Agent Model
-
-The pipeline runs on a Kubernetes Jenkins agent. The pod template separates responsibilities:
-
-- the **Maven container** runs Java builds, shell policies, API calls, and Git publication
-- the **Docker container** builds and scans images through the Docker daemon
-
-This design keeps build dependencies predictable and makes individual execution environments easier to maintain.
-
-### Credential Boundaries
-
-| Credential | Used for |
-|---|---|
-| Jenkins Git credential | Source checkout |
-| Git SSH private key | Security and Cosign evidence commits |
-| Docker Hub username/password | Image push and registry validation |
-| SonarQube token | Analysis and metric retrieval |
-| Dependency-Track API key | CycloneDX upload |
-| Cosign private key and password | Image signing and attestations |
-
-Credentials are injected with Jenkins credential bindings. They are not stored in the Jenkinsfile or application repository.
-
-### SBOM and OCI Evidence Handling
-
-The implemented pipeline generates a CycloneDX SBOM, publishes it to Dependency-Track, and uses it as a Cosign attestation predicate. Cosign stores the signed attestation as registry referrer evidence associated with the immutable image digest, and the registry validation stage confirms that signature and attestation references are discoverable.
-
-There is no separate ORAS-based SBOM attachment stage in the current Jenkinsfile. A standalone OCI SBOM attachment and a pre-build Trivy filesystem scan are architectural extensions, not implemented stages, and are therefore excluded from the active navigator and detailed stage sequence.
-
-### Evidence Publication Model
-
-```mermaid
-flowchart LR
-    build[Jenkins Build]
-    artifacts[Jenkins Artifacts]
-    git[Git Evidence Store]
-    pages[GitHub Pages Dashboard]
-    reviewer[Engineer or Interviewer]
-
-    build --> artifacts
-    build --> git
-    git --> pages
-    artifacts --> reviewer
-    pages --> reviewer
-```
-
-This provides two evidence paths:
-
-1. build-specific artifacts in Jenkins for operations and audits
-2. a public dashboard for architecture reviews and demonstrations
-
-### Concurrency and Report Commits
-
-Report publication creates commits on `main`. The pipeline fetches the latest branch state before publishing and marks generated commits with `[skip ci]` to avoid unnecessary rebuild loops. Concurrent builds are not allowed to abort an in-flight report publication.
-
-### Timeouts and Retention
-
-- the pipeline has a global 180-minute timeout
-- tool stages use narrower timeouts where appropriate
-- Jenkins retains the latest 15 builds
-- HTML and machine-readable reports are archived for review and automation
 
 ## Conditional and Disabled Stages
 
@@ -553,28 +462,25 @@ supply-chain-security-ref/
     └── cosign-signing.md
 ```
 
-## Interview Discussion Points
+## Future Roadmap
 
-This design shows the following Jenkins engineering decisions:
+The following capabilities are not implemented today. They are described here as possible future improvements to the reference architecture.
 
-- Kubernetes agents provide repeatable and isolated build environments.
-- Analysis and gate stages are separated for clear diagnostics and policy ownership.
-- Quality and application-security controls run before artifact creation.
-- Container controls evaluate the exact image that will be promoted.
-- Promotion happens only after required evidence is generated and published.
-- The immutable digest becomes the identity for signing and attestations.
-- Jenkins credentials are scoped to the stages that need them.
-- Evidence is available both inside Jenkins and through a public review dashboard.
-- Conditional provenance stages support environments where signing is optional, while defaulting to the secure path.
+### Admission-controller verification
 
-## Roadmap
+Future Kubernetes deployments could verify the Cosign signature and attestations before allowing an image to run. A tool such as Kyverno or another admission controller would enforce this policy inside the cluster, so an unsigned or unverified image would be refused at deploy time.
 
-- admission-controller verification of signatures and attestations
-- policy-as-code for promotion decisions
-- GitOps manifest updates after successful provenance verification
-- environment-specific promotion without rebuilding the image
-- registry-native evidence discovery and retention policy
-- license compliance reporting
+### Policy as Code
+
+Security and promotion decisions could be moved into reusable, version-controlled policies instead of keeping all of the decision logic directly inside the Jenkinsfile. This would make the rules easier to review, reuse, and apply consistently across pipelines.
+
+### GitOps deployment
+
+After an image passes all security and provenance checks, the pipeline could update a GitOps repository with the approved image digest. Argo CD or another GitOps controller would then deploy that exact digest, keeping the deployed state in sync with Git.
+
+### Environment promotion
+
+The same signed image digest could be promoted through development, test, staging, and production without rebuilding the image. This ensures that the artifact tested earlier is exactly the artifact deployed later, with no risk of a different build slipping in between environments.
 
 ## Quick Links
 
