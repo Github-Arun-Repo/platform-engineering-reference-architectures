@@ -4,13 +4,13 @@ This reference architecture shows how to design a secure container delivery pipe
 
 This architecture is build-tool agnostic. You can implement the same control flow with tools such as Jenkins, GitHub Actions, GitLab CI, Tekton, or Azure DevOps. In this repository, the implemented reference uses Jenkins. GitHub Actions is also a modern and widely used approach for teams that prefer GitHub-native CI.
 
-[![Security Reports](https://img.shields.io/badge/Security%20Reports-View%20Dashboard-blue?logo=github)](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/index.html)
+[![Security Reports](https://img.shields.io/badge/Security%20Reports-View%20Dashboard-blue?logo=github)](https://github-arun-repo.github.io/platform-engineering-reference-architectures/)
 
 ## Start Here: Verified Report Evidence
 
 Executed and validated by **Arunasalam Govindasamy** against the sample Spring Boot TODO application in this repository, with full report outputs published for public review.
 
-- [Open Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/index.html)
+- [Open Security Reports Dashboard](https://github-arun-repo.github.io/platform-engineering-reference-architectures/)
 - Application under test: [sample-application](./sample-application/)
 - Full security report files: [security-reports](./security-reports/)
 
@@ -149,7 +149,7 @@ Jenkins executes the pipeline. Git stores the published evidence. The dashboard 
 
 Current dashboard:
 
-- [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/index.html)
+- [Security Reports Dashboard](https://github-arun-repo.github.io/platform-engineering-reference-architectures/)
 
 ## Stage Navigator
 
@@ -223,7 +223,7 @@ Current behavior in Jenkins: this stage records findings first, then the dedicat
 
 **Evidence produced**
 
-- [Gitleaks Secret Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/gitleaks-report.html)
+- [Gitleaks Secret Report](https://github-arun-repo.github.io/platform-engineering-reference-architectures/gitleaks-report.html)
 
 ## 3. Secret Exposure Gate
 
@@ -244,7 +244,7 @@ Secret exposure is a high-impact issue, so the pipeline blocks before any packag
 
 **Evidence produced**
 
-- [Gitleaks Secret Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/gitleaks-report.html)
+- [Gitleaks Secret Report](https://github-arun-repo.github.io/platform-engineering-reference-architectures/gitleaks-report.html)
 
 ## 5. Unit Tests
 
@@ -287,7 +287,7 @@ Coverage does not prove quality by itself, but it shows which code paths are exe
 
 **Evidence produced**
 
-- [JaCoCo Coverage Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/jacoco/index.html)
+- [JaCoCo Coverage Report](https://github-arun-repo.github.io/platform-engineering-reference-architectures/jacoco/)
 
 ## 6. Unit Test Result Gate
 
@@ -406,7 +406,7 @@ An SBOM answers: "What is inside this artifact?" It creates the package inventor
 
 **Evidence produced**
 
-- [SBOM Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/sbom-report.html)
+- [SBOM Report](https://github-arun-repo.github.io/platform-engineering-reference-architectures/sbom-report.html)
 
 ## 10. Scan Container Image
 
@@ -427,7 +427,7 @@ This validates the deployable image artifact against known CVEs across runtime p
 
 **Evidence produced**
 
-- [Trivy Image Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/trivy-report.html)
+- [Trivy Image Report](https://github-arun-repo.github.io/platform-engineering-reference-architectures/trivy-report.html)
 
 ## 11. Evaluate Security Gates
 
@@ -478,7 +478,7 @@ This keeps Dependency-Track publication aligned with promoted artifacts while pr
 
 **Evidence produced**
 
-- [Dependency-Track SBOM Publish Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/dependency-track-report.html)
+- [Dependency-Track SBOM Publish Report](https://github-arun-repo.github.io/platform-engineering-reference-architectures/dependency-track-report.html)
 
 ## 13. Archive Security Reports
 
@@ -601,7 +601,7 @@ Signing only helps if others can inspect and verify it. Publishing the evidence 
 
 **Evidence entry point**
 
-- [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/index.html)
+- [Security Reports Dashboard](https://github-arun-repo.github.io/platform-engineering-reference-architectures/)
 
 ## Reference Implementations
 
@@ -662,7 +662,7 @@ Planned additions:
 
 ## Quick Links
 
-- [Security Reports Dashboard](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/index.html)
+- [Security Reports Dashboard](https://github-arun-repo.github.io/platform-engineering-reference-architectures/)
 - [Tools Reference](./tools/README.md)
 - [Cosign Signing Reference](./tools/cosign-signing.md)
 - [SonarQube SAST Reference](./tools/sonarqube-sast.md)
