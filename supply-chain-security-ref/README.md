@@ -19,12 +19,11 @@ What this implementation demonstrates with generated evidence:
 - unit test execution and code coverage outputs
 - explicit pre-image validation gates for secrets, tests, coverage, and dependency vulnerabilities
 - SonarQube analysis with enforced `waitForQualityGate abortPipeline: true`
-- filesystem and container vulnerability scan results
 - Trivy-based CycloneDX SBOM generation
 - Trivy severity gating before promotion (Critical fail, High configurable, Medium report-only)
 - dependency intelligence publication to Dependency-Track after security gates
 - secret scanning results from repository content
-- registry push controls, signing, attestation, and SBOM attachment evidence
+- registry push controls, signing, and attestation evidence
 - report publication to Git so teams can review without Jenkins access
 
 ## Contents
@@ -36,7 +35,6 @@ What this implementation demonstrates with generated evidence:
 5. [1. Source and Checkout](#1-source-and-checkout)
 6. [2. Scan Secrets](#2-scan-secrets)
 7. [3. Secret Exposure Gate](#3-secret-exposure-gate)
-8. [4. Scan Filesystem](#4-scan-filesystem)
 9. [5. Unit Tests](#5-unit-tests)
 10. [6. Unit Test Result Gate](#6-unit-test-result-gate)
 11. [6.1 Software Composition Analysis (SCA)](#61-software-composition-analysis-sca)
@@ -54,7 +52,6 @@ What this implementation demonstrates with generated evidence:
 23. [15. Push to Registry](#15-push-to-registry)
 24. [16. Sign Image](#16-sign-image)
 25. [17. Attest Image](#17-attest-image)
-26. [18. Attach SBOM](#18-attach-sbom)
 27. [19. Publish Cosign Evidence](#19-publish-cosign-evidence)
 28. [Reference Implementations](#reference-implementations)
 29. [Runbooks vs Reference Guides](#runbooks-vs-reference-guides)
@@ -83,7 +80,6 @@ flowchart LR
     checkout[02<br/>Checkout]
     gitleaks[03<br/>Repository Secret Scan]
     secretGate[04<br/>Secret Exposure Gate]
-    trivyFs[05<br/>Filesystem Vulnerability Scan]
     tests[06<br/>Unit Test Execution]
     testGate[07<br/>Unit Test Result Gate]
     coverage[08<br/>Coverage Evidence Generation]
@@ -103,20 +99,17 @@ flowchart LR
     registry[22<br/>Registry Push]
     sign[23<br/>Cosign Sign Default On]
     attest[24<br/>Cosign Attest Default On]
-    attach[25<br/>Attach SBOM]
     cosignCommit[26<br/>Publish Cosign Evidence]
     evidence[27<br/>Evidence Dashboard]
 
-    commit --> checkout --> gitleaks --> secretGate --> trivyFs --> tests --> testGate --> coverage --> coverageGate --> depScan --> depGate --> sonar --> sonarGate --> package --> image --> sbom --> trivyImage --> gates --> dtrack --> archive --> reportCommit --> registry --> sign --> attest --> attach --> cosignCommit --> evidence
+    commit --> checkout --> gitleaks --> secretGate --> tests --> testGate --> coverage --> coverageGate --> depScan --> depGate --> sonar --> sonarGate --> package --> image --> sbom --> trivyImage --> gates --> dtrack --> archive --> reportCommit --> registry --> sign --> attest --> cosignCommit --> evidence
     gitleaks --> gates
     secretGate --> gates
-    trivyFs --> gates
     testGate --> gates
     coverageGate --> gates
     depGate --> gates
     trivyImage --> gates
     gitleaks --> reportCommit
-    trivyFs --> reportCommit
     trivyImage --> reportCommit
     reportCommit --> evidence
     cosignCommit --> evidence
@@ -130,8 +123,8 @@ flowchart LR
     class commit,checkout source;
     class tests,testGate,coverage,coverageGate,sonar,sonarGate quality;
     class package,image,sbom,dtrack,archive artifact;
-    class trivyImage,trivyFs,gitleaks,secretGate,depScan,depGate,gates,sign,attest security;
-    class registry,reportCommit,attach,cosignCommit,evidence publish;
+    class trivyImage,gitleaks,secretGate,depScan,depGate,gates,sign,attest security;
+    class registry,reportCommit,cosignCommit,evidence publish;
 ```
 
 This is the core chain: code enters, controls run one after another, evidence is produced, and only approved artifacts move forward.
@@ -167,7 +160,6 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 1 | [Source and Checkout](#1-source-and-checkout) | Git + Jenkins SCM | traceable source input | yes, if checkout fails |
 | 2 | [Scan Secrets](#2-scan-secrets) | Gitleaks | repository secret scan | reported to next gate |
 | 3 | [Secret Exposure Gate](#3-secret-exposure-gate) | Jenkins gate logic | secret exposure gate | yes |
-| 4 | [Scan Filesystem](#4-scan-filesystem) | Trivy fs | filesystem vulnerability scan | reported |
 | 5 | [Unit Tests](#5-unit-tests) | Maven Surefire + JUnit | unit test execution | reported to next gate |
 | 6 | [Unit Test Result Gate](#6-unit-test-result-gate) | Jenkins gate logic | unit test result gate | yes |
 | 7 | [Code Coverage](#7-code-coverage) | JaCoCo | coverage evidence generation - JaCoCo for Java only | reported to next gate |
@@ -187,7 +179,6 @@ Click any stage to inspect what it does, why it exists, and where it is useful.
 | 21 | [Push to Registry](#15-push-to-registry) | Docker | artifact promotion | yes |
 | 22 | [Sign Image](#16-sign-image) | Cosign | digest integrity proof | yes (default on) |
 | 23 | [Attest Image](#17-attest-image) | Cosign | SBOM and build evidence referrers | yes (default on) |
-| 24 | [Attach SBOM](#18-attach-sbom) | ORAS | OCI artifact attachment | best effort |
 | 25 | [Publish Cosign Evidence](#19-publish-cosign-evidence) | Jenkins + Git + HTML | public signing and attestation evidence | yes (default on) |
 
 ## 1. Source and Checkout
@@ -238,24 +229,24 @@ Current behavior in Jenkins: this stage records findings first, then the dedicat
 
 **What happens**
 
-Trivy FS scans the application filesystem and build context before packaging or image creation.
+Jenkins evaluates the Gitleaks exit status and fails immediately when findings or scan errors are detected.
 
 **Why this matters**
 
-This check is source-oriented, so it belongs early. Running it before image creation gives faster feedback on dependencies, misconfigurations, and embedded secrets without waiting for the container build.
+Secret exposure is a high-impact issue, so the pipeline blocks before any packaging, image build, or promotion work continues.
 
 **Where this is useful**
 
-- quick dependency checks
-- source and build-context inspection
-- misconfiguration review
-- early feedback before artifact creation
+- fail-fast policy enforcement
+- credential hygiene controls
+- release risk reduction
+- audit-ready evidence of enforcement
 
 **Evidence produced**
 
-- [Trivy Filesystem Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/trivy-fs-report.html)
+- [Gitleaks Secret Report](https://htmlpreview.github.io/?https://github.com/Github-Arun-Repo/platform-engineering-reference-architectures/blob/main/supply-chain-security-ref/docs/security-reports/gitleaks-report.html)
 
-## 4. Scan Filesystem
+## 5. Unit Tests
 
 **What happens**
 
@@ -277,7 +268,7 @@ Unit tests catch broken behavior before the pipeline spends time creating images
 - Surefire XML test reports
 - Jenkins JUnit test result view
 
-## 5. Unit Tests
+## 7. Code Coverage
 
 **What happens**
 
@@ -589,20 +580,6 @@ Attestations carry evidence about the artifact, not just a proof that the artifa
 **Tool reference**
 
 - [Cosign Signing](./tools/cosign-signing.md)
-
-## 18. Attach SBOM
-
-**What happens**
-
-ORAS attempts to attach the CycloneDX SBOM to the pushed image as an OCI artifact.
-
-**Why this matters**
-
-Attaching evidence to the artifact keeps inventory close to the image it describes. This is useful for registries and platforms that understand OCI artifact relationships.
-
-**Current behavior**
-
-This step is best effort. If ORAS or the registry attachment fails, the SBOM remains available as Jenkins artifacts and public dashboard evidence.
 
 ## 19. Publish Cosign Evidence
 

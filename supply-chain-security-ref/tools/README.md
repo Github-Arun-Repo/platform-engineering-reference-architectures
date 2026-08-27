@@ -17,13 +17,11 @@ If you are looking for proof that these controls were run, start here:
 | Code coverage | JaCoCo | implemented | [CI/CD architecture](../README.md#5-code-coverage) |
 | SAST and code quality | SonarQube | implemented | [SonarQube SAST](./sonarqube-sast.md) |
 | Secret scanning | Gitleaks | implemented | [CI/CD architecture](../README.md#2-scan-secrets) |
-| Filesystem vulnerability scanning | Trivy fs | implemented | [CI/CD architecture](../README.md#3-scan-filesystem) |
 | Container image scanning | Trivy image | implemented | [CI/CD architecture](../README.md#12-scan-container-image) |
 | SBOM generation | Trivy CycloneDX | implemented | [CI/CD architecture](../README.md#9-generate-cyclonedx-sbom) |
 | Vulnerability gate evaluation | Trivy severity policy | implemented | [CI/CD architecture](../README.md#11-evaluate-security-gates) |
 | SBOM intelligence platform | OWASP Dependency-Track | implemented | [Dependency-Track](./dependency-track.md) |
 | Image signing and attestations | Cosign | implemented | [Cosign signing](./cosign-signing.md) |
-| SBOM OCI attachment | ORAS | implemented | [CI/CD architecture](../README.md#18-attach-sbom) |
 
 ## Scope Of This Tools Folder
 
