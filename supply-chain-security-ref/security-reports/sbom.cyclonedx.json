@@ -2,10 +2,10 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:34a32255-91d8-4ba5-9784-3225078b0d5d",
+  "serialNumber": "urn:uuid:61ba4bb6-1f24-4b6e-984e-53c6614c1834",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-08-27T18:13:08+00:00",
+    "timestamp": "2026-08-27T18:24:35+00:00",
     "tools": {
       "components": [
         {
@@ -17,10 +17,10 @@
       ]
     },
     "component": {
-      "bom-ref": "pkg:oci/arun@sha256%3A3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
+      "bom-ref": "pkg:oci/arun@sha256%3Aa5fc12b558c9413553e3f496ae5e237fa59de4531a2da078c0821830d2fafe20?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
       "type": "container",
-      "name": "agovindasamy/arun:83",
-      "purl": "pkg:oci/arun@sha256%3A3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
+      "name": "agovindasamy/arun:84",
+      "purl": "pkg:oci/arun@sha256%3Aa5fc12b558c9413553e3f496ae5e237fa59de4531a2da078c0821830d2fafe20?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
       "properties": [
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -64,15 +64,15 @@
         },
         {
           "name": "aquasecurity:trivy:ImageID",
-          "value": "sha256:3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d"
+          "value": "sha256:a5fc12b558c9413553e3f496ae5e237fa59de4531a2da078c0821830d2fafe20"
         },
         {
           "name": "aquasecurity:trivy:RepoDigest",
-          "value": "agovindasamy/arun@sha256:3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d"
+          "value": "agovindasamy/arun@sha256:a5fc12b558c9413553e3f496ae5e237fa59de4531a2da078c0821830d2fafe20"
         },
         {
           "name": "aquasecurity:trivy:RepoTag",
-          "value": "agovindasamy/arun:83"
+          "value": "agovindasamy/arun:84"
         },
         {
           "name": "aquasecurity:trivy:RepoTag",
@@ -87,7 +87,7 @@
   },
   "components": [
     {
-      "bom-ref": "bc2818fa-f062-4389-b3bc-5b32842e4b24",
+      "bom-ref": "34f0c345-bc06-46cf-91b2-34d4c455dd5a",
       "type": "operating-system",
       "name": "alpine",
       "version": "3.24.1",
@@ -5340,7 +5340,7 @@
   ],
   "dependencies": [
     {
-      "ref": "bc2818fa-f062-4389-b3bc-5b32842e4b24",
+      "ref": "34f0c345-bc06-46cf-91b2-34d4c455dd5a",
       "dependsOn": [
         "pkg:apk/alpine/acl-libs@2.3.2-r1?arch=x86_64&distro=3.24.1",
         "pkg:apk/alpine/alpine-baselayout-data@3.7.2-r1?arch=x86_64&distro=3.24.1",
@@ -6201,9 +6201,9 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:oci/arun@sha256%3A3e23e21d5faffd65ad869ddfeea1f688ae4efbd0ae2a0f7b280d45e79c77a16d?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
+      "ref": "pkg:oci/arun@sha256%3Aa5fc12b558c9413553e3f496ae5e237fa59de4531a2da078c0821830d2fafe20?arch=amd64&repository_url=index.docker.io%2Fagovindasamy%2Farun",
       "dependsOn": [
-        "bc2818fa-f062-4389-b3bc-5b32842e4b24",
+        "34f0c345-bc06-46cf-91b2-34d4c455dd5a",
         "pkg:maven/ch.qos.logback/logback-classic@1.4.11",
         "pkg:maven/ch.qos.logback/logback-core@1.4.11",
         "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.15.3",
