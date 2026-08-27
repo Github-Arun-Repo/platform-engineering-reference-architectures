@@ -312,8 +312,7 @@ EOF
                                     # across builds and the pipeline is resilient to NVD rate limits.
                                     run_check() {
                                         mvn -B org.owasp:dependency-check-maven:check \
-                                            -Dformat=JSON \
-                                            -Dformat=HTML \
+                                            -Dformat=ALL \
                                             -DfailBuildOnCVSS=11 \
                                             -DnvdApiKey=${NVD_API_KEY} \
                                             -DnvdApiDelay=6000 \
