@@ -1173,6 +1173,8 @@ EOF
                                                                         test -f ${SECURITY_REPORT_DIR}/trivy-summary.html || echo '<html><body><h1>No Trivy summary report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/trivy-summary.html
                                       test -f ${SECURITY_REPORT_DIR}/sonarqube-report.json || echo '{"note":"No SonarQube report generated"}' > ${SECURITY_REPORT_DIR}/sonarqube-report.json
                                       test -f ${SECURITY_REPORT_DIR}/sonarqube-report.html || echo '<html><body><h1>No SonarQube report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/sonarqube-report.html
+                                      test -f ${SECURITY_REPORT_DIR}/dependency-check-report.json || echo '{"note":"No Dependency-Check report generated"}' > ${SECURITY_REPORT_DIR}/dependency-check-report.json
+                                      test -f ${SECURITY_REPORT_DIR}/dependency-check-report.html || echo '<html><body><h1>No Dependency-Check report generated</h1></body></html>' > ${SECURITY_REPORT_DIR}/dependency-check-report.html
 
                                     REPORT_STAGING_DIR="$(mktemp -d)"
                                     cp -R ${SECURITY_REPORT_DIR} "${REPORT_STAGING_DIR}/security-reports"
@@ -1223,6 +1225,8 @@ EOF
                                                                         cp ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json supply-chain-security-ref/docs/security-reports/dependency-track-upload-response.json
                                                                         cp ${SECURITY_REPORT_DIR}/sonarqube-report.html supply-chain-security-ref/docs/security-reports/sonarqube-report.html
                                                                         cp ${SECURITY_REPORT_DIR}/sonarqube-report.json supply-chain-security-ref/docs/security-reports/sonarqube-report.json
+                                                                        cp ${SECURITY_REPORT_DIR}/dependency-check-report.html supply-chain-security-ref/docs/security-reports/dependency-check-report.html
+                                                                        cp ${SECURITY_REPORT_DIR}/dependency-check-report.json supply-chain-security-ref/docs/security-reports/dependency-check-report.json
                                     printf '{"build":"%s","timestamp":"%s"}' "${BUILD_NUMBER}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > supply-chain-security-ref/docs/security-reports/build-meta.json
 
                                         git add ${SECURITY_REPORT_DIR}/trivy-report.json ${SECURITY_REPORT_DIR}/trivy-report.html ${SECURITY_REPORT_DIR}/trivy-summary.html \
@@ -1231,10 +1235,12 @@ EOF
                                             ${SECURITY_REPORT_DIR}/sbom-report.html ${SECURITY_REPORT_DIR}/sbom.cyclonedx.json ${SECURITY_REPORT_DIR}/sbom.trivy.log ${SECURITY_REPORT_DIR}/sbom-component-count.txt \
                                                                                         ${SECURITY_REPORT_DIR}/dependency-track-report.html ${SECURITY_REPORT_DIR}/dependency-track-report.json ${SECURITY_REPORT_DIR}/dependency-track-upload-response.json \
                                                                                         ${SECURITY_REPORT_DIR}/sonarqube-report.html ${SECURITY_REPORT_DIR}/sonarqube-report.json \
+                                                                                        ${SECURITY_REPORT_DIR}/dependency-check-report.html ${SECURITY_REPORT_DIR}/dependency-check-report.json \
                                             supply-chain-security-ref/docs/security-reports/trivy-report.html supply-chain-security-ref/docs/security-reports/trivy-report.json supply-chain-security-ref/docs/security-reports/trivy-summary.html \
                                             supply-chain-security-ref/docs/security-reports/gitleaks-report.html supply-chain-security-ref/docs/security-reports/gitleaks-report.json \
                                                                                         supply-chain-security-ref/docs/security-reports/sbom-report.html supply-chain-security-ref/docs/security-reports/sbom.cyclonedx.json supply-chain-security-ref/docs/security-reports/sbom.trivy.log supply-chain-security-ref/docs/security-reports/sbom-component-count.txt supply-chain-security-ref/docs/security-reports/dependency-track-report.html supply-chain-security-ref/docs/security-reports/dependency-track-report.json supply-chain-security-ref/docs/security-reports/dependency-track-upload-response.json \
                                                                                         supply-chain-security-ref/docs/security-reports/sonarqube-report.html supply-chain-security-ref/docs/security-reports/sonarqube-report.json \
+                                                                                        supply-chain-security-ref/docs/security-reports/dependency-check-report.html supply-chain-security-ref/docs/security-reports/dependency-check-report.json \
                                             supply-chain-security-ref/docs/security-reports/build-meta.json
                                     if [ -d supply-chain-security-ref/docs/security-reports/jacoco ]; then
                                         git add supply-chain-security-ref/docs/security-reports/jacoco
