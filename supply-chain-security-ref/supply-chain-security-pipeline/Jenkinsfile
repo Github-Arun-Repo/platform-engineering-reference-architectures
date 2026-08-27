@@ -499,10 +499,64 @@ EOF
 
         stage('SAST Quality Gate (SonarQube)') {
             steps {
-                script {
-                    // Purpose: Block pipeline if SonarQube quality gate fails (vulnerabilities/bugs/coverage rules).
-                    timeout(time: 10, unit: 'MINUTES') {
-                        waitForQualityGate abortPipeline: true
+                container('maven') {
+                    script {
+                        // Purpose: Block pipeline if the SonarQube quality gate fails.
+                        // Polls the SonarQube API directly using the analysis task metadata
+                        // (report-task.txt) instead of relying on a Jenkins webhook, so the
+                        // stage never hangs waiting for a callback that may not be configured.
+                        dir('supply-chain-security-ref/sample-application') {
+                            withCredentials([string(credentialsId: "${SONARQUBE_TOKEN_CREDENTIALS_ID}", variable: 'SONAR_TOKEN')]) {
+                                timeout(time: 10, unit: 'MINUTES') {
+                                    sh '''
+                                        set -e
+                                        REPORT_TASK="target/sonar/report-task.txt"
+                                        if [ ! -f "${REPORT_TASK}" ]; then
+                                            echo "ERROR: ${REPORT_TASK} not found; the SonarQube analysis stage must run first."
+                                            exit 1
+                                        fi
+
+                                        SERVER_URL=$(sed -n "s/^serverUrl=//p" "${REPORT_TASK}")
+                                        CE_TASK_URL=$(sed -n "s/^ceTaskUrl=//p" "${REPORT_TASK}")
+                                        CE_TASK_ID=$(sed -n "s/^ceTaskId=//p" "${REPORT_TASK}")
+                                        echo "Waiting for SonarQube to process analysis task ${CE_TASK_ID}..."
+
+                                        ANALYSIS_ID=""
+                                        i=0
+                                        while [ ${i} -lt 60 ]; do
+                                            CE_JSON=$(curl -sS -H "Authorization: Bearer ${SONAR_TOKEN}" "${CE_TASK_URL}")
+                                            CE_STATUS=$(echo "${CE_JSON}" | tr -d "\\n" | sed -n "s/.*\\\"status\\\":\\\"\\([^\\\"]*\\)\\\".*/\\1/p" | head -n 1)
+                                            echo "Compute engine task status: ${CE_STATUS}"
+                                            if [ "${CE_STATUS}" = "SUCCESS" ]; then
+                                                ANALYSIS_ID=$(echo "${CE_JSON}" | tr -d "\\n" | sed -n "s/.*\\\"analysisId\\\":\\\"\\([^\\\"]*\\)\\\".*/\\1/p" | head -n 1)
+                                                break
+                                            fi
+                                            if [ "${CE_STATUS}" = "FAILED" ] || [ "${CE_STATUS}" = "CANCELED" ]; then
+                                                echo "ERROR: SonarQube compute engine task ${CE_STATUS}."
+                                                exit 1
+                                            fi
+                                            i=$((i + 1))
+                                            sleep 5
+                                        done
+
+                                        if [ -z "${ANALYSIS_ID}" ]; then
+                                            echo "ERROR: Timed out waiting for SonarQube to finish processing the analysis."
+                                            exit 1
+                                        fi
+
+                                        QG_JSON=$(curl -sS -H "Authorization: Bearer ${SONAR_TOKEN}" \
+                                            "${SERVER_URL}/api/qualitygates/project_status?analysisId=${ANALYSIS_ID}")
+                                        QG_STATUS=$(echo "${QG_JSON}" | tr -d "\\n" | sed -n "s/.*\\\"status\\\":\\\"\\([^\\\"]*\\)\\\".*/\\1/p" | head -n 1)
+                                        echo "Quality gate status: ${QG_STATUS}"
+                                        if [ "${QG_STATUS}" != "OK" ]; then
+                                            echo "ERROR: SonarQube quality gate failed (status=${QG_STATUS})."
+                                            exit 1
+                                        fi
+                                        echo "SonarQube quality gate passed."
+                                    '''
+                                }
+                            }
+                        }
                     }
                 }
             }
