@@ -54,13 +54,13 @@ flowchart LR
 
 | Phase | Purpose | Stages |
 |---|---|---|
-| 1. Source integrity | Retrieve trusted source and reject exposed secrets | 1–3 |
-| 2. Build quality | Run tests, generate coverage, and enforce quality thresholds | 4–7 |
-| 3. Application security | Analyze dependencies and source code before packaging | 8–11 |
-| 4. Artifact creation | Package the application and build the container image | 12–13 |
-| 5. Artifact security | Generate an SBOM, scan the image, enforce policy, and publish the SBOM | 14–17 |
-| 6. Evidence publication | Retain and publish security evidence before promotion | 18–19 |
-| 7. Promotion and provenance | Push, sign, attest, verify, and publish provenance evidence | 20–24 |
+| 1. Source Validation | Retrieve trusted source and reject exposed secrets | 1–3 |
+| 2. Test & Code Quality | Run tests, generate coverage, and enforce quality thresholds | 4–7 |
+| 3. Application Security | Analyze dependencies and source code before packaging | 8–11 |
+| 4. Build & Image Creation | Package the application and then build the container image | 12–13 |
+| 5. Container Security | Generate an SBOM, scan the image, enforce policy, and publish the SBOM | 14–17 |
+| 6. Evidence Publication | Retain and publish security evidence before promotion | 18–19 |
+| 7. Registry Promotion & Provenance | Push, sign, attest, verify, and publish provenance evidence | 20–24 |
 
 ## End-to-End Jenkins Design
 
@@ -121,34 +121,34 @@ This table is a one-to-one map of the active stages in the Jenkinsfile.
 
 | # | Jenkins stage | Phase | Tool or Jenkins feature | Result | Blocking behavior |
 |---:|---|---|---|---|---|
-| 1 | [Checkout](#1-checkout) | Source integrity | Jenkins GitSCM | Source workspace | Blocks on checkout failure |
-| 2 | [Repository Secret Scan](#2-repository-secret-scan) | Source integrity | Gitleaks | JSON, HTML, and exit status | Records result for stage 3 |
-| 3 | [Secret Exposure Gate](#3-secret-exposure-gate) | Source integrity | Shell policy | Gate decision | Blocks on findings or scan error |
-| 4 | [Unit Test Execution (JUnit)](#4-unit-test-execution-junit) | Build quality | Maven Surefire and JUnit | Test XML and exit status | Records result for stage 5 |
-| 5 | [Unit Test Result Gate](#5-unit-test-result-gate) | Build quality | Shell policy | Gate decision | Blocks when tests fail |
-| 6 | [Coverage Evidence Generation (JaCoCo)](#6-coverage-evidence-generation-jacoco) | Build quality | JaCoCo | HTML and XML coverage | Records result for stage 7 |
-| 7 | [Coverage Threshold Gate](#7-coverage-threshold-gate) | Build quality | AWK and shell policy | Coverage percentage | Blocks below configured minimum |
+| 1 | [Checkout](#1-checkout) | Source Validation | Jenkins GitSCM | Source workspace | Blocks on checkout failure |
+| 2 | [Repository Secret Scan](#2-repository-secret-scan) | Source Validation | Gitleaks | JSON, HTML, and exit status | Records result for stage 3 |
+| 3 | [Secret Exposure Gate](#3-secret-exposure-gate) | Source Validation | Shell policy | Gate decision | Blocks on findings or scan error |
+| 4 | [Unit Test Execution (JUnit)](#4-unit-test-execution-junit) | Test & Code Quality | Maven Surefire and JUnit | Test XML and exit status | Records result for stage 5 |
+| 5 | [Unit Test Result Gate](#5-unit-test-result-gate) | Test & Code Quality | Shell policy | Gate decision | Blocks when tests fail |
+| 6 | [Coverage Evidence Generation (JaCoCo)](#6-coverage-evidence-generation-jacoco) | Test & Code Quality | JaCoCo | HTML and XML coverage | Records result for stage 7 |
+| 7 | [Coverage Threshold Gate](#7-coverage-threshold-gate) | Test & Code Quality | AWK and shell policy | Coverage percentage | Blocks below configured minimum |
 | 8 | [SCA Dependency Scan (OWASP Dependency-Check)](#8-sca-dependency-scan-owasp-dependency-check) | Application security | OWASP Dependency-Check | JSON and HTML SCA reports | Records result for stage 9 |
 | 9 | [SCA Policy Gate (Critical/High)](#9-sca-policy-gate-criticalhigh) | Application security | Shell policy | Critical and High counts | Blocks according to SCA policy |
 | 10 | [SAST Code Analysis (SonarQube)](#10-sast-code-analysis-sonarqube) | Application security | SonarQube | Analysis and summary reports | Blocks on analysis failure |
 | 11 | [SAST Quality Gate (SonarQube)](#11-sast-quality-gate-sonarqube) | Application security | `waitForQualityGate` | SonarQube gate result | Blocks on failed quality gate |
-| 12 | [Build Application](#12-build-application) | Artifact creation | Maven | Executable JAR | Blocks on packaging failure |
-| 13 | [Build Docker Image](#13-build-docker-image) | Artifact creation | Docker | Build-number and latest tags | Blocks on image build failure |
-| 14 | [Generate CycloneDX SBOM with Trivy](#14-generate-cyclonedx-sbom-with-trivy) | Artifact security | Trivy | CycloneDX SBOM and summary | Blocks if SBOM generation fails |
-| 15 | [Container Image Vulnerability Scan (Trivy)](#15-container-image-vulnerability-scan-trivy) | Artifact security | Trivy | JSON, HTML, status, severity counts | Records result for stage 16 |
-| 16 | [Container Security Policy Gate (Trivy)](#16-container-security-policy-gate-trivy) | Artifact security | Shell policy | Gate decision | Blocks according to Trivy policy |
-| 17 | [Publish SBOM to Dependency-Track](#17-publish-sbom-to-dependency-track) | Artifact security | Dependency-Track API | Upload status and response | Blocks if configured upload fails |
-| 18 | [Archive Security Reports](#18-archive-security-reports) | Evidence publication | Jenkins artifacts | Build-linked report archive | Non-blocking for empty optional files |
-| 19 | [Commit Security Reports](#19-commit-security-reports) | Evidence publication | Git and SSH | Reports published to Git and dashboard | Blocks on publication failure |
-| 20 | [Push to Registry](#20-push-to-registry) | Promotion | Docker Hub | Pushed image and immutable digest | Blocks on push or digest failure |
-| 21 | [Sign Image with Cosign](#21-sign-image-with-cosign) | Provenance | Cosign | Signature, public key, verification output | Conditional; blocks on verification failure |
-| 22 | [Attest Image with Cosign](#22-attest-image-with-cosign) | Provenance | Cosign | SBOM and build attestations | Conditional; blocks on failure |
-| 23 | [Validate Cosign Artifacts in Registry](#23-validate-cosign-artifacts-in-registry) | Provenance | Cosign and registry API | Referrer and registry evidence | Conditional; blocks when evidence is missing |
-| 24 | [Commit Cosign Evidence](#24-commit-cosign-evidence) | Evidence publication | Git and SSH | Provenance evidence on dashboard | Conditional; blocks on publication failure |
+| 12 | [Build Application](#12-build-application) | Build & Image Creation | Maven | Executable JAR | Blocks on packaging failure |
+| 13 | [Build Docker Image](#13-build-docker-image) | Build & Image Creation | Docker | Build-number and latest tags | Blocks on image build failure |
+| 14 | [Generate CycloneDX SBOM with Trivy](#14-generate-cyclonedx-sbom-with-trivy) | Container Security | Trivy | CycloneDX SBOM and summary | Blocks if SBOM generation fails |
+| 15 | [Container Image Vulnerability Scan (Trivy)](#15-container-image-vulnerability-scan-trivy) | Container Security | Trivy | JSON, HTML, status, severity counts | Records result for stage 16 |
+| 16 | [Container Security Policy Gate (Trivy)](#16-container-security-policy-gate-trivy) | Container Security | Shell policy | Gate decision | Blocks according to Trivy policy |
+| 17 | [Publish SBOM to Dependency-Track](#17-publish-sbom-to-dependency-track) | Container Security | Dependency-Track API | Upload status and response | Blocks if configured upload fails |
+| 18 | [Archive Security Reports](#18-archive-security-reports) | Evidence Publication | Jenkins artifacts | Build-linked report archive | Non-blocking for empty optional files |
+| 19 | [Commit Security Reports](#19-commit-security-reports) | Evidence Publication | Git and SSH | Reports published to Git and dashboard | Blocks on publication failure |
+| 20 | [Push to Registry](#20-push-to-registry) | Registry Promotion & Provenance | Docker Hub | Pushed image and immutable digest | Blocks on push or digest failure |
+| 21 | [Sign Image with Cosign](#21-sign-image-with-cosign) | Registry Promotion & Provenance | Cosign | Signature, public key, verification output | Conditional; blocks on verification failure |
+| 22 | [Attest Image with Cosign](#22-attest-image-with-cosign) | Registry Promotion & Provenance | Cosign | SBOM and build attestations | Conditional; blocks on failure |
+| 23 | [Validate Cosign Artifacts in Registry](#23-validate-cosign-artifacts-in-registry) | Registry Promotion & Provenance | Cosign and registry API | Referrer and registry evidence | Conditional; blocks when evidence is missing |
+| 24 | [Commit Cosign Evidence](#24-commit-cosign-evidence) | Registry Promotion & Provenance | Git and SSH | Provenance evidence on dashboard | Conditional; blocks on publication failure |
 
 ## Stage-by-Stage Design
 
-### Phase 1 — Source Integrity
+### Phase 1 — Source Validation
 
 ### 1. Checkout
 
@@ -178,7 +178,7 @@ This table is a one-to-one map of the active stages in the Jenkinsfile.
 
 **Why it matters:** The pipeline stops here if secrets are detected, so no test run, build, or image can use compromised source code.
 
-### Phase 2 — Build Quality
+### Phase 2 — Test & Code Quality
 
 ### 4. Unit Test Execution (JUnit)
 
@@ -260,7 +260,7 @@ Each control has its own analysis stage and policy gate.
 
 **Policy:** `waitForQualityGate abortPipeline: true` stops the pipeline when the configured SonarQube quality gate fails, for example when too many new vulnerabilities or bugs are introduced.
 
-### Phase 4 — Artifact Creation
+### Phase 4 — Build & Image Creation
 
 ### 12. Build Application
 
@@ -278,7 +278,7 @@ Each control has its own analysis stage and policy gate.
 
 **Failure behavior:** A failed image build stops the pipeline before any scanning or promotion.
 
-### Phase 5 — Artifact Security
+### Phase 5 — Container Security
 
 ### 14. Generate CycloneDX SBOM with Trivy
 
@@ -336,7 +336,7 @@ Each control has its own analysis stage and policy gate.
 
 **Dashboard:** [Open the live security evidence dashboard](https://github-arun-repo.github.io/platform-engineering-reference-architectures/)
 
-### Phase 7 — Promotion and Provenance
+### Phase 7 — Registry Promotion & Provenance
 
 ### 20. Push to Registry
 
