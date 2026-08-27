@@ -170,6 +170,21 @@ Configure Jenkins under **Manage Jenkins -> System -> SonarQube servers**:
 
 More detail: [SonarQube SAST tool reference](../tools/sonarqube-sast.md).
 
+### 6A. Add NVD API Key (Required for OWASP Dependency-Check)
+
+OWASP Dependency-Check downloads CVE data from the NVD REST API. Without an API key the update requests are rate-limited and the SCA stage fails with `Invalid API Key, length of 0 too short`.
+
+Request a free key at [https://nvd.nist.gov/developers/request-an-api-key](https://nvd.nist.gov/developers/request-an-api-key), then add it to Jenkins as a **Secret text** credential:
+
+| Field | Value |
+|---|---|
+| Kind | Secret text |
+| Secret | Your NVD API key |
+| ID | `nvd-api-key` |
+| Description | NVD API key for OWASP Dependency-Check |
+
+The pipeline also caches CVE data in the `owasp-dependency-check` volume mounted at `/var/jenkins-cache/owasp-dependency-check`, so after the first successful run updates are incremental.
+
 ### 7. Configure Docker Access
 
 Jenkins needs access to Docker to build images. Two approaches:

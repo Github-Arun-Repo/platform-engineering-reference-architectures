@@ -28,6 +28,8 @@ pipeline {
         DEPENDENCY_TRACK_URL = 'http://dtrack-dependency-track-api-server.dependency-track.svc.cluster.local:8080'
         DEPENDENCY_TRACK_API_KEY_CREDENTIALS_ID = 'owasp_dependency_track'
         DEPENDENCY_TRACK_PROJECT_NAME = 'platform-engineering-reference-architectures'
+        NVD_API_KEY_CREDENTIALS_ID = 'nvd-api-key'
+        DEPENDENCY_CHECK_DATA_DIR = '/var/jenkins-cache/owasp-dependency-check'
         ENABLE_SONARQUBE = 'true'
         ENABLE_SONARQUBE_QUALITY_GATE = 'true'
         JACOCO_MIN_LINE_COVERAGE = '70'
@@ -292,15 +294,32 @@ EOF
                 container('maven') {
                     script {
                         // Purpose: Perform SCA dependency vulnerability scanning before SAST and image build.
-                        dir('supply-chain-security-ref/sample-application') {
-                            sh '''
-                                mkdir -p ../../${SECURITY_REPORT_DIR}
-                                mvn -B org.owasp:dependency-check-maven:check \
-                                    -Dformat=JSON \
-                                    -Dformat=HTML \
-                                    -DfailBuildOnCVSS=11 \
-                                    -Dout=../../${SECURITY_REPORT_DIR}
-                            '''
+                        // OWASP Dependency-Check 9+ downloads NVD CVE data from the NVD REST API.
+                        // An NVD API key is required to avoid rate-limited/rejected update requests.
+                        withCredentials([string(credentialsId: "${NVD_API_KEY_CREDENTIALS_ID}", variable: 'NVD_API_KEY')]) {
+                            dir('supply-chain-security-ref/sample-application') {
+                                sh '''
+                                    mkdir -p ../../${SECURITY_REPORT_DIR}
+                                    mkdir -p "${DEPENDENCY_CHECK_DATA_DIR}"
+
+                                    if [ -z "${NVD_API_KEY}" ]; then
+                                        echo "ERROR: NVD API key is empty. Configure the '${NVD_API_KEY_CREDENTIALS_ID}' credential."
+                                        echo "Request a free key at https://nvd.nist.gov/developers/request-an-api-key"
+                                        exit 1
+                                    fi
+
+                                    # Persist the CVE data in the mounted cache so updates are incremental
+                                    # across builds and the pipeline is resilient to NVD rate limits.
+                                    mvn -B org.owasp:dependency-check-maven:check \
+                                        -Dformat=JSON \
+                                        -Dformat=HTML \
+                                        -DfailBuildOnCVSS=11 \
+                                        -DnvdApiKey=${NVD_API_KEY} \
+                                        -DnvdApiDelay=6000 \
+                                        -DdataDirectory=${DEPENDENCY_CHECK_DATA_DIR} \
+                                        -Dout=../../${SECURITY_REPORT_DIR}
+                                '''
+                            }
                         }
                     }
                 }
