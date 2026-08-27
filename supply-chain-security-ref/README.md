@@ -436,10 +436,6 @@ Two legacy stages remain hard-disabled in the Jenkinsfile:
 
 They are excluded from the active stage table and Mermaid diagram because the implemented Trivy scan and policy-gate stages replace them.
 
-## Implementation Boundaries
-
-The current Jenkins implementation intentionally ends with a verified registry artifact. Kubernetes deployment, GitOps manifest updates, admission-controller enforcement, a separate Trivy filesystem scan, and standalone ORAS SBOM attachment are not active stages. They are suitable follow-on controls, but the README does not present them as implemented behavior.
-
 ## Nested Documentation
 
 Use the main README for architecture and stage intent. Use the nested guides for implementation depth.
