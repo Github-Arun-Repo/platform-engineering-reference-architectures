@@ -23,6 +23,10 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jacoco.version>0.8.12</jacoco.version>
+        <!-- Override the Spring Boot-managed Tomcat version to remediate critical
+             CVEs in tomcat-embed-core 10.1.16 (CVE-2025-24813, CVE-2026-41293,
+             CVE-2026-43512, CVE-2026-43515). 10.1.55 is the fixed 10.1.x release. -->
+        <tomcat.version>10.1.55</tomcat.version>
     </properties>
 
     <dependencies>
