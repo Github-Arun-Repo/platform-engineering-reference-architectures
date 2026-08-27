@@ -262,7 +262,15 @@ EOF
                                     exit 1
                                 fi
 
-                                COVERAGE_PCT=$(awk -F'"' '/<counter type="LINE"/ {missed=$4; covered=$6} END {total=missed+covered; if (total > 0) printf "%.2f", (covered*100)/total; else print "0.00"}' "${JACOCO_XML}")
+                                # JaCoCo writes jacoco.xml as a single line, so split on each <counter tag
+                                # and read the report-level LINE counter (the last LINE counter in the file).
+                                COVERAGE_PCT=$(awk 'BEGIN{RS="<counter "} /type="LINE"/ {
+                                        if (match($0, /missed="[0-9]+"/)) { s=substr($0, RSTART, RLENGTH); gsub(/[^0-9]/, "", s); missed=s }
+                                        if (match($0, /covered="[0-9]+"/)) { s=substr($0, RSTART, RLENGTH); gsub(/[^0-9]/, "", s); covered=s }
+                                    } END {
+                                        total=missed+covered
+                                        if (total > 0) printf "%.2f", (covered*100)/total; else print "0.00"
+                                    }' "${JACOCO_XML}")
                                 echo "${COVERAGE_PCT}" > ../../${SECURITY_REPORT_DIR}/jacoco-line-coverage.txt
                                 echo "JaCoCo line coverage: ${COVERAGE_PCT}% (minimum required: ${JACOCO_MIN_LINE_COVERAGE}%)"
 
