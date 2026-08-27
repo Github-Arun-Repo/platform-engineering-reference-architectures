@@ -456,7 +456,7 @@ EOF
                                                                         "ncloc": "${SONAR_NCLOC}"
                                                                     }
                                                                 }
-                                                                EOF
+EOF
 
                                                                                 cat > "${SONAR_REPORT_HTML}" <<EOF
                                                                 <html>
@@ -477,7 +477,7 @@ EOF
                                                                     </table>
                                                                 </body>
                                                                 </html>
-                                                                EOF
+EOF
                                                                         '''
                                                                 }
 
