@@ -1,0 +1,3 @@
+@Library('company-golden-ci@v1.0.0') _
+
+goldenCI()

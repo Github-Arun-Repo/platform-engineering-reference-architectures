@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/service-config-schema.json",
+  "title": "Service Build Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["build", "container"],
+  "properties": {
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "javaVersion", "projectPath", "testCommand", "packageCommand"],
+      "properties": {
+        "tool": {
+          "type": "string",
+          "enum": ["maven"]
+        },
+        "javaVersion": {
+          "type": "integer",
+          "minimum": 17,
+          "maximum": 21
+        },
+        "projectPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "testCommand": {
+          "type": "string",
+          "minLength": 1
+        },
+        "packageCommand": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "container": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dockerfile", "context"],
+      "properties": {
+        "dockerfile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "not": {
+        "required": ["service"]
+      }
+    },
+    {
+      "not": {
+        "required": ["serviceId"]
+      }
+    },
+    {
+      "not": {
+        "required": ["profile"]
+      }
+    },
+    {
+      "not": {
+        "required": ["securityProfile"]
+      }
+    },
+    {
+      "not": {
+        "required": ["security"]
+      }
+    },
+    {
+      "not": {
+        "required": ["gates"]
+      }
+    },
+    {
+      "not": {
+        "required": ["exceptions"]
+      }
+    },
+    {
+      "not": {
+        "required": ["skipSecurity"]
+      }
+    }
+  ]
+}

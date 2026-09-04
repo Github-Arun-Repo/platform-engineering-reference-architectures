@@ -1,0 +1,15 @@
+{
+  "dependencies": [
+    {
+      "fileName": "legacy-lib.jar",
+      "version": "1.0.0",
+      "vulnerabilities": [
+        {
+          "name": "CVE-A",
+          "severity": "HIGH",
+          "description": "Example high vulnerability"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+# Example only. This file is not active in this repository.
+# In production, this would live at repository root as CODEOWNERS.
+
+/centralized-ci-policy-ref/central-policy/ @platform-team @security-team
+/centralized-ci-policy-ref/jenkins-shared-library/ @platform-team @security-team
+/centralized-ci-policy-ref/jenkins/ @platform-team

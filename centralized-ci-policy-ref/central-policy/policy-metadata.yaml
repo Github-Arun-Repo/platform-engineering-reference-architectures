@@ -1,0 +1,7 @@
+pipeline:
+  name: company-golden-ci
+  version: golden-ci-v1.0.0
+
+policy:
+  name: centralized-security-policy
+  version: security-policy-v1.0.0

@@ -1,0 +1,25 @@
+services:
+  payment-api:
+    path: services/payment-api
+    owner: payment-team
+    profile: critical
+
+  navigation-api:
+    path: services/navigation-api
+    owner: navigation-team
+    profile: standard
+
+  telemetry-processor:
+    path: services/telemetry-processor
+    owner: telemetry-team
+    profile: critical
+
+  map-cache-service:
+    path: services/map-cache-service
+    owner: map-team
+    profile: standard
+
+  legacy-routing-service:
+    path: services/legacy-routing-service
+    owner: legacy-team
+    profile: baseline

@@ -1,0 +1,21 @@
+exceptionPolicy:
+  allowed:
+    - dependencyVulnerability
+    - containerVulnerability
+
+  forbidden:
+    - secretExposure
+    - unitTestFailure
+    - coverageFailure
+    - scannerExecutionFailure
+    - missingSecurityReport
+    - malformedSecurityReport
+    - missingSBOM
+    - unsignedArtifact
+    - failedAttestation
+    - failedProvenanceVerification
+
+  maxTtlDays:
+    baseline: 90
+    standard: 60
+    critical: 30

@@ -1,0 +1,83 @@
+profiles:
+  baseline:
+    coverage:
+      minimumLinePercent: 60
+    gates:
+      secretExposure: BLOCK
+      unitTestFailure: BLOCK
+      coverageFailure: BLOCK
+      scannerExecutionFailure: BLOCK
+      missingSecurityReport: BLOCK
+      malformedSecurityReport: BLOCK
+      dependencyVulnerability:
+        critical: BLOCK
+        high: WARN
+      containerVulnerability:
+        critical: BLOCK
+        high: WARN
+      sastExecution: BLOCK
+      sonarQualityGate: BLOCK
+      sbomGeneration: BLOCK
+      imageSigning: BLOCK
+      attestation: REPORT
+      provenanceVerification: REPORT
+      dependencyTrackPublication:
+        required: false
+        mode: REPORT
+
+  standard:
+    coverage:
+      minimumLinePercent: 70
+    gates:
+      secretExposure: BLOCK
+      unitTestFailure: BLOCK
+      coverageFailure: BLOCK
+      scannerExecutionFailure: BLOCK
+      missingSecurityReport: BLOCK
+      malformedSecurityReport: BLOCK
+      dependencyVulnerability:
+        critical: BLOCK
+        high: BLOCK
+      containerVulnerability:
+        critical: BLOCK
+        high: BLOCK
+      sastExecution: BLOCK
+      sonarQualityGate: BLOCK
+      sbomGeneration: BLOCK
+      imageSigning: BLOCK
+      attestation: BLOCK
+      provenanceVerification: BLOCK
+      dependencyTrackPublication:
+        required: true
+        mode: CENTRAL_TOGGLE
+
+  critical:
+    coverage:
+      minimumLinePercent: 80
+    gates:
+      secretExposure: BLOCK
+      unitTestFailure: BLOCK
+      coverageFailure: BLOCK
+      scannerExecutionFailure: BLOCK
+      missingSecurityReport: BLOCK
+      malformedSecurityReport: BLOCK
+      dependencyVulnerability:
+        critical: BLOCK
+        high: BLOCK
+      containerVulnerability:
+        critical: BLOCK
+        high: BLOCK
+      sastExecution: BLOCK
+      sonarQualityGate: STRICT_BLOCK
+      sbomGeneration: BLOCK
+      imageSigning: BLOCK
+      attestation: BLOCK
+      provenanceVerification: BLOCK
+      dependencyTrackPublication:
+        required: true
+        mode: BLOCK
+    sonarStrictPolicy:
+      qualityGateStatus: OK
+      maxNewCriticalIssues: 0
+      maxNewBlockerIssues: 0
+      requireNewCodeQualityGate: true

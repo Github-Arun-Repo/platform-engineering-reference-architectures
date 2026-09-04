@@ -1,0 +1,10 @@
+build:
+  tool: maven
+  javaVersion: 21
+  projectPath: .
+  testCommand: mvn -B test
+  packageCommand: mvn -B package -DskipTests
+
+container:
+  dockerfile: Dockerfile
+  context: .

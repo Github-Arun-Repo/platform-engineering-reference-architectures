@@ -1,0 +1,15 @@
+{
+  "dependencies": [
+    {
+      "fileName": "payment-lib.jar",
+      "version": "2.1.0",
+      "vulnerabilities": [
+        {
+          "name": "CVE-CRIT-1",
+          "severity": "CRITICAL",
+          "description": "Example critical vulnerability"
+        }
+      ]
+    }
+  ]
+}
